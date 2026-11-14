@@ -1106,7 +1106,7 @@ mod tests {
             reason: None,
             stdout: String::new(),
             stderr: String::new(),
-            sent_items: None,
+            lifted_steps: None,
         }
     }
 

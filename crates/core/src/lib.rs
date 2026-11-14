@@ -33,6 +33,7 @@ pub mod terminal_keys;
 pub mod text_editor;
 pub mod wheel;
 pub mod work_items_migration;
+pub mod work_notes;
 pub mod workspace;
 pub mod worktree_links;
 pub mod worktree_records;

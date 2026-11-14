@@ -179,28 +179,19 @@
 //! | `handleRequest.change-stage` | changes.rs | `Daemon::handle_change_stage` | D7 |
 //! | `handleRequest.workspace-summary` | changes.rs | `Daemon::handle_workspace_summary` | D7 |
 //! | `handleRequest.create-pr` | changes.rs | `Daemon::handle_create_pr` | D7 |
-//! | `projectNotes` | notes_tasks.rs | `project_notes` | D8 |
-//! | `noteOf` | notes_tasks.rs | `Daemon::note_of` | D8 |
-//! | `mergeWorktreeSessionNotes` | notes_tasks.rs | `Daemon::merge_worktree_session_notes` | D8 |
-//! | `saveNote` | notes_tasks.rs | `Daemon::save_note` | D8 |
+//! | `projectNotes` | notes_tasks.rs | `project_notes` (the session's own note only) | D8 |
+//! | `saveNote` | notes_tasks.rs | `Daemon::save_note` (any note: session, line, brief, scratchpad) | D8 |
 //! | `tasksKeyFor` | notes_tasks.rs | `Daemon::tasks_key_for` | D8 |
-//! | `linkedTasksOf` | notes_tasks.rs | `Daemon::linked_tasks_of` | D8 |
-//! | `checkTaskLink` | notes_tasks.rs | `Daemon::check_task_link` | D8 |
-//! | `tasksDoc` | notes_tasks.rs | `Daemon::tasks_doc` | D8 |
-//! | `broadcastTasks` | notes_tasks.rs | `Daemon::broadcast_tasks` | D8 |
+//! | `linkedTasksOf` | notes_tasks.rs | `Daemon::session_line` (one line per session) | D8 |
+//! | `tasksDoc` | notes_tasks.rs | `Daemon::tasks_doc`, `Daemon::tasks_doc_with_notes` | D8 |
+//! | `broadcastTasks` | notes_tasks.rs | `Daemon::broadcast_tasks`, `Daemon::broadcast_work_note` | D8 |
 //! | `changeTasks` | notes_tasks.rs | `Daemon::change_tasks` | D8 |
-//! | `changeLinkedTasks` | notes_tasks.rs | `Daemon::change_linked_tasks` | D8 |
+//! | `changeLinkedTasks` | notes_tasks.rs | `Daemon::change_session_lines` | D8 |
 //! | `syncWorktreeTasks` | notes_tasks.rs | `Daemon::sync_worktree_tasks` | D8 |
 //! | `syncDoneTasks` | notes_tasks.rs | `Daemon::sync_done_tasks` | D8 |
-//! | `sendOpenNoteItems` | notes_tasks.rs | `Daemon::send_open_note_items` | D8 |
-//! | `sendWorktreeItemsToBacklog` | notes_tasks.rs | `Daemon::send_worktree_items_to_backlog` | D8 |
-//! | `sendNoteItems` | notes_tasks.rs | `Daemon::send_note_items` | D8 |
-//! | `promoteNoteItem` | notes_tasks.rs | `Daemon::promote_note_item` | D8 |
-//! | `taskToWorkNote` | notes_tasks.rs | `Daemon::task_to_work_note` | D8 |
-//! | `migrateFollowUpTasks` | notes_tasks.rs | `Daemon::migrate_follow_up_tasks` | D8 |
-//! | `returnTaskToNote` | notes_tasks.rs | `Daemon::return_task_to_note` | D8 |
-//! | `taskOrigin` | notes_tasks.rs | `Daemon::task_origin` | D8 |
-//! | `moveOpenNoteItems` | notes_tasks.rs | `Daemon::move_open_note_items` | D8 |
+//! | `promoteNoteItem` | notes_tasks.rs | `Daemon::promote_note_item` (a checkbox becomes a line) | D8 |
+//! | `migrateFollowUpTasks` | work_items.rs | folded into `Daemon::migrate_work_items` | D8 |
+//! | `moveOpenNoteItems` | notes_tasks.rs | `Daemon::move_session_note_to_line` | D8 |
 //! | `notesChanged` | notes_tasks.rs | `Daemon::notes_changed` | D8 |
 //! | `handleRequest.open-note` | notes_tasks.rs | `Daemon::handle_open_note` | D8 |
 //! | `handleRequest.watch-tasks` | notes_tasks.rs | `Daemon::handle_watch_tasks` | D8 |

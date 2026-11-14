@@ -2205,6 +2205,7 @@ mod tests {
                 text: "- [ ] one\n".to_owned(),
                 revision: "r".to_owned(),
                 too_large: None,
+                notes: None,
             })),
             FlowEffect::Exit,
         ]);

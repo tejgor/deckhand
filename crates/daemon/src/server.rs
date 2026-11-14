@@ -586,7 +586,8 @@ impl Daemon {
     }
 
     /// TS: handleRequest `ping`: `{ok: true, version: PROTOCOL_VERSION, home, channel}`, then this daemon's `build`
-    /// and `pid`, so a client can say that an older build is still running and `deckhand restart` can stop it.
+    /// and `pid`, so a client can say that an older build is still running and `deckhand restart` can stop it, and
+    /// a `notice` for the user when there is one (the work-items migration failed).
     pub fn handle_ping(&self) -> Result<PingResult> {
         Ok(PingResult {
             ok: true,
@@ -595,6 +596,7 @@ impl Daemon {
             channel: Some(std::env::var("DECKHAND_CHANNEL").unwrap_or_else(|_| "stable".to_owned())),
             build: Some(deckhand_protocol::BUILD_VERSION.to_owned()),
             pid: Some(std::process::id()),
+            notice: self.notice(),
         })
     }
 
@@ -867,8 +869,14 @@ pub(crate) mod tests {
             )
             .await;
             assert_eq!(error(reply), "Invalid repository path");
-            // A session's own lookups: a missing ID names none.
+            // A note request names its note first; a session's own lookups: a missing ID names none.
             let reply = first_reply(&daemon, r#"{"type":"promote-note-item","requestId":"p","line":1.5}"#).await;
+            assert_eq!(error(reply), "Invalid note");
+            let reply = first_reply(
+                &daemon,
+                r#"{"type":"promote-note-item","requestId":"p","note":{"kind":"session","id":"x"},"line":1.5}"#,
+            )
+            .await;
             assert_eq!(error(reply), "Session does not exist");
             let reply = first_reply(&daemon, r#"{"type":"reorder-session","requestId":"o"}"#).await;
             assert_eq!(error(reply), "session does not exist");

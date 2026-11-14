@@ -13,6 +13,8 @@
 //! 3. **From the backup.** The inputs are read from the backup, not from `notes/`, so a run that was interrupted (its
 //!    backup still `in-progress`) runs again on the same inputs. New IDs come from a generator seeded by the backup's
 //!    name and the repository, so it gets the same IDs and writes the same files.
+//!    Follow-up tasks of the oldest lists (`assigned=`) first become items of their work's note, as older versions'
+//!    starts made them, so they end up as steps of that work's line.
 //! 4. **New files first**, each atomically: the lists (`notes/tasks/`) and the line notes (`notes/lines/`).
 //! 5. **Then the old notes go**: each retired note file is removed from `notes/` when it is as the backup has it (the
 //!    backup is where it now lives); one changed since the backup was taken moves into the backup beside its copy
@@ -24,19 +26,20 @@
 //! its sessions', else the repository whose list links it (`wt=`). Notes whose repository or record can't be found
 //! stay where they are (a session note is still read as one; the report lists the rest).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr;
 use deckhand_core::notes::repo_note_id;
 use deckhand_core::task_list::TaskList;
+use deckhand_core::tasks::{append_note_item, migrate_follow_ups};
 use deckhand_core::work_items_migration::{
     MigrationCounts, NoteDir, RepoInput, SessionFacts, WorktreeFacts, migrate_repository, owning_session,
     worktree_facts,
 };
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::SessionRecord;
+use deckhand_protocol::data::{SessionRecord, TaskLink};
 use deckhand_protocol::records::WorktreeRecord;
 use deckhand_sys::git::resolve_repo_context;
 use deckhand_sys::notes_store::{TRASH_DIRECTORY, note_file_stem, note_stem};
@@ -432,6 +435,49 @@ pub(crate) async fn run(
         ));
     }
 
+    // ── Follow-up tasks of the oldest lists (`assigned=`) become items of their work's note first, as the start of
+    // older versions did, so they end up as steps of its line ──
+    let live_worktrees: HashSet<&str> = worktree_records
+        .iter()
+        .filter(|record| record.deleted_at.as_deref().is_none_or(str::is_empty))
+        .map(|record| record.id.as_str())
+        .collect();
+    let main_checkout: HashSet<&str> = records
+        .iter()
+        .filter(|session| {
+            session
+                .worktree
+                .as_ref()
+                .and_then(|worktree| worktree.id.as_deref())
+                .is_none_or(str::is_empty)
+        })
+        .map(|session| session.id.as_str())
+        .collect();
+    let has_note = |link: &TaskLink| match link {
+        TaskLink::Worktree { wt } => live_worktrees.contains(wt.as_str()),
+        TaskLink::Session { s } => main_checkout.contains(s.as_str()),
+    };
+    for (key, input) in &mut inputs {
+        let Some(migrated) = migrate_follow_ups(&input.list, &has_note) else {
+            continue;
+        };
+        input.list = migrated.text;
+        for item in &migrated.moved {
+            let (notes, id) = match &item.link {
+                TaskLink::Worktree { wt } => (&mut input.worktree_notes, wt),
+                TaskLink::Session { s } => (&mut input.session_notes, s),
+            };
+            match notes.iter_mut().find(|(known, _)| known == id) {
+                Some((_, text)) => *text = append_note_item(text, &item.title, &item.body),
+                None => notes.push((id.clone(), append_note_item("", &item.title, &item.body))),
+            }
+        }
+        report.push(format!(
+            "repository {key}: {} follow-up task(s) moved into their work's notes first",
+            migrated.moved.len()
+        ));
+    }
+
     // ── Migrate each repository ──
     let mut counts = MigrationCounts::default();
     let mut writes: Vec<(PathBuf, String)> = Vec::new();
@@ -532,8 +578,8 @@ async fn write_marker(marker: &Path, now_ms: i64, backup: Option<&Path>) -> Resu
 }
 
 impl Daemon {
-    /// The work-items migration over this daemon's notes, once, logged to daemon.log (see the module docs). Stage 3
-    /// calls it at start, with the stored records, before the notes are loaded.
+    /// The work-items migration over this daemon's notes, once, logged to daemon.log (see the module docs). `start`
+    /// calls it with the stored records, before the notes are loaded.
     pub async fn migrate_work_items(
         &self,
         sessions: &[Ordered<SessionRecord>],
@@ -786,6 +832,49 @@ mod tests {
             run.report
                 .iter()
                 .any(|line| line.contains("sessions/s-main.md changed after the backup"))
+        );
+    }
+
+    /// The oldest lists' follow-up tasks (`assigned=`) become items of their work's note first, so they end up as
+    /// steps of that work's line; one whose work is gone stays in the backlog.
+    #[test]
+    fn follow_up_tasks_become_steps_of_their_works_line() {
+        let home = temp();
+        let notes = home.path().join("notes");
+        write(
+            &notes.join("tasks").join(format!("{}.md", key())),
+            "- [ ] Feature <!-- dh:t=a1 wt=w-feature -->\n- [ ] Add tests <!-- dh:t=f1 wt=w-feature assigned=1 \
+             -->\n  with fixtures\n- [ ] Tidy <!-- dh:t=f2 s=s-main assigned=1 -->\n- [ ] Orphan <!-- dh:t=f3 \
+             wt=w-gone assigned=1 -->\n",
+        );
+        let run = migrate(&notes, NOW, StopAt::Never).unwrap();
+        assert!(
+            run.report.iter().any(|line| line.contains("2 follow-up task(s)")),
+            "{:?}",
+            run.report
+        );
+        let list = std::fs::read_to_string(notes.join("tasks").join(format!("{}.md", key()))).unwrap();
+        let parsed = TaskList::parse(&list);
+        let shape: Vec<String> = parsed
+            .lines()
+            .iter()
+            .map(|line| format!("{}{} s={:?}", "  ".repeat(line.depth), line.title, line.meta.s))
+            .collect();
+        assert_eq!(
+            shape,
+            [
+                "Feature s=Some(\"s-feature\")",
+                "  Add tests s=None",
+                "Orphan s=None",
+                "Main work s=Some(\"s-main\")",
+                "  Tidy s=None",
+            ]
+        );
+        assert!(!list.contains("assigned=") && !list.contains("wt="), "{list}");
+        let tests = parsed.lines().iter().find(|line| line.title == "Add tests").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(notes.join("lines").join(format!("{}.md", tests.id))).unwrap(),
+            "with fixtures\n"
         );
     }
 

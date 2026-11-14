@@ -23,22 +23,20 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MoveDirection, NoteSaveResult, NoteSection, OrchestratorResult, PendingPlan, PingResult, PlanOutcome, PlanSummary,
-    PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
-    SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
-    SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates,
-    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
-    WorktreeOverview,
+    MoveDirection, NoteRef, NoteSaveResult, NoteSection, OrchestratorResult, PendingPlan, PingResult, PlanOutcome,
+    PlanSummary, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
+    SavedConfigDocument, SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, StageMode,
+    TaskOp, TasksDoc, TerminalRecord, WorkNoteKind, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection,
+    WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
 };
-use deckhand_protocol::events::PlanSettled;
+use deckhand_protocol::events::{PlanSettled, WorkNoteUpdated};
 use deckhand_protocol::wire::{
     AgentCaller, AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest,
     DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose,
     MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanRequest, PromoteNoteItem, Remove, ReorderSession,
-    RequestOnly, ResolveMerge, Restart, RestartSessions, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
-    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
-    StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane,
-    WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
+    RequestOnly, ResolveMerge, Restart, RestartSessions, RunAction, SaveConfig, SaveNote, SessionRequest,
+    SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest,
+    TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -73,6 +71,8 @@ pub struct LiveClientHandlers {
     pub on_agent_versions_updated: Option<Box<dyn Fn(AgentVersions)>>,
     /// `tasks-updated`.
     pub on_tasks_updated: Option<Box<dyn Fn(TasksDoc)>>,
+    /// Not in the TS: `work-note-updated` (a line's note or brief, or the scratchpad, of a watched list changed).
+    pub on_work_note_updated: Option<Box<dyn Fn(WorkNoteUpdated)>>,
     /// Not in the TS: `plan-pending` (an orchestrator plan waits for the user's answer; also sent right after a
     /// `subscribe` answer for each plan already waiting in the repository).
     pub on_plan_pending: Option<Box<dyn Fn(PendingPlan)>>,
@@ -202,6 +202,20 @@ fn dispatch(state: &RefCell<LiveState>, handlers: &LiveClientHandlers, message: 
         "action-updated" => deliver(h, h.on_action_updated.as_deref(), message, "action"),
         "agent-versions-updated" => deliver(h, h.on_agent_versions_updated.as_deref(), message, "versions"),
         "tasks-updated" => deliver(h, h.on_tasks_updated.as_deref(), message, "tasks"),
+        "work-note-updated" => {
+            if let Some(handler) = h.on_work_note_updated.as_deref() {
+                match serde_json::from_value::<WorkNoteUpdated>(message.clone()) {
+                    Ok(updated) => handler(updated),
+                    Err(error) => {
+                        if let Some(on_error) = &h.on_error {
+                            on_error(DhError::msg(format!(
+                                "invalid work-note-updated in daemon message: {error}"
+                            )));
+                        }
+                    }
+                }
+            }
+        }
         "plan-pending" => deliver(h, h.on_plan_pending.as_deref(), message, "plan"),
         "plan-settled" => {
             if let Some(handler) = h.on_plan_settled.as_deref() {
@@ -303,9 +317,18 @@ fn only_true(flag: bool) -> Option<bool> {
     flag.then_some(true)
 }
 
-/// `...noteId ? {noteId} : {}` (an empty ID is left out too).
-fn non_empty(text: Option<&str>) -> Option<String> {
-    text.filter(|text| !text.is_empty()).map(str::to_owned)
+/// A session's own note as a [`NoteRef`]; its shared note is gone (a worktree's and the main checkout's notes became
+/// line notes and the scratchpad).
+fn session_note_ref(session_id: &str, section: NoteSection) -> Result<NoteRef, DhError> {
+    match section {
+        NoteSection::Session => Ok(NoteRef {
+            kind: WorkNoteKind::Session,
+            id: session_id.to_owned(),
+        }),
+        NoteSection::Shared => Err(DhError::msg(
+            "A session has no shared note any more: its line's note and the scratchpad took its place",
+        )),
+    }
 }
 
 /// One entry of [`LiveClient::change_stage`]: TS `entry?: {group, path}` (absent stages/unstages everything).
@@ -322,28 +345,24 @@ pub struct DeleteWorktreeOptions {
     pub delete_branch: Option<bool>,
     pub stop_sessions: Option<bool>,
     pub allow_data_loss: Option<bool>,
-    pub send_open_items: Option<bool>,
 }
 
-/// TS: client.ts LiveClient.killSession's defaulted flags (all `false` by default; `sendOpenItems` is written only
-/// when true, the others always).
+/// TS: client.ts LiveClient.killSession's defaulted flags (all `false` by default, all written).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct KillOptions {
     pub delete_worktree: bool,
     pub delete_branch: bool,
     pub force: bool,
     pub allow_data_loss: bool,
-    /// With `delete_worktree`: first send the worktree note's open checklist items to the backlog.
-    pub send_open_items: bool,
 }
 
-/// TS: client.ts LiveClient.mergeWorktree's defaulted flags (`commitFirst` always written, `sendOpenItems` only when
+/// TS: client.ts LiveClient.mergeWorktree's defaulted flags (`commitFirst` always written, `keepOpenSteps` only when
 /// true).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MergeOptions {
     pub commit_first: bool,
-    /// After a clean merge, the worktree note's open checklist items go to the backlog.
-    pub send_open_items: bool,
+    /// The open steps of the merged sessions' lines stay under them (by default they move up out of them).
+    pub keep_open_steps: bool,
 }
 
 /// TS: client.ts LiveClient.
@@ -716,7 +735,6 @@ impl LiveClient {
             delete_branch: options.delete_branch,
             stop_sessions: options.stop_sessions,
             allow_data_loss: options.allow_data_loss,
-            send_open_items: options.send_open_items,
         }))
     }
 
@@ -767,7 +785,6 @@ impl LiveClient {
             delete_branch: Some(options.delete_branch),
             force: Some(options.force),
             allow_data_loss: Some(options.allow_data_loss),
-            send_open_items: only_true(options.send_open_items),
             caller: None,
         }))
     }
@@ -782,7 +799,6 @@ impl LiveClient {
             delete_branch: None,
             force: None,
             allow_data_loss: None,
-            send_open_items: None,
             caller,
         }))
     }
@@ -806,7 +822,7 @@ impl LiveClient {
             mode: mode.into(),
             target_cwd: target_cwd.into(),
             commit_first: Some(options.commit_first),
-            send_open_items: only_true(options.send_open_items),
+            keep_open_steps: only_true(options.keep_open_steps),
         }))
     }
 
@@ -848,13 +864,13 @@ impl LiveClient {
         self.request(Request::MarkSessionMerged(session_target(session_id, target_cwd)))
     }
 
-    /// TS: LiveClient.removeSession. `move_open_items` (default false, written only when true): first send the open
-    /// checklist items of the notes removed with it to the repository's tasks.
-    pub fn remove_session(&self, session_id: &str, move_open_items: Option<bool>) -> Reply<()> {
+    /// TS: LiveClient.removeSession. `move_note` (default false, written only when true): first move what is still
+    /// open in the session's note into its line's note.
+    pub fn remove_session(&self, session_id: &str, move_note: Option<bool>) -> Reply<()> {
         self.request(Request::Remove(Remove {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            move_open_items: only_true(move_open_items.unwrap_or(false)),
+            move_note: only_true(move_note.unwrap_or(false)),
             caller: None,
         }))
     }
@@ -865,7 +881,7 @@ impl LiveClient {
         self.request(Request::Remove(Remove {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            move_open_items: None,
+            move_note: None,
             caller,
         }))
     }
@@ -924,64 +940,45 @@ impl LiveClient {
         }))
     }
 
+    /// `task-op` with the op as JSON, for what only the daemon reads (`session-line`, an add's `note`).
+    pub fn task_op_value(&self, cwd: &str, op: Value) -> Reply<TasksDoc> {
+        self.request(Request::TaskOp(TaskOpRequest {
+            request_id: new_request_id(),
+            cwd: cwd.into(),
+            op,
+        }))
+    }
+
     /// TS: LiveClient.openTasks: the tasks file's path, to open it in an editor.
     pub fn open_tasks(&self, cwd: &str) -> Reply<String> {
         self.request(Request::OpenTasks(cwd_request(cwd)))
     }
 
-    /// TS: LiveClient.returnTaskToNote.
-    pub fn return_task_to_note(&self, cwd: &str, task_id: &str) -> Reply<TasksDoc> {
-        self.request(Request::ReturnTaskToNote(ReturnTaskToNote {
+    /// `promote-note-item`: the checkbox on `line` of a note becomes a line of the list (under the note's line, or in
+    /// the backlog from the scratchpad) and leaves the note.
+    pub fn promote_work_note_item(&self, note: NoteRef, line: i64, revision: &str) -> Reply<PromoteNoteItemResult> {
+        self.request(Request::PromoteNoteItem(PromoteNoteItem {
             request_id: new_request_id(),
-            cwd: cwd.into(),
-            task_id: task_id.to_owned(),
+            note: Loose::Known(note),
+            line: Some(line),
+            revision: Some(revision.to_owned()),
         }))
     }
 
-    /// TS: LiveClient.taskToNote: the task into the note of work `section` (which has its task already), as a step.
-    pub fn task_to_note(&self, cwd: &str, task_id: &str, section: &str) -> Reply<TasksDoc> {
-        self.request(Request::TaskToNote(TaskToNote {
-            request_id: new_request_id(),
-            cwd: cwd.into(),
-            task_id: task_id.to_owned(),
-            section: Some(section.to_owned()),
-        }))
-    }
-
-    /// TS: LiveClient.promoteNoteItem (`noteId` written only when given).
+    /// [`LiveClient::promote_work_note_item`] on a session's note, as the UI names it until it moves to [`NoteRef`]:
+    /// its own note (`section` session); a shared note no longer exists.
     pub fn promote_note_item(
         &self,
         session_id: &str,
         section: NoteSection,
         line: i64,
         revision: &str,
-        note_id: Option<&str>,
+        _note_id: Option<&str>,
     ) -> Reply<PromoteNoteItemResult> {
-        self.request(Request::PromoteNoteItem(PromoteNoteItem {
-            request_id: new_request_id(),
-            session_id: session_id.to_owned(),
-            section: section.into(),
-            line: Some(line),
-            revision: Some(revision.to_owned()),
-            note_id: non_empty(note_id).map_or(Loose::Absent, Loose::Known),
-        }))
-    }
-
-    /// TS: LiveClient.sendOpenItems: every open checklist item of one note (at `revision`) to Tasks.
-    pub fn send_open_items(
-        &self,
-        session_id: &str,
-        section: NoteSection,
-        revision: &str,
-        note_id: Option<&str>,
-    ) -> Reply<SendOpenItemsResult> {
-        self.request(Request::SendOpenItems(SendOpenItems {
-            request_id: new_request_id(),
-            session_id: session_id.to_owned(),
-            section: section.into(),
-            revision: revision.into(),
-            note_id: non_empty(note_id).map_or(Loose::Absent, Loose::Known),
-        }))
+        match session_note_ref(session_id, section) {
+            Ok(note) => self.promote_work_note_item(note, line, revision),
+            Err(error) => failed(error),
+        }
     }
 
     /// TS: LiveClient.listBranches.
@@ -989,33 +986,45 @@ impl LiveClient {
         self.request(Request::ListBranches(cwd_request(cwd)))
     }
 
-    /// TS: LiveClient.saveNote: saves if the file still has `revision`; `saved` false (and the file as it is in
-    /// `session`) when it changed.
+    /// `save-note`: saves if the file still has `revision`; `saved` false (and the note as it is now) when it changed.
+    pub fn save_work_note(&self, note: NoteRef, text: &str, revision: &str) -> Reply<NoteSaveResult> {
+        self.request(Request::SaveNote(SaveNote {
+            request_id: new_request_id(),
+            note: Loose::Known(note),
+            text: Some(text.to_owned()),
+            revision: Some(revision.to_owned()),
+        }))
+    }
+
+    /// [`LiveClient::save_work_note`] on a session's note, as the UI names it until it moves to [`NoteRef`].
     pub fn save_note(
         &self,
         session_id: &str,
         section: NoteSection,
         text: &str,
         revision: &str,
-        note_id: Option<&str>,
+        _note_id: Option<&str>,
     ) -> Reply<NoteSaveResult> {
-        self.request(Request::SaveNote(SaveNote {
+        match session_note_ref(session_id, section) {
+            Ok(note) => self.save_work_note(note, text, revision),
+            Err(error) => failed(error),
+        }
+    }
+
+    /// `open-note`: the note's file (created if missing), to open it in an editor.
+    pub fn open_work_note(&self, note: NoteRef) -> Reply<String> {
+        self.request(Request::OpenNote(OpenNote {
             request_id: new_request_id(),
-            session_id: session_id.to_owned(),
-            section: section.into(),
-            note_id: note_id.map_or(Loose::Absent, Loose::from),
-            text: Some(text.to_owned()),
-            revision: Some(revision.to_owned()),
+            note: Loose::Known(note),
         }))
     }
 
-    /// TS: LiveClient.openNote: the note's file (created if missing), to open it in an editor.
+    /// [`LiveClient::open_work_note`] on a session's note, as the UI names it until it moves to [`NoteRef`].
     pub fn open_note(&self, session_id: &str, section: NoteSection) -> Reply<String> {
-        self.request(Request::OpenNote(OpenNote {
-            request_id: new_request_id(),
-            session_id: session_id.to_owned(),
-            section: section.into(),
-        }))
+        match session_note_ref(session_id, section) {
+            Ok(note) => self.open_work_note(note),
+            Err(error) => failed(error),
+        }
     }
 
     /// TS: LiveClient.saveConfig (`revision` `null` is written as `null`).
@@ -1450,7 +1459,7 @@ mod tests {
                 "/repo",
                 MergeOptions {
                     commit_first: false,
-                    send_open_items: true,
+                    keep_open_steps: true,
                 },
             ));
             let line = daemon.next_line().await;
@@ -1458,13 +1467,20 @@ mod tests {
                 line,
                 format!(
                     "{{\"type\":\"merge-worktree\",\"requestId\":\"{}\",\"sessionId\":\"s1\",\"mode\":\"merge\",\
-                     \"targetCwd\":\"/repo\",\"commitFirst\":false,\"sendOpenItems\":true}}\n",
+                     \"targetCwd\":\"/repo\",\"commitFirst\":false,\"keepOpenSteps\":true}}\n",
                     id(&line)
                 )
             );
-            drop(client.send_open_items("s1", NoteSection::Session, "rev", Some("")));
+            drop(client.save_note("s1", NoteSection::Session, "text", "rev", Some("")));
             let line = daemon.next_line().await;
-            assert!(!line.contains("noteId"), "{line}");
+            assert_eq!(
+                line,
+                format!(
+                    "{{\"type\":\"save-note\",\"requestId\":\"{}\",\"note\":{{\"kind\":\"session\",\"id\":\"s1\"}},\
+                     \"text\":\"text\",\"revision\":\"rev\"}}\n",
+                    id(&line)
+                )
+            );
             drop(client.save_config(ConfigTargetKind::Global, "/repo", "{}", None));
             let line = daemon.next_line().await;
             assert!(line.ends_with(",\"revision\":null}\n"), "{line}");

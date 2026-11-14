@@ -1,4 +1,4 @@
-//! Parsing `deckhand new|ls|task|note|kill|remove|guide|plan|do` and their usage texts.
+//! Parsing `deckhand new|ls|task|step|note|kill|remove|guide|plan|do` and their usage texts.
 //!
 //! Options take their value as the next argument or after `=` (`--title=x`), so a value may start with `-`. `--`
 //! ends the options. Every command takes `--json` and `--help` (`-h`).
@@ -7,11 +7,13 @@ use deckhand_core::error::DhError;
 use deckhand_protocol::data::ProgramKey;
 
 /// The words that run one of these commands (the first argument).
-pub const COMMAND_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remove", "guide", "plan", "do"];
+pub const COMMAND_WORDS: &[&str] = &[
+    "new", "ls", "task", "step", "note", "kill", "remove", "guide", "plan", "do",
+];
 
 /// The commands every agent may run (its guide's, and Codex's `deckhand` tool's): not the orchestrator's `plan`
 /// (Claude only) or your `do`.
-pub const AGENT_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remove", "guide"];
+pub const AGENT_WORDS: &[&str] = &["new", "ls", "task", "step", "note", "kill", "remove", "guide"];
 
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
@@ -27,8 +29,9 @@ elsewhere, a top-level session of the current repository.
   --draft             Type the prompt into the agent's input without sending it
   --agent <agent>     claude, codex or pi (default: this session's agent, else the repository's default agent)
   --title <title>     The session's name (default: the task's title, else the prompt's first line)
-  --task <id>         Start on a task from `deckhand task list` (top-level unless in a new worktree; the
-                      prompt, if any, replaces the task's text; without one the task's text is typed as a draft)
+  --task <id>         Start on a line from `deckhand task list` that nobody is on: the session is on it (the
+                      prompt, if any, replaces its text; without one its title, brief and note are typed as a
+                      draft)
   --parent <id>       A sub-session of that session instead: inside a session, one this session started (or one
                       under those); run by hand, any session of the repository
   --worktree <where>  new: a new worktree (the default); same: the parent's (else this session's) worktree;
@@ -55,22 +58,39 @@ Usage: deckhand task list [--json]
        deckhand task add <title> [--details <text>] [--json]
        deckhand task done <id> [--json]
        deckhand task reopen <id> [--json]
-       deckhand task move <id> --to backlog|<session id> [--json]
+       deckhand task move <id> --to backlog|<session id>|<line id> [--json]
 
-The current repository's tasks (the Tasks board, b).
-  list    Open tasks (in progress, then the backlog) and those done in the last 7 days
-  add     Adds a task to the backlog
-  done    Ticks a task; reopen unticks it
-  move    Moves a task to the backlog, or makes it the task of a session's work (its worktree, or the
-          session in the main checkout); when that work has a task already, it becomes a step in its note
+The current repository's list (the Tasks board, b): one tree of lines; a session is on at most one line, and the
+lines under it are its steps.
+  list    The tree: open lines and those ticked in the last 7 days, who is on each, ticked/total of the lines
+          under it, a brief (✎)
+  add     Adds a line to the backlog (--details: its note)
+  done    Ticks a line; reopen unticks it. A line whose lines are all ticked ticks itself
+  move    Moves a line, with its lines: to the backlog (nobody on it); onto a session's line, as a step of it
+          (onto a session without a line, it becomes its line); under another line
+IDs may be shortened to any unique prefix.";
+
+/// `deckhand step --help`.
+pub const STEP_USAGE: &str = "\
+Usage: deckhand step add <text> [--json]
+       deckhand step done <id> [--json]
+       deckhand step reopen <id> [--json]
+       deckhand step list [--json]
+
+This session's steps: the lines under its line in the list (the line is made, named after the session, the first
+time it needs one). Only inside a Deckhand session.
+  add     Adds a step at the end
+  done    Ticks a step (any line under this session's line); reopen unticks it
+  list    This session's line and its steps
 IDs may be shortened to any unique prefix.";
 
 /// `deckhand note --help`.
 pub const NOTE_USAGE: &str = "\
-Usage: deckhand note add <item> [--json]
+Usage: deckhand note add <text> [--json]
 
-Adds `- [ ] <item>` to the end of this session's note: its worktree's note, or in the main checkout the
-session's own. Only inside a Deckhand session.";
+Appends <text> as a paragraph to the note of this session's line (findings, decisions, context for whoever works
+on it next; the line is made the first time it needs one). Steps go in with deckhand step add. Only inside a
+Deckhand session.";
 
 /// `deckhand kill --help`.
 pub const KILL_USAGE: &str = "\
@@ -109,8 +129,9 @@ default). Every problem is reported at once, and nothing is created while there 
   worktree  new (the default), same (its parent's worktree) or none (the repository's checkout)
   base      Where a new worktree's branch starts; flat: true keeps a sub-session's new worktree from stacking on
             its parent's branch
-  task      An open task's ID, which the session takes on (top-level, or in a new worktree)
-Sessions are created parents first, each with its brief sent; then the tasks go to the backlog.";
+  task      An open line's ID that nobody is on: the session takes it on
+Sessions are created parents first, each with its brief sent (and kept as its line's brief); then the tasks go to
+the backlog (details: their note).";
 
 /// `deckhand do --help`.
 pub const DO_USAGE: &str = "\
@@ -152,6 +173,10 @@ pub enum Action {
         id: String,
         to: MoveTo,
     },
+    StepAdd(String),
+    StepDone(String),
+    StepReopen(String),
+    StepList,
     NoteAdd(String),
     Kill(String),
     Remove(String),
@@ -334,6 +359,7 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "ls" => simple(rest, LS_USAGE, Action::Ls),
         "guide" => simple(rest, GUIDE_USAGE, Action::Guide),
         "task" => parse_task(rest),
+        "step" => parse_step(rest),
         "note" => parse_note(rest),
         "plan" => parse_plan(rest),
         "do" => {
@@ -455,13 +481,6 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
     if new.parent.is_some() && new.fork {
         return Err(usage_error("--parent and --fork cannot be combined", NEW_USAGE));
     }
-    if new.parent.is_some() && new.task.is_some() && !matches!(new.worktree, None | Some(WorktreeChoice::New)) {
-        return Err(usage_error(
-            "--task under a --parent needs a new worktree (a task starts only a top-level session or a sub-session in \
-             a new worktree)",
-            NEW_USAGE,
-        ));
-    }
     Ok(Invocation {
         action: Action::New(new),
         json: scanned.json,
@@ -536,6 +555,30 @@ fn parse_plan(rest: &[String]) -> Result<Invocation, DhError> {
     })
 }
 
+fn parse_step(rest: &[String]) -> Result<Invocation, DhError> {
+    let usage = STEP_USAGE;
+    let sub = rest.first().map(String::as_str);
+    let scanned = scan(rest.get(1..).unwrap_or_default(), &[], usage)?;
+    if scanned.help || matches!(sub, None | Some("--help" | "-h")) {
+        return Ok(help(usage));
+    }
+    let action = match sub {
+        Some("add") => Action::StepAdd(words(&scanned, "a step", "step add", usage)?),
+        Some("done") => Action::StepDone(one(&scanned, "a step ID", "step done", usage)?),
+        Some("reopen") => Action::StepReopen(one(&scanned, "a step ID", "step reopen", usage)?),
+        Some("list") => {
+            none(&scanned, usage)?;
+            Action::StepList
+        }
+        Some(other) => return Err(usage_error(&format!("Unknown step command: {other}"), usage)),
+        None => return Ok(help(usage)),
+    };
+    Ok(Invocation {
+        action,
+        json: scanned.json,
+    })
+}
+
 fn parse_note(rest: &[String]) -> Result<Invocation, DhError> {
     let usage = NOTE_USAGE;
     let sub = rest.first().map(String::as_str);
@@ -545,7 +588,7 @@ fn parse_note(rest: &[String]) -> Result<Invocation, DhError> {
     }
     match sub {
         Some("add") => Ok(Invocation {
-            action: Action::NoteAdd(words(&scanned, "an item", "note add", usage)?),
+            action: Action::NoteAdd(words(&scanned, "a text", "note add", usage)?),
             json: scanned.json,
         }),
         Some(other) => Err(usage_error(&format!("Unknown note command: {other}"), usage)),
@@ -653,9 +696,15 @@ mod tests {
         assert!(refused(&["new", "--flat", "--worktree", "none"]).starts_with("--flat applies only"));
         assert!(refused(&["new", "--parent", "a", "--top-level"]).starts_with("--parent and --top-level cannot"));
         assert!(refused(&["new", "--parent", "a", "--fork"]).starts_with("--parent and --fork cannot"));
-        assert!(
-            refused(&["new", "--parent", "a", "--task", "t", "--worktree", "same"])
-                .starts_with("--task under a --parent needs a new worktree")
+        // A session may start on a line wherever it runs.
+        assert_eq!(
+            parsed(&["new", "--parent", "a", "--task", "t", "--worktree", "same"]).action,
+            Action::New(NewArgs {
+                parent: Some("a".into()),
+                task: Some("t".into()),
+                worktree: Some(WorktreeChoice::Same),
+                ..NewArgs::default()
+            })
         );
         assert!(refused(&["new", "--prompt"]).starts_with("--prompt needs a value"));
         assert!(refused(&["new", "--title", "a", "--title", "b"]).starts_with("--title is given twice"));
@@ -682,6 +731,8 @@ mod tests {
             (&["task"], TASK_USAGE),
             (&["task", "--help"], TASK_USAGE),
             (&["task", "add", "--help"], TASK_USAGE),
+            (&["step"], STEP_USAGE),
+            (&["step", "done", "--help"], STEP_USAGE),
             (&["note"], NOTE_USAGE),
             (&["note", "add", "-h"], NOTE_USAGE),
             (&["kill", "--help"], KILL_USAGE),
@@ -748,12 +799,38 @@ mod tests {
     }
 
     #[test]
+    fn step_commands_take_a_text_or_an_id() {
+        assert_eq!(
+            parsed(&["step", "add", "Write", "the", "tests"]).action,
+            Action::StepAdd("Write the tests".into())
+        );
+        assert_eq!(
+            parsed(&["step", "done", "ab12"]).action,
+            Action::StepDone("ab12".into())
+        );
+        assert_eq!(
+            parsed(&["step", "reopen", "ab12"]).action,
+            Action::StepReopen("ab12".into())
+        );
+        assert_eq!(
+            parsed(&["step", "list", "--json"]),
+            Invocation {
+                action: Action::StepList,
+                json: true
+            }
+        );
+        assert!(refused(&["step", "add"]).starts_with("deckhand step add needs a step"));
+        assert!(refused(&["step", "list", "x"]).starts_with("Unexpected argument: x"));
+        assert!(refused(&["step", "tick", "a"]).starts_with("Unknown step command: tick"));
+    }
+
+    #[test]
     fn note_add_joins_its_words_and_other_commands_take_one_id() {
         assert_eq!(
             parsed(&["note", "add", "Check", "the", "migration"]).action,
             Action::NoteAdd("Check the migration".into())
         );
-        assert!(refused(&["note", "add", " "]).starts_with("deckhand note add needs an item"));
+        assert!(refused(&["note", "add", " "]).starts_with("deckhand note add needs a text"));
         assert!(refused(&["note", "list"]).starts_with("Unknown note command: list"));
         assert_eq!(
             parsed(&["kill", "1f2e", "--json"]),
@@ -779,6 +856,8 @@ mod tests {
             "task add",
             "task done|reopen",
             "task move",
+            "step add",
+            "step done|reopen",
             "note add",
             "--details",
             "--to",

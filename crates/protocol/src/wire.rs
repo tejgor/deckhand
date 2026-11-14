@@ -19,7 +19,7 @@ use serde_json::Value;
 use serde_with::skip_serializing_none;
 
 use crate::data::{
-    ChangeGroup, ConfigTargetKind, JsNumber, MoveDirection, NoteSection, ProgramKey, ResolveMergeAction, RestartMode,
+    ChangeGroup, ConfigTargetKind, JsNumber, MoveDirection, NoteRef, ProgramKey, ResolveMergeAction, RestartMode,
     StageMode, WorktreeMergeMode,
 };
 
@@ -547,8 +547,6 @@ pub struct DeleteWorktree {
     pub stop_sessions: Option<bool>,
     #[serde(default, deserialize_with = "lenient::truthy")]
     pub allow_data_loss: Option<bool>,
-    #[serde(default, deserialize_with = "lenient::truthy")]
-    pub send_open_items: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -670,36 +668,31 @@ pub struct StopDevRequest {
     pub process: Option<String>,
 }
 
+/// `save-note`: writes `text` to the note when its file still has `revision` (else nothing is written and `saved` is
+/// false). `Invalid note` unless `note` is a [`NoteRef`] and `text` and `revision` are text.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveNote {
     #[serde(default, deserialize_with = "lenient::request_id")]
     pub request_id: String,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub session_id: String,
-    /// `'session'` is the session's own note; anything else its shared one (`'shared'` adds its checks).
     #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub section: Loose<NoteSection>,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub note_id: Loose<String>,
-    /// `Invalid note` unless text.
+    pub note: Loose<NoteRef>,
     #[serde(default, deserialize_with = "lenient::opt_string")]
     pub text: Option<String>,
     #[serde(default, deserialize_with = "lenient::opt_string")]
     pub revision: Option<String>,
 }
 
+/// `open-note`: the note's file (created empty when missing), to open it in an editor.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenNote {
     #[serde(default, deserialize_with = "lenient::request_id")]
     pub request_id: String,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub session_id: String,
     #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub section: Loose<NoteSection>,
+    pub note: Loose<NoteRef>,
 }
 
 #[skip_serializing_none]
@@ -710,73 +703,28 @@ pub struct TaskOpRequest {
     pub request_id: String,
     #[serde(default, skip_serializing_if = "Loose::is_absent")]
     pub cwd: Loose<String>,
-    /// tasks.ts clientTaskOp checks it (after the repository is resolved).
+    /// `deckhand_core::tasks::client_task_op` checks it (after the repository is resolved); the daemon adds
+    /// `session-line` (see `Daemon::apply_client_task_op`).
     #[serde(default)]
     pub op: Value,
 }
 
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SendOpenItems {
-    #[serde(default, deserialize_with = "lenient::request_id")]
-    pub request_id: String,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub session_id: String,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub section: Loose<NoteSection>,
-    /// Absent: no revision check; any other value must equal the note's.
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub revision: Loose<String>,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub note_id: Loose<String>,
-}
-
+/// `promote-note-item`: the checkbox on `line` (0-based) of a session's note, a line's note or the scratchpad
+/// becomes a line of the list and leaves the note.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromoteNoteItem {
     #[serde(default, deserialize_with = "lenient::request_id")]
     pub request_id: String,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub session_id: String,
     #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub section: Loose<NoteSection>,
+    pub note: Loose<NoteRef>,
     /// `Invalid line` unless an integer >= 0.
     #[serde(default, deserialize_with = "lenient::integer")]
     pub line: Option<i64>,
     /// Must equal the note's revision (a non-string never does).
     #[serde(default, deserialize_with = "lenient::opt_string")]
     pub revision: Option<String>,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub note_id: Loose<String>,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReturnTaskToNote {
-    #[serde(default, deserialize_with = "lenient::request_id")]
-    pub request_id: String,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub cwd: Loose<String>,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub task_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskToNote {
-    #[serde(default, deserialize_with = "lenient::request_id")]
-    pub request_id: String,
-    #[serde(default, skip_serializing_if = "Loose::is_absent")]
-    pub cwd: Loose<String>,
-    #[serde(default, deserialize_with = "lenient::string")]
-    pub task_id: String,
-    /// The work whose note gets the task: `wt:<id>` or `s:<id>` (`Invalid work` unless text).
-    #[serde(default, deserialize_with = "lenient::opt_string")]
-    pub section: Option<String>,
 }
 
 /// `create`: `input` is checked by the daemon in createSession's order (a [`crate::data::CreateSessionInput`] when
@@ -874,8 +822,6 @@ pub struct Kill {
     pub force: Option<bool>,
     #[serde(default, deserialize_with = "lenient::truthy")]
     pub allow_data_loss: Option<bool>,
-    #[serde(default, deserialize_with = "lenient::strict_true")]
-    pub send_open_items: Option<bool>,
     /// Set by `deckhand` commands run inside a session (not in the TS): the daemon checks it and acts for that session.
     #[serde(default)]
     pub caller: Option<AgentCaller>,
@@ -908,8 +854,10 @@ pub struct MergeWorktree {
     pub target_cwd: Loose<String>,
     #[serde(default, deserialize_with = "lenient::truthy")]
     pub commit_first: Option<bool>,
+    /// `true`: the open steps of the merged sessions' lines stay under them; otherwise they move up out of them (beside
+    /// their line, marked `from` the branch), as a merge found by Deckhand or `M` moves them.
     #[serde(default, deserialize_with = "lenient::strict_true")]
-    pub send_open_items: Option<bool>,
+    pub keep_open_steps: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -959,8 +907,10 @@ pub struct Remove {
     pub request_id: String,
     #[serde(default, deserialize_with = "lenient::string")]
     pub session_id: String,
-    #[serde(default, deserialize_with = "lenient::truthy")]
-    pub move_open_items: Option<bool>,
+    /// `true`: what is still open in the session's note (all but its ticked checkboxes) is appended to its line's note
+    /// first (the line is made for it when it has none).
+    #[serde(default, deserialize_with = "lenient::strict_true")]
+    pub move_note: Option<bool>,
     /// Set by `deckhand` commands run inside a session (not in the TS): the daemon checks it and acts for that session.
     #[serde(default)]
     pub caller: Option<AgentCaller>,
@@ -1166,14 +1116,8 @@ pub enum Request {
     TaskOp(TaskOpRequest),
     #[serde(rename = "open-tasks")]
     OpenTasks(CwdRequest),
-    #[serde(rename = "send-open-items")]
-    SendOpenItems(SendOpenItems),
     #[serde(rename = "promote-note-item")]
     PromoteNoteItem(PromoteNoteItem),
-    #[serde(rename = "return-task-to-note")]
-    ReturnTaskToNote(ReturnTaskToNote),
-    #[serde(rename = "task-to-note")]
-    TaskToNote(TaskToNote),
     #[serde(rename = "list-branches")]
     ListBranches(CwdRequest),
     #[serde(rename = "create")]
@@ -1280,8 +1224,8 @@ request_table! {
     ChangesDiff => "changes-diff", ChangeStage => "change-stage", StartDev => "start-dev", StopDev => "stop-dev",
     StopAction => "stop-action", RestartTerminal => "restart-terminal",
     NewTerminal => "new-terminal", CloseTerminal => "close-terminal", SaveNote => "save-note", OpenNote => "open-note", WatchTasks => "watch-tasks",
-    TaskOp => "task-op", OpenTasks => "open-tasks", SendOpenItems => "send-open-items",
-    PromoteNoteItem => "promote-note-item", ReturnTaskToNote => "return-task-to-note", TaskToNote => "task-to-note",
+    TaskOp => "task-op", OpenTasks => "open-tasks",
+    PromoteNoteItem => "promote-note-item",
     ListBranches => "list-branches", Create => "create", ReorderSession => "reorder-session", Restart => "restart",
     RestartSessions => "restart-sessions", DismissInterrupted => "dismiss-interrupted",
     Kill => "kill", MergePreview => "merge-preview", MergeWorktree => "merge-worktree",
@@ -1336,10 +1280,7 @@ impl Request {
             R::SaveNote(r) => &r.request_id,
             R::OpenNote(r) => &r.request_id,
             R::TaskOp(r) => &r.request_id,
-            R::SendOpenItems(r) => &r.request_id,
             R::PromoteNoteItem(r) => &r.request_id,
-            R::ReturnTaskToNote(r) => &r.request_id,
-            R::TaskToNote(r) => &r.request_id,
             R::Create(r) => &r.request_id,
             R::ReorderSession(r) => &r.request_id,
             R::Restart(r) => &r.request_id,
@@ -1431,7 +1372,7 @@ mod tests {
                        "cols": "x", "rows": null, "section": "bogus", "mode": "bogus", "group": "bogus",
                        "direction": "bogus", "action": "bogus", "program": "bogus", "target": "bogus", "op": "x",
                        "line": 1.5, "done": "yes", "read": "yes", "archived": 1, "paths": "x", "input": 5, "payload": 5,
-                       "data": 5, "sentAt": "x", "deleteBranch": [], "sendOpenItems": 1}),
+                       "data": 5, "sentAt": "x", "deleteBranch": [], "keepOpenSteps": 1, "note": 5}),
             ] {
                 let request = serde_json::from_value::<Request>(body.clone());
                 assert!(request.is_ok(), "{kind}: {request:?}");
@@ -1471,15 +1412,20 @@ mod tests {
         };
         assert_eq!((watch.cols, watch.rows, watch.scroll_offset), (Some(80), None, Some(1)));
         // `=== true`, truthiness and `?? default` stay apart.
-        let Request::Kill(kill) =
-            decode(json!({"type": "kill", "sendOpenItems": 1, "deleteWorktree": "x", "force": null}))
+        let Request::Kill(kill) = decode(json!({"type": "kill", "deleteWorktree": "x", "force": null})) else {
+            panic!()
+        };
+        assert_eq!((kill.delete_worktree, kill.force), (Some(true), None));
+        let Request::MergeWorktree(merge) = decode(json!({"type": "merge-worktree", "keepOpenSteps": 1})) else {
+            panic!()
+        };
+        assert_eq!(merge.keep_open_steps, Some(false));
+        // A note that is no NoteRef is kept apart (`Invalid note`).
+        let Request::SaveNote(save) = decode(json!({"type": "save-note", "note": {"kind": "worktree", "id": "x"}}))
         else {
             panic!()
         };
-        assert_eq!(
-            (kill.send_open_items, kill.delete_worktree, kill.force),
-            (Some(false), Some(true), None)
-        );
+        assert_eq!(save.note, Loose::Other(json!({"kind": "worktree", "id": "x"})));
         // The task change is checked by the daemon, after the repository.
         let Request::TaskOp(op) = decode(json!({"type": "task-op", "cwd": 5})) else {
             panic!()
@@ -1543,6 +1489,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 86);
+        assert_eq!(Request::TYPES.len(), 83);
     }
 }

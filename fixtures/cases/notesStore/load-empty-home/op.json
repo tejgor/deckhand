@@ -8,6 +8,8 @@
     "session": [],
     "worktree": [],
     "repo": [],
-    "tasks": []
+    "tasks": [],
+    "line": [],
+    "brief": []
   }
 }

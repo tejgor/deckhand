@@ -621,7 +621,6 @@ pub(crate) mod tests {
             attached_agent: RefCell::new(None),
             delete_worktree_on_exit: Cell::new(false),
             delete_branch_on_exit: Cell::new(false),
-            send_open_items_on_exit: Cell::new(false),
             hook_token: "token".into(),
             launch_id: "launch-1".into(),
             allow_data_loss: Cell::new(false),

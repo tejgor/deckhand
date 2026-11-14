@@ -2520,14 +2520,8 @@ mod tests {
         assert!(has_main_task("s:flaky", &parsed, None));
         assert!(!has_main_task("s:flaky", &parsed, Some("f1")));
         assert!(!has_main_task("s:other", &parsed, None));
-        // From a client, assign carries only a link (no roles any more).
-        assert_eq!(
-            client_task_op(&json!({"type": "assign", "id": "x", "link": {"wt": "w1"}, "main": true}))?,
-            TaskOp::Assign {
-                id: "x".to_owned(),
-                link: Some(TaskLink::Worktree { wt: "w1".to_owned() })
-            }
-        );
+        // A client no longer assigns: it puts a session on a line (session-on) or moves the line (move-to).
+        assert!(client_task_op(&json!({"type": "assign", "id": "x", "link": {"wt": "w1"}})).is_err());
         Ok(())
     }
 }

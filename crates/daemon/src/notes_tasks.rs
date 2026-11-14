@@ -1,33 +1,39 @@
-//! The daemon's notes and tasks.
+//! The daemon's list and notes (`docs/future/work-items.md`).
 //!
-//! Notes live in files (notesStore.ts); the daemon projects each session's own note and the note its worktree (or main
-//! checkout) shares into the session, and re-broadcasts sessions when a note changes, also outside Deckhand. Tasks:
-//! one list per repository (tasks.ts), a file beside the notes, keyed by the repository's main checkout; open note
-//! items can be sent to it and tasks returned to their note.
+//! - **The list**: one per repository, `notes/tasks/<key>.md` (`key`: the hash of the repository's main checkout),
+//!   changed only through TaskOps applied to the file as it is on disk (`deckhand_core::tasks::apply_task_op`). It
+//!   nests; a session is on at most one line (`s=`). Clients watching it (`watch-tasks`) get `tasks-updated`.
+//! - **Notes**, each a file under `notes/`: a session's own note (`sessions/<session id>.md`, projected into its record
+//!   as `notes` and `notesFile`), a line's note (`lines/<line id>.md`), a line's brief (`briefs/<line id>.md`, who
+//!   wrote it and when on its first line) and a repository's scratchpad (`repos/<key>.md`). A line's note and brief
+//!   and the scratchpad reach the clients watching the list: all of them in `watch-tasks`' answer, then each change as
+//!   `work-note-updated`, so a change sends one note, never all of them.
+//! - **Lines on demand**: a session gets a line only when something needs one: a step, a line note or a brief for it
+//!   ([`Daemon::ensure_session_line`]).
+//! - **The rules**: a session started on a line is put on it (`sessions.rs`); merging a worktree ticks its sessions'
+//!   lines and lifts their open steps out ([`Daemon::sync_worktree_tasks`]); done ticks the session's line and undone
+//!   reopens it ([`Daemon::sync_done_tasks`]); a worktree deleted unmerged unhooks its sessions' lines, marked
+//!   `tried`, and so does removing a session ([`Daemon::release_session_line`]).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::rc::Rc;
 
 use deckhand_core::error::{DhError, Result};
-use deckhand_core::jsstr::{self, date, path};
-use deckhand_core::notes::{
-    MAX_NOTES_CHARS, TitledNote, merge_into_worktree_note, repo_note_id, shared_note_identity, shows_own_note,
+use deckhand_core::jsstr::{date, path};
+use deckhand_core::notes::repo_note_id;
+use deckhand_core::session_features::{HandoffBrief, HandoffStep, HandoffTask};
+use deckhand_core::task_list::TaskList;
+use deckhand_core::tasks::{apply_task_op, client_task_op, new_task_id};
+use deckhand_core::work_notes::{
+    Brief, append_paragraph, format_brief, open_note_text, parse_brief, session_line_title, take_checkbox,
 };
-use deckhand_core::session_order::sort_sessions_for_sidebar;
-use deckhand_core::tasks::{
-    append_note_item, apply_task_op, client_task_op, find_note_task_link, is_linked, link_matches, link_of_key,
-    migrate_follow_ups, new_task_id, open_note_items, parse_tasks, promote_note_line, promote_open_note_lines,
-    return_task_to_note,
-};
-use deckhand_core::worktree_records::WorktreeRecords;
 use deckhand_protocol::data::{
-    NoteSaveResult, NoteSection, PromoteNoteItemResult, SendOpenItemsResult, SessionRecord, SessionStatus, SharedNote,
-    SharedNoteKind, Task, TaskAuto, TaskLink, TaskOp, TasksDoc,
+    NoteRef, NoteSaveResult, PromoteNoteItemResult, SessionRecord, SessionStatus, TaskAuto, TaskLink, TaskOp, TasksDoc,
+    WorkNote, WorkNoteKind,
 };
-use deckhand_protocol::events::{ServerMessage, TasksUpdated};
+use deckhand_protocol::events::{ServerMessage, TasksUpdated, WorkNoteUpdated};
 use deckhand_protocol::records::WorktreeRecord;
-use deckhand_protocol::wire::{CwdRequest, Loose, OpenNote, PromoteNoteItem, SaveNote, SendOpenItems, TaskOpRequest};
+use deckhand_protocol::wire::{CwdRequest, Loose, OpenNote, PromoteNoteItem, SaveNote, TaskOpRequest};
 use deckhand_protocol::{KeyOrder, Ordered};
 use deckhand_sys::async_util::{SharedTask, spawn};
 use deckhand_sys::git::resolve_repo_context;
@@ -37,31 +43,18 @@ use futures::FutureExt;
 use crate::daemon::Daemon;
 use crate::server::{Connection, send_message};
 
-/// The notes' and tasks' part of the daemon state.
+/// The list's and the notes' part of the daemon state.
 #[derive(Default)]
 pub struct NotesTasksState {
-    /// TS `notes` (created by [`Daemon::new`], wired to notesChanged).
+    /// The notes store (created by [`Daemon::new`], wired to [`Daemon::notes_changed`]).
     pub notes: Option<NotesStore>,
-    /// TS `tasksKeys`: the repository key of a checkout path, resolved once (a failed lookup is forgotten).
+    /// The list key of a checkout path, resolved once (a failed lookup is forgotten).
     pub tasks_keys: HashMap<String, SharedTask<Result<String>>>,
-}
-
-/// TS: InkDaemon.taskOrigin result: the note linking to a task, and whether it is read-only.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TaskOrigin {
-    pub note: NoteId,
-    pub read_only: bool,
-}
-
-/// TS: InkDaemon.sendOpenNoteItems `options`.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct SendItemsOptions {
-    /// The work the tasks are for; `None`: the backlog.
-    pub link: Option<TaskLink>,
-    /// The branch the items were left open in.
-    pub from: Option<String>,
-    /// Refuse when the note changed since this revision.
-    pub revision: Option<String>,
+    /// Worktree records whose merge, about to be recorded, keeps the open steps under the merged lines
+    /// (`merge-worktree`'s `keepOpenSteps`).
+    pub keep_open_steps: HashSet<String>,
+    /// For the UIs (`ping`'s `notice`): what went wrong at start that the user should know about.
+    pub notice: Option<String>,
 }
 
 /// JS truthiness of an optional string.
@@ -87,13 +80,6 @@ fn worktree_branch(session: &SessionRecord) -> Option<String> {
         .filter(|branch| !branch.is_empty())
 }
 
-fn shared_kind(kind: SharedNoteKind) -> NoteKind {
-    match kind {
-        SharedNoteKind::Worktree => NoteKind::Worktree,
-        SharedNoteKind::Repo => NoteKind::Repo,
-    }
-}
-
 fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -103,43 +89,46 @@ fn only_true(value: Option<bool>) -> Option<bool> {
     value.filter(|&flag| flag)
 }
 
-/// The note a request's `section` names (TS noteOf: `section === 'session'` is the session's own, anything else its
-/// shared one).
-fn note_section(section: &Loose<NoteSection>) -> NoteSection {
-    match section {
-        Loose::Known(NoteSection::Session) => NoteSection::Session,
-        _ => NoteSection::Shared,
-    }
+fn now_iso() -> String {
+    date::to_iso_string(date::now_ms()).unwrap_or_default()
 }
 
-/// `message.section === 'shared'` (the shared note's checks apply only then).
-fn is_shared_section(section: &Loose<NoteSection>) -> bool {
-    section.known() == Some(&NoteSection::Shared)
-}
-
-fn session_note(id: &str) -> NoteId {
+fn note(kind: NoteKind, id: &str) -> NoteId {
     NoteId {
-        kind: NoteKind::Session,
+        kind,
         id: id.to_owned(),
     }
 }
 
 fn tasks_note(key: &str) -> NoteId {
-    NoteId {
-        kind: NoteKind::Tasks,
-        id: key.to_owned(),
+    note(NoteKind::Tasks, key)
+}
+
+fn session_note(id: &str) -> NoteId {
+    note(NoteKind::Session, id)
+}
+
+/// Where a note of that kind lives (a scratchpad is the store's `repo` kind).
+fn store_kind(kind: WorkNoteKind) -> NoteKind {
+    match kind {
+        WorkNoteKind::Session => NoteKind::Session,
+        WorkNoteKind::Line => NoteKind::Line,
+        WorkNoteKind::Brief => NoteKind::Brief,
+        WorkNoteKind::Scratchpad => NoteKind::Repo,
     }
 }
 
-/// The text a task list contains when it links that work (`wt=<id>` / `s=<id>`), a cheap pre-filter.
-fn link_needle(link: &TaskLink) -> String {
-    match link {
-        TaskLink::Worktree { wt } => format!("wt={wt}"),
-        TaskLink::Session { s } => format!("s={s}"),
-    }
+/// A list key as `tasks_key_for` makes them: sixteen hex digits.
+fn is_list_key(key: &str) -> bool {
+    key.len() == 16 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// TS `op.type`.
+/// A session's linked-work op, by its session's ID.
+fn session_link(s: &str) -> TaskLink {
+    TaskLink::Session { s: s.to_owned() }
+}
+
+/// The `type` of an op, for the log.
 fn op_type(op: &TaskOp) -> &'static str {
     match op {
         TaskOp::Add { .. } => "add",
@@ -162,15 +151,15 @@ fn op_type(op: &TaskOp) -> &'static str {
     }
 }
 
-/// `{type: 'add', title, id, ...link ? {link} : {}, ...from ? {from} : {}}`.
-fn add_op(title: &str, id: Option<&str>, link: Option<TaskLink>, from: Option<&str>) -> TaskOp {
+/// A new open line, `added=` today.
+pub fn add_line(title: &str, id: &str, parent: Option<String>, link: Option<TaskLink>) -> TaskOp {
     TaskOp::Add {
         title: title.to_owned(),
         body: None,
         link,
-        id: id.map(str::to_owned),
-        from: from.filter(|from| !from.is_empty()).map(str::to_owned),
-        parent: None,
+        id: Some(id.to_owned()),
+        from: None,
+        parent,
         at: None,
     }
 }
@@ -192,49 +181,25 @@ fn replace_keys(session: &mut Ordered<SessionRecord>, keys: &[&str]) {
     session.set_key_order(order);
 }
 
-/// TS: daemon.ts projectNotes: the session with its own note (`notes`, `notesFile`) and its shared note
-/// (`sharedNotes`, read-only for a deleted worktree) from the store.
-pub fn project_notes(
-    session: Ordered<SessionRecord>,
-    worktrees: &WorktreeRecords,
-    notes: &NotesStore,
-) -> Ordered<SessionRecord> {
+/// The session with its own note (`notes`, `notesFile`) from the store. Since line notes there is no shared note:
+/// `sharedNotes` is never set.
+pub fn project_notes(session: Ordered<SessionRecord>, notes: &NotesStore) -> Ordered<SessionRecord> {
     let mut session = session;
     let own_id = session_note(&session.id);
     let own = notes.get(&own_id);
-    let shared_notes = shared_note_identity(&session).map(|identity| {
-        let note = NoteId {
-            kind: shared_kind(identity.kind),
-            id: identity.id.clone(),
-        };
-        let shared = notes.get(&note);
-        let read_only = identity.kind == SharedNoteKind::Worktree
-            && worktrees
-                .get(&identity.id)
-                .is_none_or(|record| truthy(record.deleted_at.as_deref()));
-        SharedNote {
-            kind: identity.kind,
-            id: identity.id,
-            path: path_text(&note_file_path(&note)),
-            text: shared.text,
-            revision: shared.revision,
-            too_large: only_true(shared.too_large),
-            read_only: read_only.then_some(true),
-        }
-    });
-    replace_keys(&mut session, &["notes", "notesFile", "sharedNotes"]);
+    replace_keys(&mut session, &["notes", "notesFile"]);
     session.notes = Some(own.text);
     session.notes_file = Some(deckhand_protocol::data::NoteFile {
         path: path_text(&note_file_path(&own_id)),
         revision: own.revision,
         too_large: only_true(own.too_large),
     });
-    session.shared_notes = shared_notes;
+    session.shared_notes = None;
     session
 }
 
 impl Daemon {
-    /// TS: `this.notes`.
+    /// The notes store.
     pub fn notes(&self) -> NotesStore {
         // A daemon always has its store; without one (tests of other subsystems) an empty store stands in.
         self.notes_tasks
@@ -244,130 +209,9 @@ impl Daemon {
             .unwrap_or_else(|| NotesStore::new(|_, _| {}))
     }
 
-    /// TS: InkDaemon.noteOf (`This session has no worktree note yet: its worktree is not ready`).
-    pub fn note_of(&self, session: &SessionRecord, section: NoteSection) -> Result<NoteId> {
-        if section == NoteSection::Session {
-            return Ok(session_note(&session.id));
-        }
-        let shared = session
-            .shared_notes
-            .as_ref()
-            .ok_or_else(|| DhError::msg("This session has no worktree note yet: its worktree is not ready"))?;
-        Ok(NoteId {
-            kind: shared_kind(shared.kind),
-            id: shared.id.clone(),
-        })
-    }
-
-    /// TS: InkDaemon.mergeWorktreeSessionNotes: at start, worktree sessions' own notes merge into their worktree's
-    /// note (in sidebar order; originals to the trash), unless the result would be too large.
-    pub async fn merge_worktree_session_notes(&self, sessions: &[Ordered<SessionRecord>]) -> Result<()> {
-        let notes = self.notes();
-        let mut by_worktree: indexmap::IndexMap<String, Vec<&Ordered<SessionRecord>>> = indexmap::IndexMap::new();
-        for session in sort_sessions_for_sidebar(sessions) {
-            let Some(id) = worktree_id(session) else { continue };
-            if jsstr::js_trim(&notes.get(&session_note(&session.id)).text).is_empty() {
-                continue;
-            }
-            by_worktree.entry(id.to_owned()).or_default().push(session);
-        }
-        for (id, owners) in by_worktree {
-            let note = NoteId {
-                kind: NoteKind::Worktree,
-                id: id.clone(),
-            };
-            let stored = notes.get(&note);
-            let titled: Vec<TitledNote> = owners
-                .iter()
-                .map(|session| TitledNote {
-                    title: self.session_path(session),
-                    text: notes.get(&session_note(&session.id)).text,
-                })
-                .collect();
-            let text = merge_into_worktree_note(&stored.text, &titled);
-            if stored.too_large == Some(true) || jsstr::js_len(&text) > MAX_NOTES_CHARS {
-                self.log(&format!(
-                    "not merging {} session note(s) into worktree note {id}: it would be too large",
-                    owners.len()
-                ))
-                .await;
-                continue;
-            }
-            let saved = match notes.save(&note, &text, &stored.revision).await {
-                Ok(saved) => saved.saved,
-                Err(error) => {
-                    self.log(&format!("merging into worktree note {id} failed: {error}"))
-                        .await;
-                    false
-                }
-            };
-            if !saved {
-                continue;
-            }
-            for session in &owners {
-                let label = format!("{} (merged into its worktree note)", self.session_path(session));
-                notes.remove(&session_note(&session.id), Some(&label)).await?;
-            }
-            let titles: Vec<&str> = owners.iter().map(|session| session.title.as_str()).collect();
-            self.log(&format!(
-                "merged the notes of {} into worktree note {id}",
-                titles.join(", ")
-            ))
-            .await;
-        }
-        Ok(())
-    }
-
-    /// TS: InkDaemon.saveNote (`Invalid note`, `A session in a worktree writes in the worktree’s note (shared by its
-    /// sessions)`, `This session now shares another note; nothing was saved`, `Its worktree was deleted: the worktree
-    /// note is read-only`): revision-checked.
-    pub async fn save_note(&self, message: &SaveNote) -> Result<NoteSaveResult> {
-        let session = self.require_session(&message.session_id)?;
-        let (Some(text), Some(revision)) = (message.text.as_deref(), message.revision.as_deref()) else {
-            return Err(DhError::msg("Invalid note"));
-        };
-        let section = note_section(&message.section);
-        if section == NoteSection::Session && !shows_own_note(&session) {
-            return Err(DhError::msg(
-                "A session in a worktree writes in the worktree’s note (shared by its sessions)",
-            ));
-        }
-        let note = self.note_of(&session, section)?;
-        if is_shared_section(&message.section) {
-            self.check_shared_note(&session, &note, &message.note_id, "saved")?;
-        }
-        let result = self.notes().save(&note, text, revision).await?;
-        if result.changed {
-            self.notes_changed(note.kind, &note_file_stem(&note.id));
-        }
-        Ok(NoteSaveResult {
-            saved: result.saved,
-            session: self.require_session(&session.id)?,
-        })
-    }
-
-    /// The checks of a change to a session's shared note: the one the UI showed, and not a deleted worktree's.
-    fn check_shared_note(
-        &self,
-        session: &SessionRecord,
-        note: &NoteId,
-        note_id: &Loose<String>,
-        done: &str,
-    ) -> Result<()> {
-        // `noteId !== undefined && noteId !== '<kind>:<id>'`: a value of another type never matches.
-        if !note_id.is_absent() && note_id.known() != Some(&format!("{}:{}", note.kind.as_str(), note.id)) {
-            return Err(DhError::msg(format!(
-                "This session now shares another note; nothing was {done}"
-            )));
-        }
-        if session
-            .shared_notes
-            .as_ref()
-            .is_some_and(|shared| shared.read_only == Some(true))
-        {
-            return Err(DhError::msg("Its worktree was deleted: the worktree note is read-only"));
-        }
-        Ok(())
+    /// The notice `ping` carries, if any.
+    pub fn notice(&self) -> Option<String> {
+        self.notes_tasks.borrow().notice.clone()
     }
 
     /// tasksKeyFor on a request's `cwd`: `typeof cwd !== 'string' || !cwd` is `Invalid repository path`.
@@ -378,7 +222,7 @@ impl Daemon {
         }
     }
 
-    /// TS: InkDaemon.tasksKeyFor (`Invalid repository path`): the task list key of the repository `cwd` is in.
+    /// The list key of the repository `cwd` is in (`Invalid repository path`).
     pub async fn tasks_key_for(&self, cwd: &str) -> Result<String> {
         if cwd.is_empty() {
             return Err(DhError::msg("Invalid repository path"));
@@ -413,87 +257,110 @@ impl Daemon {
         key.await
     }
 
-    /// TS: InkDaemon.linkedTasksOf: every task linked to the session's work, in file order.
-    pub fn linked_tasks_of(&self, session: &SessionRecord) -> Vec<Task> {
-        let mut needles = Vec::new();
-        if let Some(wt) = worktree_id(session) {
-            needles.push(TaskLink::Worktree { wt: wt.to_owned() });
-        }
-        needles.push(TaskLink::Session { s: session.id.clone() });
-        let mut found = Vec::new();
-        for (_, note) in self.notes().entries(NoteKind::Tasks) {
-            if needles.iter().any(|link| note.text.contains(&link_needle(link))) {
-                found.extend(
-                    parse_tasks(&note.text)
-                        .into_iter()
-                        .filter(|task| needles.iter().any(|needle| link_matches(&task.meta, needle))),
-                );
-            }
-        }
-        found
+    /// List `key` as it is now.
+    pub fn task_list(&self, key: &str) -> TaskList {
+        TaskList::parse(&self.notes().get(&tasks_note(key)).text)
     }
 
-    /// TS: InkDaemon.checkTaskLink (`That worktree is gone; pick another`, `That session is gone or now works in a
-    /// worktree; pick another`, `That work belongs to another repository`).
-    pub async fn check_task_link(&self, key: &str, link: &TaskLink) -> Result<()> {
-        let sessions: Vec<Ordered<SessionRecord>> = match link {
-            TaskLink::Worktree { wt } => {
-                let gone = self
-                    .worktrees
-                    .borrow()
-                    .records
-                    .get(wt)
-                    .is_none_or(|record| truthy(record.deleted_at.as_deref()));
-                if gone {
-                    return Err(DhError::msg("That worktree is gone; pick another"));
-                }
-                self.all_sessions()
-                    .into_iter()
-                    .filter(|session| session.worktree.as_ref().and_then(|worktree| worktree.id.as_ref()) == Some(wt))
-                    .collect()
+    /// The list line `id` is in (the first whose file names it).
+    pub fn key_of_line(&self, id: &str) -> Option<String> {
+        let needle = format!("t={id}");
+        self.notes()
+            .entries(NoteKind::Tasks)
+            .into_iter()
+            .find(|(_, list)| list.text.contains(&needle) && TaskList::parse(&list.text).get(id).is_some())
+            .map(|(key, _)| key)
+    }
+
+    /// The line session `s` is on, and the key of its list.
+    pub fn session_line(&self, s: &str) -> Option<(String, deckhand_core::task_list::Line)> {
+        let needle = format!("s={s}");
+        self.notes()
+            .entries(NoteKind::Tasks)
+            .into_iter()
+            .filter(|(_, list)| list.text.contains(&needle))
+            .find_map(|(key, list)| {
+                TaskList::parse(&list.text)
+                    .line_of_session(s)
+                    .cloned()
+                    .map(|line| (key, line))
+            })
+    }
+
+    /// A line's note or brief, a scratchpad or a session's note, as the store has it now.
+    pub fn work_note(&self, kind: WorkNoteKind, id: &str) -> WorkNote {
+        let note = note(store_kind(kind), id);
+        let stored = self.notes().get(&note);
+        let (text, from, at) = match kind {
+            WorkNoteKind::Brief => {
+                let brief = parse_brief(&stored.text);
+                (brief.text, brief.from, brief.at)
             }
-            TaskLink::Session { s } => match self.get_session(s) {
-                Some(session) if worktree_id(&session).is_none() => vec![session],
-                _ => {
-                    return Err(DhError::msg(
-                        "That session is gone or now works in a worktree; pick another",
-                    ));
-                }
-            },
+            _ => (stored.text, None, None),
         };
-        for session in sessions {
-            if self.tasks_key_for(&session.repo_root).await.ok().as_deref() == Some(key) {
-                return Ok(());
-            }
+        WorkNote {
+            kind,
+            id: id.to_owned(),
+            path: path_text(&note_file_path(&note)),
+            text,
+            revision: stored.revision,
+            too_large: only_true(stored.too_large),
+            from,
+            at,
         }
-        Err(DhError::msg("That work belongs to another repository"))
     }
 
-    /// TS: InkDaemon.tasksDoc.
+    /// The list `key` (without its notes: see [`Daemon::tasks_doc_with_notes`]).
     pub fn tasks_doc(&self, key: &str) -> TasksDoc {
         let id = tasks_note(key);
-        let note = self.notes().get(&id);
+        let list = self.notes().get(&id);
         TasksDoc {
             key: key.to_owned(),
             path: path_text(&note_file_path(&id)),
-            text: note.text,
-            revision: note.revision,
-            too_large: only_true(note.too_large),
+            text: list.text,
+            revision: list.revision,
+            too_large: only_true(list.too_large),
+            notes: None,
         }
     }
 
-    /// TS: InkDaemon.broadcastTasks: `tasks-updated` to the clients showing that list.
-    pub fn broadcast_tasks(&self, key: &str) {
-        let doc = self.tasks_doc(key);
-        let clients: Vec<_> = self
-            .server
+    /// The list `key` with every line note and brief that has text, and its scratchpad (`watch-tasks`).
+    pub fn tasks_doc_with_notes(&self, key: &str) -> TasksDoc {
+        let mut doc = self.tasks_doc(key);
+        let list = TaskList::parse(&doc.text);
+        let mut notes = Vec::new();
+        let mut seen = HashSet::new();
+        for line in list.lines() {
+            if !seen.insert(line.id.clone()) {
+                continue;
+            }
+            for kind in [WorkNoteKind::Line, WorkNoteKind::Brief] {
+                let note = self.work_note(kind, &line.id);
+                if !note.text.is_empty() || note.too_large == Some(true) || note.from.is_some() {
+                    notes.push(note);
+                }
+            }
+        }
+        notes.push(self.work_note(WorkNoteKind::Scratchpad, key));
+        doc.notes = Some(notes);
+        doc
+    }
+
+    /// The clients watching list `key`.
+    fn watchers(&self, key: &str) -> Vec<crate::server::ClientHandle> {
+        self.server
             .borrow()
             .clients
             .values()
             .filter(|client| client.subscription.tasks_key.as_deref() == Some(key))
             .map(|client| client.handle.clone())
-            .collect();
-        for client in clients {
+            .collect()
+    }
+
+    /// `tasks-updated` to the clients watching list `key`.
+    pub fn broadcast_tasks(&self, key: &str) {
+        let doc = self.tasks_doc(key);
+        for client in self.watchers(key) {
             send_message(
                 &client,
                 &ServerMessage::TasksUpdated(TasksUpdated { tasks: doc.clone() }),
@@ -501,7 +368,21 @@ impl Daemon {
         }
     }
 
-    /// TS: InkDaemon.changeTasks: applies `op` to the list as it is on disk now; answers how many tasks changed.
+    /// `work-note-updated` to the clients watching list `key`.
+    pub fn broadcast_work_note(&self, key: &str, kind: WorkNoteKind, id: &str) {
+        let note = self.work_note(kind, id);
+        for client in self.watchers(key) {
+            send_message(
+                &client,
+                &ServerMessage::WorkNoteUpdated(WorkNoteUpdated {
+                    key: key.to_owned(),
+                    note: note.clone(),
+                }),
+            );
+        }
+    }
+
+    /// Applies `op` to list `key` as it is on disk now; answers how many lines changed.
     pub async fn change_tasks(&self, key: &str, op: TaskOp) -> Result<usize> {
         let outcome = self
             .notes()
@@ -516,235 +397,221 @@ impl Daemon {
         Ok(outcome.result)
     }
 
-    /// TS: InkDaemon.changeLinkedTasks: a linked-work op on every list that links that work (failures are logged).
-    pub async fn change_linked_tasks(&self, op: TaskOp) {
-        let link = match &op {
-            TaskOp::Link { link, .. }
-            | TaskOp::TickLinked { link, .. }
-            | TaskOp::ReopenLinked { link, .. }
-            | TaskOp::AbandonLinked { link, .. } => link.clone(),
-            _ => return,
-        };
-        let needle = link_needle(&link);
+    /// A linked-work op for session `s` (tick-linked, reopen-linked, abandon-linked, session-off) on every list that
+    /// has it on a line; failures are logged.
+    pub async fn change_session_lines(&self, s: &str, op: TaskOp) {
+        let needle = format!("s={s}");
         let notes = self.notes();
-        let stems: Vec<String> = notes
+        let keys: Vec<String> = notes
             .entries(NoteKind::Tasks)
             .into_iter()
-            .map(|(stem, _)| stem)
+            .filter(|(_, list)| list.text.contains(&needle))
+            .map(|(key, _)| key)
             .collect();
-        for key in stems {
-            // As a live Map iteration sees it: a list changed meanwhile is read as it is now.
-            if !notes.get(&tasks_note(&key)).text.contains(&needle) {
-                continue;
-            }
-            let changed = match self.change_tasks(&key, op.clone()).await {
-                Ok(changed) => changed,
-                Err(error) => {
-                    self.log(&format!("updating tasks {key} ({}) failed: {error}", op_type(&op)))
+        for key in keys {
+            match self.change_tasks(&key, op.clone()).await {
+                Ok(0) => {}
+                Ok(changed) => {
+                    self.log(&format!("{}: {changed} line(s) of session {s}", op_type(&op)))
                         .await;
-                    0
                 }
-            };
-            if changed > 0 {
-                self.log(&format!("{}: {changed} task(s) of {needle}", op_type(&op)))
-                    .await;
+                Err(error) => {
+                    self.log(&format!("updating list {key} ({}) failed: {error}", op_type(&op)))
+                        .await;
+                }
             }
         }
     }
 
-    /// TS: InkDaemon.syncWorktreeTasks: merged ticks the worktree's task, unmerged reopens it, deleted unmerged sends
-    /// it back to the backlog.
-    pub async fn sync_worktree_tasks(
-        &self,
-        before: Option<&WorktreeRecord>,
-        record: &WorktreeRecord,
-        branch: Option<&str>,
-    ) {
-        let link = TaskLink::Worktree { wt: record.id.clone() };
-        let was_merged = before.is_some_and(|before| truthy(before.merged_at.as_deref()));
-        let merged = truthy(record.merged_at.as_deref());
-        if !was_merged && merged {
-            self.change_linked_tasks(TaskOp::TickLinked {
-                link: link.clone(),
-                auto: TaskAuto::Merge,
-                lift: None,
-                from: None,
-            })
-            .await;
-        } else if was_merged && !merged {
-            self.change_linked_tasks(TaskOp::ReopenLinked {
-                link: link.clone(),
-                auto: TaskAuto::Merge,
-            })
-            .await;
-        }
-        // Idempotent (only open linked tasks change), so a record superseded at join is covered too.
-        if truthy(record.deleted_at.as_deref()) && !merged {
-            self.change_linked_tasks(TaskOp::AbandonLinked {
-                link,
-                tried: branch.map(str::to_owned),
-            })
-            .await;
-        }
-    }
-
-    /// TS: InkDaemon.syncDoneTasks: done on the last session of a task's work ticks it; undone reopens it.
-    pub async fn sync_done_tasks(&self, session: &SessionRecord, done: bool) {
-        // TS worktreeRecordOf: the record of the worktree incarnation the session runs in.
-        let record =
-            worktree_id(session).and_then(|id| self.worktrees.borrow().records.get(id).map(|record| record.id.clone()));
-        let link = match &record {
-            Some(wt) => TaskLink::Worktree { wt: wt.clone() },
-            None => TaskLink::Session { s: session.id.clone() },
-        };
-        if !done {
-            self.change_linked_tasks(TaskOp::ReopenLinked {
-                link,
-                auto: TaskAuto::Done,
-            })
-            .await;
-            return;
-        }
-        let all_done = match &record {
-            Some(wt) => self
-                .all_sessions()
-                .iter()
-                .filter(|other| other.worktree.as_ref().and_then(|worktree| worktree.id.as_ref()) == Some(wt))
-                .all(|other| truthy(other.done_at.as_deref())),
-            None => truthy(session.done_at.as_deref()),
-        };
-        if all_done {
-            self.change_linked_tasks(TaskOp::TickLinked {
-                link,
-                auto: TaskAuto::Done,
-                lift: None,
-                from: None,
-            })
-            .await;
-        }
-    }
-
-    /// TS: InkDaemon.sendOpenNoteItems (`These notes changed meanwhile; try again`): every open item of a note to the
-    /// tasks at once (all or nothing); answers how many were sent.
-    pub async fn send_open_note_items(&self, note: &NoteId, key: &str, options: SendItemsOptions) -> Result<usize> {
-        let notes = self.notes();
-        let stored = notes.get(note);
-        if options
-            .revision
-            .as_ref()
-            .is_some_and(|revision| *revision != stored.revision)
+    /// The line `session` is on, made when it has none (lines on demand): named after it, last under its parent
+    /// session's line when that has one in the same list, else at the top level where `add` puts a line. Answers the
+    /// list's key and the line's ID. Checked and made in one change of the file, so two callers never make two.
+    pub async fn ensure_session_line(&self, session: &SessionRecord) -> Result<(String, String)> {
+        if let Some((key, line)) = self.session_line(&session.id)
+            && !line.id.starts_with('~')
         {
-            return Err(DhError::msg("These notes changed meanwhile; try again"));
-        }
-        let promoted = promote_open_note_lines(&stored.text, &mut new_task_id);
-        if promoted.items.is_empty() {
-            return Ok(0);
-        }
-        let mut added: Vec<String> = Vec::new();
-        let mut sent = Ok(());
-        for item in &promoted.items {
-            let op = add_op(
-                &item.title,
-                Some(&item.id),
-                options.link.clone(),
-                options.from.as_deref(),
-            );
-            if let Err(error) = self.change_tasks(key, op).await {
-                sent = Err(error);
-                break;
-            }
-            added.push(item.id.clone());
-        }
-        if sent.is_ok() {
-            sent = match notes.save(note, &promoted.text, &stored.revision).await {
-                Ok(saved) if !saved.saved => Err(DhError::msg("These notes changed meanwhile; try again")),
-                Ok(saved) => {
-                    if saved.changed {
-                        self.notes_changed(note.kind, &note_file_stem(&note.id));
-                    }
-                    Ok(())
-                }
-                Err(error) => Err(error),
-            };
-        }
-        if let Err(error) = sent {
-            for id in added {
-                let _ = self.change_tasks(key, TaskOp::Remove { id }).await;
-            }
-            return Err(error);
-        }
-        self.log(&format!(
-            "sent {} open note item(s) of {}:{} to tasks",
-            promoted.items.len(),
-            note.kind.as_str(),
-            note.id
-        ))
-        .await;
-        Ok(promoted.items.len())
-    }
-
-    /// TS: InkDaemon.sendWorktreeItemsToBacklog: a worktree note's open items to the backlog, from its branch.
-    pub async fn send_worktree_items_to_backlog(
-        &self,
-        record: Option<&WorktreeRecord>,
-        repo_root: &str,
-        branch: Option<&str>,
-    ) -> Result<usize> {
-        let Some(record) = record else { return Ok(0) };
-        let note = NoteId {
-            kind: NoteKind::Worktree,
-            id: record.id.clone(),
-        };
-        let key = self.tasks_key_for(repo_root).await?;
-        let options = SendItemsOptions {
-            from: branch.filter(|branch| !branch.is_empty()).map(str::to_owned),
-            ..SendItemsOptions::default()
-        };
-        self.send_open_note_items(&note, &key, options).await
-    }
-
-    /// TS: InkDaemon.sendNoteItems (`A` in the Notes view; `This session now shares another note; nothing was sent`).
-    pub async fn send_note_items(&self, message: &SendOpenItems) -> Result<SendOpenItemsResult> {
-        let session = self.require_session(&message.session_id)?;
-        let note = self.note_of(&session, note_section(&message.section))?;
-        if is_shared_section(&message.section) {
-            self.check_shared_note(&session, &note, &message.note_id, "sent")?;
+            return Ok((key, line.id));
         }
         let key = self.tasks_key_for(&session.repo_root).await?;
-        // `revision !== undefined && stored.revision !== revision`: a revision of another type never matches (a NUL
-        // never appears in a revision).
-        let revision = match &message.revision {
-            Loose::Absent => None,
-            Loose::Known(revision) => Some(revision.clone()),
-            Loose::Other(other) => Some(format!("\0{other}")),
+        let s = session.id.clone();
+        let parent_s = session.parent_session_id.clone().filter(|parent| !parent.is_empty());
+        let title = session_line_title(&session.title);
+        let new_id = new_task_id();
+        let now = date::now_ms();
+        let outcome = self
+            .notes()
+            .modify(&tasks_note(&key), move |text| {
+                let list = TaskList::parse(text);
+                if let Some(line) = list.line_of_session(&s) {
+                    if !line.id.starts_with('~') {
+                        return Ok((text.to_owned(), (line.id.clone(), false)));
+                    }
+                    // Not written by Deckhand yet: any op gives every line its ID.
+                    let op = TaskOp::SessionOn {
+                        id: line.id.clone(),
+                        s: s.clone(),
+                    };
+                    let applied = apply_task_op(text, &op, now)?;
+                    let id = TaskList::parse(&applied.text)
+                        .line_of_session(&s)
+                        .map(|line| line.id.clone())
+                        .unwrap_or_default();
+                    return Ok((applied.text, (id, false)));
+                }
+                let parent = parent_s
+                    .as_deref()
+                    .and_then(|parent| list.line_of_session(parent))
+                    .map(|line| line.id.clone());
+                let op = add_line(&title, &new_id, parent, Some(session_link(&s)));
+                let applied = apply_task_op(text, &op, now)?;
+                Ok((applied.text, (new_id.clone(), true)))
+            })
+            .await?;
+        if outcome.changed {
+            self.broadcast_tasks(&key);
+        }
+        let (id, created) = outcome.result;
+        if created {
+            self.log(&format!("a line for session {} ({id})", session.id)).await;
+        }
+        Ok((key, id))
+    }
+
+    /// Appends `text` to line `id`'s note (in list `key`) as a paragraph of its own.
+    pub async fn append_line_note(&self, key: &str, id: &str, text: &str) -> Result<()> {
+        let addition = text.to_owned();
+        let outcome = self
+            .notes()
+            .modify(&note(NoteKind::Line, id), move |current| {
+                Ok((append_paragraph(current, &addition), ()))
+            })
+            .await?;
+        if outcome.changed {
+            self.broadcast_work_note(key, WorkNoteKind::Line, id);
+        }
+        Ok(())
+    }
+
+    /// Writes line `id`'s brief (in list `key`): `text`, written by `from` now.
+    pub async fn write_brief(&self, key: &str, id: &str, text: &str, from: &str) -> Result<()> {
+        let file = format_brief(&Brief {
+            from: Some(from.to_owned()),
+            at: Some(now_iso()),
+            text: text.to_owned(),
+        });
+        let outcome = self
+            .notes()
+            .modify(&note(NoteKind::Brief, id), move |_| Ok((file, ())))
+            .await?;
+        if outcome.changed {
+            self.broadcast_work_note(key, WorkNoteKind::Brief, id);
+        }
+        Ok(())
+    }
+
+    /// Line `id`'s note and brief go to the trash (its line was removed); `label`: its title.
+    async fn retire_line_notes(&self, key: &str, id: &str, label: &str) {
+        let notes = self.notes();
+        for kind in [WorkNoteKind::Line, WorkNoteKind::Brief] {
+            let had = !notes.get(&note(store_kind(kind), id)).text.is_empty();
+            if let Err(error) = notes.remove(&note(store_kind(kind), id), Some(label)).await {
+                self.log(&format!("removing the {kind} of line {id} failed: {error}"))
+                    .await;
+            } else if had {
+                self.broadcast_work_note(key, kind, id);
+            }
+        }
+    }
+
+    /// Where a request's note is, checked: the store's note and the list it belongs to (none for a session's note).
+    /// `That line is no longer in the list`, `Invalid note`.
+    fn locate_note(&self, note_ref: &NoteRef) -> Result<(NoteId, Option<String>)> {
+        let id = note_ref.id.as_str();
+        let key = match note_ref.kind {
+            WorkNoteKind::Session => {
+                self.require_session(id)?;
+                None
+            }
+            WorkNoteKind::Line | WorkNoteKind::Brief => Some(
+                self.key_of_line(id)
+                    .ok_or_else(|| DhError::msg("That line is no longer in the list"))?,
+            ),
+            WorkNoteKind::Scratchpad if is_list_key(id) => Some(id.to_owned()),
+            WorkNoteKind::Scratchpad => return Err(DhError::msg("Invalid note")),
         };
-        let options = SendItemsOptions {
-            revision,
-            ..SendItemsOptions::default()
+        Ok((note(store_kind(note_ref.kind), id), key))
+    }
+
+    /// After a note changed: the sessions showing it hear about it (a session's note), or the clients watching its
+    /// list do.
+    fn note_written(&self, note_ref: &NoteRef, key: Option<&str>) {
+        match key {
+            Some(key) => self.broadcast_work_note(key, note_ref.kind, &note_ref.id),
+            None => self.notes_changed(NoteKind::Session, &note_file_stem(&note_ref.id)),
+        }
+    }
+
+    /// `save-note` (`Invalid note`, `That line is no longer in the list`): revision-checked. A brief keeps who wrote it
+    /// and when (one written here first is `you`'s, now).
+    pub async fn save_note(&self, message: &SaveNote) -> Result<NoteSaveResult> {
+        let (Some(note_ref), Some(text), Some(revision)) = (
+            message.note.known(),
+            message.text.as_deref(),
+            message.revision.as_deref(),
+        ) else {
+            return Err(DhError::msg("Invalid note"));
         };
-        let sent = self.send_open_note_items(&note, &key, options).await?;
-        Ok(SendOpenItemsResult {
-            session: self.require_session(&session.id)?,
-            tasks: self.tasks_doc(&key),
-            sent: i64::try_from(sent).unwrap_or(i64::MAX),
+        let (target, key) = self.locate_note(note_ref)?;
+        let notes = self.notes();
+        let text = match note_ref.kind {
+            WorkNoteKind::Brief => {
+                let current = parse_brief(&notes.get(&target).text);
+                format_brief(&Brief {
+                    from: current.from.or_else(|| Some("you".to_owned())),
+                    at: current.at.or_else(|| Some(now_iso())),
+                    text: text.to_owned(),
+                })
+            }
+            _ => text.to_owned(),
+        };
+        let result = notes.save(&target, &text, revision).await?;
+        if result.changed {
+            self.note_written(note_ref, key.as_deref());
+        }
+        Ok(NoteSaveResult {
+            saved: result.saved,
+            note: self.work_note(note_ref.kind, &note_ref.id),
+            session: match note_ref.kind {
+                WorkNoteKind::Session => Some(self.require_session(&note_ref.id)?),
+                _ => None,
+            },
         })
     }
 
-    /// TS: InkDaemon.promoteNoteItem (`Invalid line`, `Put the cursor on a checklist item (- [ ] …) to send it to
-    /// Tasks`, `That item is already ticked; only open items go to Tasks`): one open item to the backlog.
+    /// `open-note`: the note's file (created when missing), for an editor.
+    pub async fn handle_open_note(&self, request: &OpenNote) -> Result<String> {
+        let note_ref = request.note.known().ok_or_else(|| DhError::msg("Invalid note"))?;
+        let (target, _) = self.locate_note(note_ref)?;
+        Ok(path_text(&self.notes().ensure_file(&target).await?))
+    }
+
+    /// `promote-note-item` (`Invalid note`, `Invalid line`, `These notes changed meanwhile; try again`, `Put the cursor
+    /// on a checklist item (- [ ] …) to make it a line`, `That item is already ticked; only open items become lines`,
+    /// `A brief's checkboxes stay in it`): the checkbox becomes a line, under the note's line (a line's note; a
+    /// session's note: the session's line, made when it has none) or at the end of the backlog (the scratchpad), with
+    /// what was indented under it as its note; it leaves the note.
     pub async fn promote_note_item(&self, message: &PromoteNoteItem) -> Result<PromoteNoteItemResult> {
-        let session = self.require_session(&message.session_id)?;
-        let note = self.note_of(&session, note_section(&message.section))?;
-        if is_shared_section(&message.section) {
-            self.check_shared_note(&session, &note, &message.note_id, "sent")?;
+        let note_ref = message.note.known().ok_or_else(|| DhError::msg("Invalid note"))?;
+        if note_ref.kind == WorkNoteKind::Brief {
+            return Err(DhError::msg("A brief's checkboxes stay in it"));
         }
+        let (target, note_key) = self.locate_note(note_ref)?;
         // `!Number.isInteger(line) || line < 0` (a fraction is refused, not floored).
         let Some(line) = message.line.and_then(|line| usize::try_from(line).ok()) else {
             return Err(DhError::msg("Invalid line"));
         };
         let notes = self.notes();
-        let stored = notes.get(&note);
-        // `stored.revision !== message.revision`: a revision of another type never matches.
+        let stored = notes.get(&target);
         let Some(revision) = message
             .revision
             .as_deref()
@@ -752,342 +619,315 @@ impl Daemon {
         else {
             return Err(DhError::msg("These notes changed meanwhile; try again"));
         };
+        let taken = take_checkbox(&stored.text, line)
+            .ok_or_else(|| DhError::msg("Put the cursor on a checklist item (- [ ] …) to make it a line"))?;
+        if taken.done {
+            return Err(DhError::msg(
+                "That item is already ticked; only open items become lines",
+            ));
+        }
+        let (key, parent) = match note_ref.kind {
+            WorkNoteKind::Session => {
+                let session = self.require_session(&note_ref.id)?;
+                let (key, line) = self.ensure_session_line(&session).await?;
+                (key, Some(line))
+            }
+            WorkNoteKind::Line => (note_key.clone().unwrap_or_default(), Some(note_ref.id.clone())),
+            _ => (note_key.clone().unwrap_or_default(), None),
+        };
         let id = new_task_id();
-        let promoted = promote_note_line(&stored.text, line, &id)
-            .ok_or_else(|| DhError::msg("Put the cursor on a checklist item (- [ ] …) to send it to Tasks"))?;
-        if promoted.done {
-            return Err(DhError::msg("That item is already ticked; only open items go to Tasks"));
-        }
-        let key = self.tasks_key_for(&session.repo_root).await?;
-        // An item sent from a note is work of its own: the backlog (the note's own work's to-dos are its steps).
-        self.change_tasks(&key, add_op(&promoted.title, Some(&id), None, None))
+        self.change_tasks(&key, add_line(&taken.title, &id, parent, None))
             .await?;
-        let saved = notes.save(&note, &promoted.text, revision).await?;
-        if !saved.saved {
-            let _ = self.change_tasks(&key, TaskOp::Remove { id }).await;
-            return Err(DhError::msg("These notes changed meanwhile; try again"));
-        }
+        let saved = notes.save(&target, &taken.text, revision).await;
+        let saved = match saved {
+            Ok(saved) if saved.saved => saved,
+            other => {
+                let _ = self.change_tasks(&key, TaskOp::Remove { id: id.clone() }).await;
+                return match other {
+                    Err(error) => Err(error),
+                    Ok(_) => Err(DhError::msg("These notes changed meanwhile; try again")),
+                };
+            }
+        };
         if saved.changed {
-            self.notes_changed(note.kind, &note_file_stem(&note.id));
+            self.note_written(note_ref, note_key.as_deref());
+        }
+        if !taken.note.is_empty() {
+            self.append_line_note(&key, &id, &taken.note).await?;
         }
         Ok(PromoteNoteItemResult {
-            session: self.require_session(&session.id)?,
             tasks: self.tasks_doc(&key),
+            line_id: id,
+            note: self.work_note(note_ref.kind, &note_ref.id),
+            session: match note_ref.kind {
+                WorkNoteKind::Session => Some(self.require_session(&note_ref.id)?),
+                _ => None,
+            },
         })
     }
 
-    /// The open task `task_id` of list `key` (`That task is no longer in the list`, `That task is done; space reopens
-    /// it`).
-    fn open_task(&self, key: &str, task_id: &str) -> Result<Task> {
-        let task = parse_tasks(&self.notes().get(&tasks_note(key)).text)
+    /// Sessions working in worktree record `wt`.
+    fn sessions_of_record(&self, wt: &str) -> Vec<Ordered<SessionRecord>> {
+        self.all_sessions()
             .into_iter()
-            .find(|item| item.id == task_id)
-            .ok_or_else(|| DhError::msg("That task is no longer in the list"))?;
-        if task.done {
-            return Err(DhError::msg("That task is done; space reopens it"));
-        }
-        Ok(task)
+            .filter(|session| worktree_id(session) == Some(wt))
+            .collect()
     }
 
-    /// Takes task `task_id` out of list `key` after its note was written; if that fails, the note is put back.
-    async fn remove_task_after_note(&self, key: &str, task_id: &str, note: &NoteId, before: &str) -> Result<()> {
-        let Err(error) = self.change_tasks(key, TaskOp::Remove { id: task_id.to_owned() }).await else {
-            return Ok(());
+    /// Open lines directly under the lines of the sessions in worktree `wt`: what a merge lifts out of them.
+    pub fn open_steps_of_worktree(&self, wt: &str) -> usize {
+        self.sessions_of_record(wt)
+            .iter()
+            .filter_map(|session| self.session_line(&session.id))
+            .map(|(key, line)| {
+                self.task_list(&key)
+                    .children(&line.id)
+                    .iter()
+                    .filter(|step| !step.done)
+                    .count()
+            })
+            .sum()
+    }
+
+    /// The lines of the sessions in the worktree follow its record: merged ticks them (`auto=merge`), lifting their
+    /// open steps out beside them marked with the branch (unless the merge asked to keep them,
+    /// [`NotesTasksState::keep_open_steps`]); a stacked worktree's lines sit under its parent's, so the roll-up ticks
+    /// that when they were its last open lines. Unmerged reopens them; deleted unmerged unhooks them, marked `tried`.
+    pub async fn sync_worktree_tasks(
+        &self,
+        before: Option<&WorktreeRecord>,
+        record: &WorktreeRecord,
+        branch: Option<&str>,
+    ) {
+        let sessions = self.sessions_of_record(&record.id);
+        let was_merged = before.is_some_and(|before| truthy(before.merged_at.as_deref()));
+        let merged = truthy(record.merged_at.as_deref());
+        let from = branch.filter(|branch| !branch.is_empty()).map(str::to_owned);
+        if !was_merged && merged {
+            let keep = self.notes_tasks.borrow_mut().keep_open_steps.remove(&record.id);
+            for session in &sessions {
+                let op = TaskOp::TickLinked {
+                    link: session_link(&session.id),
+                    auto: TaskAuto::Merge,
+                    lift: (!keep).then_some(true),
+                    from: from.clone(),
+                };
+                self.change_session_lines(&session.id, op).await;
+            }
+        } else if was_merged && !merged {
+            for session in &sessions {
+                let op = TaskOp::ReopenLinked {
+                    link: session_link(&session.id),
+                    auto: TaskAuto::Merge,
+                };
+                self.change_session_lines(&session.id, op).await;
+            }
+        }
+        // Idempotent (only open lines someone is on change), so a record saved again changes nothing.
+        if truthy(record.deleted_at.as_deref()) && !merged {
+            for session in &sessions {
+                let op = TaskOp::AbandonLinked {
+                    link: session_link(&session.id),
+                    tried: from.clone(),
+                };
+                self.change_session_lines(&session.id, op).await;
+            }
+        }
+    }
+
+    /// Done (`space`) ticks the session's line (`auto=done`); undone reopens it.
+    pub async fn sync_done_tasks(&self, session: &SessionRecord, done: bool) {
+        let link = session_link(&session.id);
+        let op = if done {
+            TaskOp::TickLinked {
+                link,
+                auto: TaskAuto::Done,
+                lift: None,
+                from: None,
+            }
+        } else {
+            TaskOp::ReopenLinked {
+                link,
+                auto: TaskAuto::Done,
+            }
         };
-        let notes = self.notes();
-        let now = notes.get(note);
-        if notes.save(note, before, &now.revision).await?.changed {
-            self.notes_changed(note.kind, &note_file_stem(&note.id));
-        }
-        Err(error)
+        self.change_session_lines(&session.id, op).await;
     }
 
-    /// TS: InkDaemon.taskToWorkNote (`That task is no longer in the list`, `That task is done; space reopens it`,
-    /// `Invalid work`, `Its note changed meanwhile; try again`): the task becomes an item of its work's note.
-    pub async fn task_to_work_note(&self, cwd: &str, task_id: &str, section: &str) -> Result<TasksDoc> {
-        let key = self.tasks_key_for(cwd).await?;
-        let task = self.open_task(&key, task_id)?;
-        let link = link_of_key(section).ok_or_else(|| DhError::msg("Invalid work"))?;
-        self.check_task_link(&key, &link).await?;
-        let note = match &link {
-            TaskLink::Worktree { wt } => NoteId {
-                kind: NoteKind::Worktree,
-                id: wt.clone(),
+    /// A session leaves the list for good (it is removed): its line, when open, is unhooked and marked `tried` (the
+    /// branch, unless its worktree was merged); a ticked one just loses it. The line stays where it is.
+    pub async fn release_session_line(&self, session: &SessionRecord) {
+        let merged = session
+            .worktree
+            .as_ref()
+            .is_some_and(|worktree| truthy(worktree.merged_at.as_deref()));
+        let tried = if merged { None } else { worktree_branch(session) };
+        self.change_session_lines(
+            &session.id,
+            TaskOp::AbandonLinked {
+                link: session_link(&session.id),
+                tried,
             },
-            TaskLink::Session { s } => session_note(s),
-        };
-        let notes = self.notes();
-        let stored = notes.get(&note);
-        // Sent from this very note: its ↗ line becomes the item again, rather than a second copy at the end.
-        let text = match find_note_task_link(&stored.text, task_id) {
-            Some(line) => return_task_to_note(&stored.text, line, &task)?,
-            None => append_note_item(&stored.text, &task.title, &task.body),
-        };
-        let saved = notes.save(&note, &text, &stored.revision).await?;
-        if !saved.saved {
-            return Err(DhError::msg("Its note changed meanwhile; try again"));
-        }
-        if saved.changed {
-            self.notes_changed(note.kind, &note_file_stem(&note.id));
-        }
-        self.remove_task_after_note(&key, task_id, &note, &stored.text).await?;
-        Ok(self.tasks_doc(&key))
-    }
-
-    /// TS: InkDaemon.migrateFollowUpTasks: at start, open tasks assigned to live work move into its note as items.
-    pub async fn migrate_follow_up_tasks(&self, sessions: &[Ordered<SessionRecord>]) {
-        // `sessions.find(item => item.id === link.s)`: the first with that ID decides.
-        let mut main_checkout: HashMap<String, bool> = HashMap::new();
-        for session in sessions {
-            main_checkout
-                .entry(session.id.clone())
-                .or_insert_with(|| worktree_id(session).is_none());
-        }
-        let main_checkout = Rc::new(main_checkout);
-        let notes = self.notes();
-        let stems: Vec<String> = notes
-            .entries(NoteKind::Tasks)
-            .into_iter()
-            .map(|(stem, _)| stem)
-            .collect();
-        for stem in stems {
-            let tasks = tasks_note(&stem);
-            let has_note = self.follow_up_notes(&main_checkout);
-            let Some(migrated) = migrate_follow_ups(&notes.get(&tasks).text, &|link| has_note(link)) else {
-                continue;
-            };
-            let moved = async {
-                for item in &migrated.moved {
-                    let note = match &item.link {
-                        TaskLink::Worktree { wt } => NoteId {
-                            kind: NoteKind::Worktree,
-                            id: wt.clone(),
-                        },
-                        TaskLink::Session { s } => session_note(s),
-                    };
-                    let (title, body) = (item.title.clone(), item.body.clone());
-                    notes
-                        .modify(&note, move |text| Ok((append_note_item(text, &title, &body), ())))
-                        .await?;
-                }
-                // Again on the file as it is (the same text at start), so nothing in it is lost.
-                let has_note = self.follow_up_notes(&main_checkout);
-                notes
-                    .modify(&tasks, move |text| {
-                        let next = migrate_follow_ups(text, &|link| has_note(link))
-                            .map_or_else(|| text.to_owned(), |migrated| migrated.text);
-                        Ok((next, ()))
-                    })
-                    .await?;
-                Ok::<(), DhError>(())
-            }
+        )
+        .await;
+        self.change_session_lines(&session.id, TaskOp::SessionOff { s: session.id.clone() })
             .await;
-            match moved {
-                Ok(()) => {
-                    self.log(&format!(
-                        "moved {} follow-up task(s) of {stem} into their notes as steps",
-                        migrated.moved.len()
-                    ))
-                    .await;
-                }
-                Err(error) => {
-                    self.log(&format!("migrating the follow-ups of {stem} failed: {error}"))
-                        .await;
-                }
-            }
-        }
     }
 
-    /// migrateFollowUpTasks `noteOf(link) !== undefined`: a worktree while its record is live, a main-checkout
-    /// session's own (as the records are now).
-    fn follow_up_notes(&self, main_checkout: &Rc<HashMap<String, bool>>) -> impl Fn(&TaskLink) -> bool + 'static {
-        let live: HashSet<String> = self
-            .worktrees
-            .borrow()
-            .records
-            .values()
-            .filter(|record| !truthy(record.deleted_at.as_deref()))
-            .map(|record| record.id.clone())
-            .collect();
-        let main_checkout = Rc::clone(main_checkout);
-        move |link: &TaskLink| match link {
-            TaskLink::Worktree { wt } => live.contains(wt),
-            TaskLink::Session { s } => main_checkout.get(s).copied().unwrap_or(false),
-        }
-    }
-
-    /// TS: InkDaemon.returnTaskToNote (`Some work is for that task; it stays a task (w: the backlog first)`, `No note
-    /// links to that task any more (...)`, `Its worktree was deleted: that note is read-only`).
-    pub async fn return_task_to_note(&self, cwd: &str, task_id: &str) -> Result<TasksDoc> {
-        let key = self.tasks_key_for(cwd).await?;
-        let task = self.open_task(&key, task_id)?;
-        if is_linked(&task) {
-            return Err(DhError::msg(
-                "Some work is for that task; it stays a task (w: the backlog first)",
-            ));
-        }
-        let origin = self.task_origin(&key, task_id).await.ok_or_else(|| {
-            DhError::msg("No note links to that task any more (its session was removed, or the ↗ line was edited)")
-        })?;
-        if origin.read_only {
-            return Err(DhError::msg("Its worktree was deleted: that note is read-only"));
-        }
-        let notes = self.notes();
-        let stored = notes.get(&origin.note);
-        // A link that is gone is refused by returnTaskToNote (line -1 in TS).
-        let line = find_note_task_link(&stored.text, task_id).unwrap_or(usize::MAX);
-        let text = return_task_to_note(&stored.text, line, &task)?;
-        let saved = notes.save(&origin.note, &text, &stored.revision).await?;
-        if !saved.saved {
-            return Err(DhError::msg("Its note changed meanwhile; try again"));
-        }
-        if saved.changed {
-            self.notes_changed(origin.note.kind, &note_file_stem(&origin.note.id));
-        }
-        self.remove_task_after_note(&key, task_id, &origin.note, &stored.text)
-            .await?;
-        Ok(self.tasks_doc(&key))
-    }
-
-    /// TS: InkDaemon.taskOrigin: the note of a session of this repository that links to task `id`.
-    pub async fn task_origin(&self, key: &str, id: &str) -> Option<TaskOrigin> {
-        let notes = self.notes();
-        for session in self.all_sessions() {
-            let mut candidates = vec![TaskOrigin {
-                note: session_note(&session.id),
-                read_only: false,
-            }];
-            if let Some(shared) = shared_note_identity(&session) {
-                candidates.push(TaskOrigin {
-                    note: NoteId {
-                        kind: shared_kind(shared.kind),
-                        id: shared.id,
-                    },
-                    read_only: session
-                        .shared_notes
-                        .as_ref()
-                        .is_some_and(|notes| notes.read_only == Some(true)),
-                });
-            }
-            let found = candidates
-                .into_iter()
-                .find(|origin| find_note_task_link(&notes.get(&origin.note).text, id).is_some());
-            if let Some(found) = found
-                && self.tasks_key_for(&session.repo_root).await.ok().as_deref() == Some(key)
-            {
-                return Some(found);
-            }
-        }
-        None
-    }
-
-    /// TS: InkDaemon.moveOpenNoteItems (`kill the session before removing it`): before removing a session, the open
-    /// items of its notes go to the backlog.
-    pub async fn move_open_note_items(&self, session_id: &str) -> Result<()> {
+    /// Before removing a session (`remove`'s `moveNote`; `kill the session before removing it`): what is still open
+    /// in its note goes to the end of its line's note, the line made for it when it has none.
+    pub async fn move_session_note_to_line(&self, session_id: &str) -> Result<()> {
         let session = self.require_session(session_id)?;
-        // Checked here too, so items are never copied for a removal that is then refused.
         if self.launch.borrow().workers.contains_key(session_id) || session.status == SessionStatus::Running {
             return Err(DhError::msg("kill the session before removing it"));
         }
-        let worktree = worktree_id(&session).map(str::to_owned);
-        let last_in_worktree = worktree.as_deref().filter(|worktree| {
-            !self.all_sessions().iter().any(|other| {
-                other.id != session_id
-                    && other.worktree.as_ref().and_then(|record| record.id.as_deref()) == Some(*worktree)
-            })
-        });
-        let branch = worktree_branch(&session);
-        let notes = self.notes();
-        let mut items = open_note_items(Some(&notes.get(&session_note(session_id)).text));
-        if let Some(worktree) = last_in_worktree {
-            let note = NoteId {
-                kind: NoteKind::Worktree,
-                id: worktree.to_owned(),
-            };
-            items.extend(open_note_items(Some(&notes.get(&note).text)));
-        }
-        if items.is_empty() {
+        let open = open_note_text(&self.notes().get(&session_note(session_id)).text);
+        if open.is_empty() {
             return Ok(());
         }
-        let key = self.tasks_key_for(&session.repo_root).await?;
-        // As when a worktree's work ends: backlog tasks left open in its branch (the notes go to the trash, so no ↗
-        // links).
-        for title in &items {
-            self.change_tasks(&key, add_op(title, None, None, branch.as_deref()))
-                .await?;
-        }
-        self.log(&format!(
-            "moved {} open note item(s) of {} to tasks",
-            items.len(),
-            session.title
-        ))
-        .await;
+        let (key, line) = self.ensure_session_line(&session).await?;
+        let title = self.session_path(&session);
+        self.append_line_note(&key, &line, &format!("From the note of session {title}:\n\n{open}"))
+            .await?;
+        self.log(&format!("moved the open note of {title} into its line's note ({line})"))
+            .await;
         Ok(())
     }
 
-    /// TS: InkDaemon.notesChanged: every session showing the note is re-projected and broadcast (a task list:
-    /// `tasks-updated`).
+    /// What a handoff says about the line the session is on: its title, steps, brief and note.
+    pub fn handoff_task(&self, session: &SessionRecord) -> Option<HandoffTask> {
+        let (key, line) = self.session_line(&session.id)?;
+        let steps = self
+            .task_list(&key)
+            .children(&line.id)
+            .iter()
+            .map(|step| HandoffStep {
+                title: step.title.clone(),
+                done: step.done,
+            })
+            .collect();
+        let brief = self.work_note(WorkNoteKind::Brief, &line.id);
+        Some(HandoffTask {
+            title: line.title.clone(),
+            body: self.work_note(WorkNoteKind::Line, &line.id).text,
+            done: line.done,
+            steps,
+            brief: (!brief.text.trim().is_empty()).then_some(HandoffBrief {
+                text: brief.text,
+                from: brief.from,
+                at: brief.at,
+            }),
+        })
+    }
+
+    /// A note's file changed (a save, or an editor): the sessions showing a session's note are re-projected and
+    /// broadcast; a list goes out as `tasks-updated`; a line's note or brief, or a scratchpad, as `work-note-updated`.
     pub fn notes_changed(&self, kind: NoteKind, stem: &str) {
-        if kind == NoteKind::Tasks {
-            self.broadcast_tasks(stem);
-            return;
-        }
-        // Notes are not in state.json, so nothing is persisted.
-        for session in self.all_sessions() {
-            let shows = if kind == NoteKind::Session {
-                note_file_stem(&session.id) == stem
-            } else {
-                shared_note_identity(&session)
-                    .is_some_and(|shared| shared_kind(shared.kind) == kind && note_file_stem(&shared.id) == stem)
-            };
-            if !shows {
-                continue;
+        match kind {
+            NoteKind::Tasks => self.broadcast_tasks(stem),
+            NoteKind::Session => {
+                // Notes are not in state.json, so nothing is persisted.
+                for session in self.all_sessions() {
+                    if note_file_stem(&session.id) == stem {
+                        self.set_session(session.clone());
+                        self.broadcast_session_updated(&session);
+                    }
+                }
             }
-            self.set_session(session.clone());
-            self.broadcast_session_updated(&session);
+            NoteKind::Line | NoteKind::Brief => {
+                let kind = if kind == NoteKind::Line {
+                    WorkNoteKind::Line
+                } else {
+                    WorkNoteKind::Brief
+                };
+                if let Some(key) = self.key_of_line(stem) {
+                    self.broadcast_work_note(&key, kind, stem);
+                }
+            }
+            NoteKind::Repo => self.broadcast_work_note(stem, WorkNoteKind::Scratchpad, stem),
+            // The old model's: read only by the work-items migration.
+            NoteKind::Worktree => {}
         }
     }
 
-    /// TS: handleRequest `open-note`: the note's file (created when missing), for an editor.
-    pub async fn handle_open_note(&self, request: &OpenNote) -> Result<String> {
-        let session = self.require_session(&request.session_id)?;
-        let note = self.note_of(&session, note_section(&request.section))?;
-        Ok(path_text(&self.notes().ensure_file(&note).await?))
-    }
-
-    /// TS: handleRequest `watch-tasks`: the client now shows that repository's list.
+    /// `watch-tasks`: the client now shows that repository's list; answered with its notes.
     pub async fn handle_watch_tasks(&self, conn: &Connection, request: &CwdRequest) -> Result<TasksDoc> {
         let key = self.tasks_key_for_request(&request.cwd).await?;
         self.get_client(&conn.client, |client| client.tasks_key = Some(key.clone()));
-        Ok(self.tasks_doc(&key))
+        Ok(self.tasks_doc_with_notes(&key))
     }
 
-    /// TS: handleRequest `task-op`: the repository's list first, then tasks.ts clientTaskOp on the op exactly as the
-    /// client sent it (its texts and order: `Invalid repository path` before `Unknown task change`).
+    /// `task-op`: the repository's list first, then the op as the client sent it (`Invalid repository path` before
+    /// `Unknown task change`).
     pub async fn handle_task_op(&self, request: &TaskOpRequest) -> Result<TasksDoc> {
         let key = self.tasks_key_for_request(&request.cwd).await?;
         self.apply_client_task_op(&key, &request.op).await
     }
 
-    /// TS: handleRequest `task-op` body: the list for `cwd`, then clientTaskOp on the op exactly as the client sent
-    /// it (`raw`), the link check, and the change.
+    /// `task-op`'s body on the list of `cwd`'s repository.
     pub async fn handle_client_task_op(&self, cwd: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
         let key = self.tasks_key_for(cwd).await?;
         self.apply_client_task_op(&key, raw).await
     }
 
-    /// clientTaskOp, the link check and the change, on list `key`.
-    async fn apply_client_task_op(&self, key: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
-        let key = key.to_owned();
-        let op = client_task_op(raw)?;
-        if let TaskOp::Add { link: Some(link), .. } | TaskOp::Assign { link: Some(link), .. } = &op {
-            self.check_task_link(&key, link).await?;
+    /// Session `s` of this repository (`That session is gone`, `That session belongs to another repository`).
+    async fn session_of_list(&self, key: &str, s: &str) -> Result<Ordered<SessionRecord>> {
+        let session = self
+            .get_session(s)
+            .ok_or_else(|| DhError::msg("That session is gone"))?;
+        if self.tasks_key_for(&session.repo_root).await.ok().as_deref() != Some(key) {
+            return Err(DhError::msg("That session belongs to another repository"));
         }
-        self.change_tasks(&key, op).await?;
-        Ok(self.tasks_doc(&key))
+        Ok(session)
     }
 
-    /// TS: handleRequest `open-tasks`: the list's file (created when missing).
+    /// A client's op on list `key`: `{type: "session-line", s}` makes session `s`'s line when it has none (lines on
+    /// demand: before a client writes a step or a note for it); anything else is checked by `client_task_op`. An
+    /// add's `note` (text) becomes the new line's note; a `session-on`'s session must be of this repository; a
+    /// removed line's note and brief go to the trash with it.
+    async fn apply_client_task_op(&self, key: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
+        let field = |name: &str| raw.get(name).and_then(serde_json::Value::as_str);
+        if field("type") == Some("session-line") {
+            let s = field("s")
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| DhError::msg("Invalid task change: s"))?;
+            let session = self.session_of_list(key, s).await?;
+            self.ensure_session_line(&session).await?;
+            return Ok(self.tasks_doc(key));
+        }
+        let mut op = client_task_op(raw)?;
+        let mut added = None;
+        let mut removed: Vec<(String, String)> = Vec::new();
+        match &mut op {
+            TaskOp::Add { id, .. } => {
+                let new_id = new_task_id();
+                *id = Some(new_id.clone());
+                added = Some(new_id);
+            }
+            TaskOp::SessionOn { s, .. } => {
+                self.session_of_list(key, s).await?;
+            }
+            TaskOp::Remove { id } => {
+                removed = self
+                    .task_list(key)
+                    .subtree(id)
+                    .iter()
+                    .map(|line| (line.id.clone(), line.title.clone()))
+                    .collect();
+            }
+            _ => {}
+        }
+        self.change_tasks(key, op).await?;
+        for (id, title) in &removed {
+            self.retire_line_notes(key, id, title).await;
+        }
+        if let (Some(id), Some(note)) = (added, field("note").filter(|note| !note.trim().is_empty())) {
+            self.append_line_note(key, &id, note).await?;
+        }
+        Ok(self.tasks_doc(key))
+    }
+
+    /// `open-tasks`: the list's file (created when missing).
     pub async fn handle_open_tasks(&self, request: &CwdRequest) -> Result<String> {
         let key = self.tasks_key_for_request(&request.cwd).await?;
         Ok(path_text(&self.notes().ensure_file(&tasks_note(&key)).await?))
@@ -1098,6 +938,7 @@ impl Daemon {
 mod tests {
     use super::*;
     use crate::server::tests::{local, session, test_client, test_daemon};
+    use deckhand_core::task_list::Line;
     use serde_json::{Value, json};
     use std::sync::MutexGuard;
 
@@ -1182,881 +1023,744 @@ mod tests {
         serde_json::from_value(value).unwrap()
     }
 
-    fn worktree_session(id: &str, root: &str, wt: &str) -> Ordered<SessionRecord> {
-        record(
-            id,
-            root,
-            json!({"status": "exited", "worktree": {"mode": "managed", "path": format!("{root}-{wt}"), "branch": format!("b-{wt}"), "id": wt}}),
-        )
-    }
-
-    fn keys(session: &Ordered<SessionRecord>) -> Vec<String> {
-        match serde_json::to_value(session).unwrap() {
-            Value::Object(map) => map.keys().cloned().collect(),
-            _ => Vec::new(),
+    /// An exited session in worktree record `wt` (branch `b-<wt>`), with `extra`.
+    fn in_worktree(id: &str, root: &str, wt: &str, extra: Value) -> Ordered<SessionRecord> {
+        let mut fields = json!({"status": "exited", "worktree": {"mode": "managed", "origin": "created",
+            "path": format!("{root}-{wt}"), "branch": format!("b-{wt}"), "id": wt}});
+        if let (Value::Object(map), Value::Object(extra)) = (&mut fields, extra) {
+            map.extend(extra);
         }
+        record(id, root, fields)
     }
 
-    fn titles(doc: &TasksDoc) -> Vec<String> {
-        parse_tasks(&doc.text).into_iter().map(|task| task.title).collect()
-    }
-
-    fn task_op(cwd: &str, op: TaskOp) -> TaskOpRequest {
+    fn op(cwd: &str, op: Value) -> TaskOpRequest {
         TaskOpRequest {
             request_id: "r".to_owned(),
             cwd: cwd.into(),
-            op: serde_json::to_value(&op).unwrap(),
+            op,
         }
     }
 
-    fn add(title: &str) -> TaskOp {
-        add_op(title, None, None, None)
+    fn note_ref(kind: WorkNoteKind, id: &str) -> Loose<NoteRef> {
+        Loose::Known(NoteRef {
+            kind,
+            id: id.to_owned(),
+        })
     }
 
-    fn save(session: &str, section: NoteSection, text: &str, revision: &str, note_id: Option<&str>) -> SaveNote {
+    fn save(kind: WorkNoteKind, id: &str, text: &str, revision: &str) -> SaveNote {
         SaveNote {
             request_id: "r".to_owned(),
-            session_id: session.to_owned(),
-            section: section.into(),
-            note_id: note_id.map_or(Loose::Absent, Loose::from),
+            note: note_ref(kind, id),
             text: Some(text.to_owned()),
             revision: Some(revision.to_owned()),
         }
     }
 
-    fn find(daemon: &Daemon, key: &str, title: &str) -> Task {
-        parse_tasks(&daemon.tasks_doc(key).text)
-            .into_iter()
-            .find(|task| task.title == title)
-            .unwrap()
+    fn promote(kind: WorkNoteKind, id: &str, line: i64, revision: &str) -> PromoteNoteItem {
+        PromoteNoteItem {
+            request_id: "r".to_owned(),
+            note: note_ref(kind, id),
+            line: Some(line),
+            revision: Some(revision.to_owned()),
+        }
     }
 
-    #[test]
-    fn projected_notes_follow_the_session_and_its_shared_note() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let notes = NotesStore::new(|_, _| {});
-        let mut records = WorktreeRecords::new();
-        // A main-checkout session shares the repository note; the keys follow the session's own.
-        let projected = project_notes(record("a", "/repo", json!({})), &records, &notes);
-        assert_eq!(projected.notes.as_deref(), Some(""));
-        let file = projected.notes_file.clone().unwrap();
-        assert_eq!(file.path, path_text(&note_file_path(&session_note("a"))));
-        assert_eq!(file.too_large, None);
-        let shared = projected.shared_notes.clone().unwrap();
-        assert_eq!(shared.kind, SharedNoteKind::Repo);
-        assert_eq!(shared.id, repo_note_id("/repo"));
-        assert_eq!(shared.read_only, None);
-        let order = keys(&projected);
-        assert_eq!(&order[order.len() - 3..], ["notes", "notesFile", "sharedNotes"]);
-        // Keys the session already had keep their place.
-        let held: Ordered<SessionRecord> = serde_json::from_value(json!({
-            "id": "b", "notes": "old", "title": "b", "program": "claude", "command": "claude", "cwd": "/repo",
-            "repoRoot": "/repo", "status": "exited", "createdAt": "x", "updatedAt": "x",
-        }))
-        .unwrap();
-        let projected = project_notes(held, &records, &notes);
-        assert_eq!(keys(&projected)[..2], ["id", "notes"]);
-        assert_eq!(projected.notes.as_deref(), Some(""));
-        // A worktree's note is read-only without a live record.
-        let in_worktree = worktree_session("c", "/repo", "w1");
-        let projected = project_notes(in_worktree.clone(), &records, &notes);
-        let shared = projected.shared_notes.clone().unwrap();
-        assert_eq!(
-            (shared.kind, shared.id.as_str(), shared.read_only),
-            (SharedNoteKind::Worktree, "w1", Some(true))
-        );
-        records.insert("w1".to_owned(), worktree_record("w1", "/repo-w1", json!({})));
-        let projected = project_notes(in_worktree.clone(), &records, &notes);
-        assert_eq!(projected.shared_notes.clone().unwrap().read_only, None);
-        records.insert(
-            "w1".to_owned(),
-            worktree_record("w1", "/repo-w1", json!({"deletedAt": "2026-01-02"})),
-        );
-        let projected = project_notes(in_worktree, &records, &notes);
-        assert_eq!(projected.shared_notes.clone().unwrap().read_only, Some(true));
+    fn line(daemon: &Daemon, key: &str, title: &str) -> Line {
+        daemon
+            .task_list(key)
+            .lines()
+            .iter()
+            .find(|line| line.title == title)
+            .cloned()
+            .unwrap_or_else(|| panic!("no line {title} in\n{}", daemon.tasks_doc(key).text))
     }
 
+    fn titles_under(daemon: &Daemon, key: &str, id: &str) -> Vec<String> {
+        daemon
+            .task_list(key)
+            .children(id)
+            .iter()
+            .map(|line| line.title.clone())
+            .collect()
+    }
+
+    fn received(rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>) -> Vec<Value> {
+        std::iter::from_fn(|| rx.try_recv().ok())
+            .map(|line| serde_json::from_str(&line).unwrap())
+            .collect()
+    }
+
+    fn empty() -> String {
+        deckhand_core::notes::note_revision("")
+    }
+
+    /// A session's record carries its own note and nothing shared: the worktree and main-checkout notes became line
+    /// notes and the scratchpad.
     #[test]
-    fn saves_are_revision_checked_and_checked_against_the_shared_note() {
+    fn a_sessions_projection_carries_only_its_own_note() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         local(async {
             let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("a", "/repo", json!({"status": "exited"})));
-            let revision = daemon.get_session("a").unwrap().notes_file.clone().unwrap().revision;
-            let saved = daemon
-                .save_note(&save("a", NoteSection::Session, "hello", &revision, None))
+            let notes = daemon.notes();
+            notes
+                .save(&session_note("s1"), "remember the tests", &empty())
                 .await
                 .unwrap();
-            assert!(saved.saved);
-            assert_eq!(saved.session.notes.as_deref(), Some("hello"));
-            let file = saved.session.notes_file.clone().unwrap();
-            assert_eq!(std::fs::read_to_string(&file.path).unwrap(), "hello");
-            // A stale save writes nothing.
-            let stale = daemon
-                .save_note(&save("a", NoteSection::Session, "lost", &revision, None))
-                .await
-                .unwrap();
-            assert!(!stale.saved);
-            assert_eq!(stale.session.notes.as_deref(), Some("hello"));
-            // The shared note: the one the UI showed.
-            let shared = saved.session.shared_notes.clone().unwrap();
-            let error = daemon
-                .save_note(&save(
-                    "a",
-                    NoteSection::Shared,
-                    "x",
-                    &shared.revision,
-                    Some("repo:other"),
-                ))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "This session now shares another note; nothing was saved"
-            );
-            let note_id = format!("repo:{}", shared.id);
-            let saved = daemon
-                .save_note(&save(
-                    "a",
-                    NoteSection::Shared,
-                    "shared",
-                    &shared.revision,
-                    Some(&note_id),
-                ))
-                .await
-                .unwrap();
-            assert!(saved.saved);
-            assert_eq!(saved.session.shared_notes.clone().unwrap().text, "shared");
-            // A session in a worktree writes in its worktree's note, read-only once the worktree is gone.
-            daemon.set_session(worktree_session("w", "/repo", "w1"));
-            let error = daemon
-                .save_note(&save("w", NoteSection::Session, "x", &revision, None))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "A session in a worktree writes in the worktree’s note (shared by its sessions)"
-            );
-            let held = daemon.get_session("w").unwrap();
-            let shared_revision = held.shared_notes.clone().unwrap().revision;
-            let error = daemon
-                .save_note(&save("w", NoteSection::Shared, "x", &shared_revision, None))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "Its worktree was deleted: the worktree note is read-only"
-            );
-            let mut preparing = record("p", "/repo", json!({"status": "starting"}));
-            preparing.shared_notes = None;
-            daemon.sessions.borrow_mut().sessions.insert("p".to_owned(), preparing);
-            let error = daemon
-                .save_note(&save("p", NoteSection::Shared, "x", &revision, None))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "This session has no worktree note yet: its worktree is not ready"
-            );
-            let error = daemon
-                .save_note(&save("gone", NoteSection::Session, "x", &revision, None))
-                .await
-                .unwrap_err();
-            assert_eq!(error.to_string(), "Session does not exist");
+            let projected = project_notes(in_worktree("s1", "/repo", "w1", json!({})), &notes);
+            assert_eq!(projected.notes.as_deref(), Some("remember the tests"));
+            let file = projected.notes_file.clone().unwrap();
+            assert!(file.path.ends_with("notes/sessions/s1.md"), "{}", file.path);
+            assert_eq!(file.revision, deckhand_core::notes::note_revision("remember the tests"));
+            assert_eq!(projected.shared_notes, None);
+            let value = serde_json::to_value(&projected).unwrap();
+            assert!(value.get("sharedNotes").is_none());
         });
     }
 
+    /// `watch-tasks` answers the list with its line notes, briefs and scratchpad; afterwards a note's change reaches
+    /// the watchers as that one note (`work-note-updated`), and a list's change as `tasks-updated` without notes.
     #[test]
-    fn an_edit_outside_deckhand_reprojects_and_broadcasts_the_sessions_showing_it() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("a", "/repo", json!({"status": "exited"})));
-            daemon.set_session(record("b", "/repo", json!({"status": "exited"})));
-            let (client, mut rx) = test_client(1);
-            daemon.get_client(&client, |subscription| {
-                subscription.repo_root = Some("/repo".to_owned());
-            });
-            let note = session_note("a");
-            std::fs::write(note_file_path(&note), "from the editor").unwrap();
-            // The store re-reads it (as its watcher would) and tells the daemon.
-            daemon
-                .notes()
-                .modify(&note, |text| Ok((text.to_owned(), ())))
-                .await
-                .unwrap();
-            daemon.notes_changed(NoteKind::Session, "a");
-            assert_eq!(
-                daemon.get_session("a").unwrap().notes.as_deref(),
-                Some("from the editor")
-            );
-            let message: Value = serde_json::from_str(&rx.try_recv().unwrap()).unwrap();
-            assert_eq!(message["type"], "session-updated");
-            assert_eq!(message["session"]["id"], "a");
-            assert_eq!(message["session"]["notes"], "from the editor");
-            assert!(rx.try_recv().is_err());
-            // The repository note is shown by both.
-            let shared = daemon.get_session("a").unwrap().shared_notes.clone().unwrap();
-            daemon.notes_changed(NoteKind::Repo, &shared.id);
-            let ids: Vec<Value> = std::iter::from_fn(|| rx.try_recv().ok())
-                .map(|line| serde_json::from_str::<Value>(&line).unwrap()["session"]["id"].clone())
-                .collect();
-            assert_eq!(ids, [json!("a"), json!("b")]);
-        });
-    }
-
-    #[test]
-    fn task_ops_change_the_file_and_reach_watching_clients() {
+    fn watching_a_list_gets_its_notes_once_then_each_change() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         let root = repo(&dir.path().join("repo"));
         local(async {
             let daemon = daemon(dir.path()).await;
-            assert_eq!(
-                daemon.tasks_key_for("").await.unwrap_err().to_string(),
-                "Invalid repository path"
-            );
+            let doc = daemon
+                .handle_task_op(&op(
+                    &root,
+                    json!({"type": "add", "title": "Parked", "note": "Why it waits"}),
+                ))
+                .await
+                .unwrap();
+            assert!(doc.notes.is_none(), "a change's answer leaves the notes out");
+            let key = doc.key.clone();
+            let parked = line(&daemon, &key, "Parked");
+            daemon
+                .write_brief(&key, &parked.id, "What it is for", "you")
+                .await
+                .unwrap();
             let (client, mut rx) = test_client(1);
             let conn = Connection::new(client);
-            let request = CwdRequest {
-                request_id: "r".to_owned(),
-                cwd: root.clone().into(),
-            };
-            let watched = daemon.handle_watch_tasks(&conn, &request).await.unwrap();
-            assert_eq!(watched.key, repo_note_id(&root));
-            assert_eq!(watched.text, "");
-            daemon.handle_task_op(&task_op(&root, add("First task"))).await.unwrap();
-            let doc = daemon
-                .handle_task_op(&task_op(&root, add("Second task")))
-                .await
-                .unwrap();
-            assert_eq!(doc.path, path_text(&note_file_path(&tasks_note(&doc.key))));
-            assert_eq!(titles(&doc), ["First task", "Second task"]);
-            let pushed: Vec<Value> = std::iter::from_fn(|| rx.try_recv().ok())
-                .map(|line| serde_json::from_str(&line).unwrap())
-                .collect();
-            assert_eq!(pushed.len(), 2);
-            assert_eq!(pushed[1]["type"], "tasks-updated");
-            assert_eq!(pushed[1]["tasks"]["text"], json!(doc.text));
-            let first = find(&daemon, &doc.key, "First task");
-            let link = TaskOp::Link {
-                id: first.id.clone(),
-                link: TaskLink::Session { s: "x".to_owned() },
-            };
-            let refused = daemon.handle_task_op(&task_op(&root, link)).await.unwrap_err();
-            assert_eq!(refused.to_string(), "Unknown task change");
-            let gone = daemon
-                .handle_task_op(&task_op(&root, TaskOp::Toggle { id: "gone".to_owned() }))
-                .await
-                .unwrap_err();
-            assert!(gone.to_string().contains("no longer in the list"));
-            // Work of no session, or of another repository, is refused.
-            let assign = |link: TaskLink| TaskOp::Assign {
-                id: first.id.clone(),
-                link: Some(link),
-            };
-            let error = daemon
-                .handle_task_op(&task_op(&root, assign(TaskLink::Session { s: "nobody".to_owned() })))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "That session is gone or now works in a worktree; pick another"
-            );
-            let elsewhere = dir.path().join("elsewhere");
-            std::fs::create_dir_all(&elsewhere).unwrap();
-            daemon.set_session(record("elsewhere", elsewhere.to_str().unwrap(), json!({})));
-            let error = daemon
-                .handle_task_op(&task_op(
-                    &root,
-                    assign(TaskLink::Session {
-                        s: "elsewhere".to_owned(),
-                    }),
-                ))
-                .await
-                .unwrap_err();
-            assert_eq!(error.to_string(), "That work belongs to another repository");
-            let error = daemon
-                .handle_task_op(&task_op(&root, assign(TaskLink::Worktree { wt: "w9".to_owned() })))
-                .await
-                .unwrap_err();
-            assert_eq!(error.to_string(), "That worktree is gone; pick another");
-            daemon.set_session(record("here", &root, json!({})));
-            let doc = daemon
-                .handle_task_op(&task_op(&root, assign(TaskLink::Session { s: "here".to_owned() })))
-                .await
-                .unwrap();
-            assert_eq!(find(&daemon, &doc.key, "First task").meta.s.as_deref(), Some("here"));
-            let linked = daemon.linked_tasks_of(&daemon.get_session("here").unwrap());
-            assert_eq!(linked.len(), 1);
-            assert_eq!(linked[0].title, "First task");
-            // A linked worktree of the same repository shares the list.
-            let other = dir.path().join("other");
-            git(
-                Path::new(&root),
-                &["worktree", "add", "-q", "-b", "other", other.to_str().unwrap()],
-            );
-            assert_eq!(daemon.tasks_key_for(other.to_str().unwrap()).await.unwrap(), doc.key);
-            assert_eq!(daemon.handle_open_tasks(&request).await.unwrap(), doc.path);
-            // Not a repository: the lookup fails and is forgotten.
-            assert!(daemon.tasks_key_for(elsewhere.to_str().unwrap()).await.is_err());
-            tokio::task::yield_now().await;
-            assert!(
-                !daemon
-                    .notes_tasks
-                    .borrow()
-                    .tasks_keys
-                    .contains_key(&path::resolve(elsewhere.to_str().unwrap()))
-            );
-        });
-    }
-
-    /// TS daemon.ts task-op runs clientTaskOp on `message.op` as parsed from the line: a null or malformed link is
-    /// refused (not dropped), a non-true `after` and a non-string `body` are ignored, a missing title is named.
-    #[test]
-    fn a_task_op_is_checked_as_the_client_sent_it() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("here", &root, json!({})));
-            let send = |op: Value| {
-                let daemon = &daemon;
-                let root = root.clone();
-                async move { daemon.handle_client_task_op(&root, &op).await }
-            };
-            let doc = send(json!({"type": "add", "title": "First", "link": {"s": "here"}}))
-                .await
-                .unwrap();
-            let first = find(&daemon, &doc.key, "First");
-            assert_eq!(first.meta.s.as_deref(), Some("here"));
-            let refused = [
-                json!({"type": "assign", "id": first.id, "link": null}),
-                json!({"type": "assign", "id": first.id, "link": {"s": "here", "wt": null}}),
-                json!({"type": "assign", "id": first.id, "link": {"s": "here", "wt": "w1"}}),
-                json!({"type": "add", "title": "x", "link": null}),
-                json!({"type": "add", "title": "x", "link": {"wt": "w1", "s": "s1"}}),
-            ];
-            for op in refused {
-                let error = send(op.clone()).await.unwrap_err();
-                assert_eq!(error.to_string(), "Invalid task change: link", "{op}");
-            }
-            // Nothing changed: the task is still linked and nothing was added.
-            let first = find(&daemon, &doc.key, "First");
-            assert_eq!(first.meta.s.as_deref(), Some("here"));
-            assert_eq!(titles(&daemon.tasks_doc(&doc.key)), ["First"]);
-            let error = send(json!({"type": "add"})).await.unwrap_err();
-            assert_eq!(error.to_string(), "Invalid task change: title");
-            let error = send(json!({"type": "edit", "id": first.id, "title": "t", "body": 5}))
-                .await
-                .unwrap_err();
-            assert_eq!(error.to_string(), "Invalid task change: body");
-            let error = send(json!({"type": "nope"})).await.unwrap_err();
-            assert_eq!(error.to_string(), "Unknown task change");
-            let error = send(json!("add")).await.unwrap_err();
-            assert_eq!(error.to_string(), "Unknown task change");
-            // A non-string body and a non-true `after` are ignored, as in TS.
-            let doc = send(json!({"type": "add", "title": "Second", "body": 5}))
-                .await
-                .unwrap();
-            assert_eq!(titles(&doc), ["First", "Second"]);
-            let second = find(&daemon, &doc.key, "Second");
-            assert_eq!(second.body, "");
-            let doc = send(json!({"type": "move", "id": second.id, "target": first.id, "after": 1}))
-                .await
-                .unwrap();
-            assert_eq!(titles(&doc), ["Second", "First"]);
-            // An explicit unassign (no `link` key) still clears the link.
-            send(json!({"type": "assign", "id": first.id})).await.unwrap();
-            assert_eq!(find(&daemon, &doc.key, "First").meta.s, None);
-        });
-    }
-
-    #[test]
-    fn a_checklist_item_goes_to_tasks_and_back_and_open_items_move_at_removal() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("s", &root, json!({"status": "exited"})));
-            let revision = daemon.get_session("s").unwrap().notes_file.clone().unwrap().revision;
-            let text = "scratch\n- [ ] Promote me\n- [x] Ticked\n- [ ] Keep me";
-            let saved = daemon
-                .save_note(&save("s", NoteSection::Session, text, &revision, None))
-                .await
-                .unwrap();
-            let revision = saved.session.notes_file.clone().unwrap().revision;
-            let promote = |line: i64, revision: &str| PromoteNoteItem {
-                request_id: "r".to_owned(),
-                session_id: "s".to_owned(),
-                section: NoteSection::Session.into(),
-                line: Some(line),
-                revision: Some(revision.to_owned()),
-                note_id: Loose::Absent,
-            };
-            let error = daemon.promote_note_item(&promote(0, &revision)).await.unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "Put the cursor on a checklist item (- [ ] …) to send it to Tasks"
-            );
-            let error = daemon.promote_note_item(&promote(2, &revision)).await.unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "That item is already ticked; only open items go to Tasks"
-            );
-            let error = daemon.promote_note_item(&promote(1, "stale")).await.unwrap_err();
-            assert_eq!(error.to_string(), "These notes changed meanwhile; try again");
-            let error = daemon.promote_note_item(&promote(-1, &revision)).await.unwrap_err();
-            assert_eq!(error.to_string(), "Invalid line");
-            let promoted = daemon.promote_note_item(&promote(1, &revision)).await.unwrap();
-            let key = promoted.tasks.key.clone();
-            let task = find(&daemon, &key, "Promote me");
-            assert_eq!((task.meta.s.as_deref(), task.meta.wt.as_deref()), (None, None));
-            assert_eq!(
-                promoted.session.notes.as_deref().unwrap(),
-                format!(
-                    "scratch\n- ↗ Promote me <!-- dh:t={} -->\n- [x] Ticked\n- [ ] Keep me",
-                    task.id
-                )
-            );
-            // And back: the ↗ line becomes the item again (with the task's details), and the task leaves the list.
-            let edit = TaskOp::Edit {
-                id: task.id.clone(),
-                title: "Promote me".to_owned(),
-                body: "details".to_owned(),
-            };
-            daemon.handle_task_op(&task_op(&root, edit)).await.unwrap();
-            let returned = daemon.return_task_to_note(&root, &task.id).await.unwrap();
-            assert!(parse_tasks(&returned.text).is_empty());
-            assert_eq!(
-                daemon.get_session("s").unwrap().notes.as_deref(),
-                Some("scratch\n- [ ] Promote me\n  details\n- [x] Ticked\n- [ ] Keep me")
-            );
-            let error = daemon.return_task_to_note(&root, &task.id).await.unwrap_err();
-            assert_eq!(error.to_string(), "That task is no longer in the list");
-            daemon
-                .handle_task_op(&task_op(&root, add("Second task")))
-                .await
-                .unwrap();
-            let second = find(&daemon, &key, "Second task");
-            let error = daemon.return_task_to_note(&root, &second.id).await.unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "No note links to that task any more (its session was removed, or the ↗ line was edited)"
-            );
-            // Before a removal, its open items can go to the backlog (not while it runs).
-            daemon.set_session(record("r", &root, json!({"status": "running"})));
-            let error = daemon.move_open_note_items("r").await.unwrap_err();
-            assert_eq!(error.to_string(), "kill the session before removing it");
-            daemon.move_open_note_items("s").await.unwrap();
-            let tasks = parse_tasks(&daemon.tasks_doc(&key).text);
-            let moved: Vec<(&str, Option<&str>)> = tasks
-                .iter()
-                .map(|task| (task.title.as_str(), task.meta.from.as_deref()))
-                .collect();
-            assert_eq!(moved, [("Second task", None), ("Promote me", None), ("Keep me", None)]);
-            assert!(tasks.iter().all(|task| task.body.is_empty()));
-            // A worktree's last session also takes its worktree's open items, from its branch.
-            daemon
-                .worktrees
-                .borrow_mut()
-                .records
-                .insert("w1".to_owned(), worktree_record("w1", "/x", json!({})));
-            daemon.set_session(worktree_session("w", &root, "w1"));
-            let note = NoteId {
-                kind: NoteKind::Worktree,
-                id: "w1".to_owned(),
-            };
-            let notes = daemon.notes();
-            notes
-                .save(&note, "- [ ] Left open", &notes.get(&note).revision)
-                .await
-                .unwrap();
-            daemon.move_open_note_items("w").await.unwrap();
-            assert_eq!(find(&daemon, &key, "Left open").meta.from.as_deref(), Some("b-w1"));
-        });
-    }
-
-    #[test]
-    fn every_open_item_of_a_note_goes_at_once() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("s", &root, json!({"status": "exited"})));
-            let shared = daemon.get_session("s").unwrap().shared_notes.clone().unwrap();
-            let text = "- [ ] One\n- [x] Done\n- [ ] Two\n";
-            let saved = daemon
-                .save_note(&save("s", NoteSection::Shared, text, &shared.revision, None))
-                .await
-                .unwrap();
-            let revision = saved.session.shared_notes.clone().unwrap().revision;
-            let send = |revision: &str, note_id: Option<&str>| SendOpenItems {
-                request_id: "r".to_owned(),
-                session_id: "s".to_owned(),
-                section: NoteSection::Shared.into(),
-                revision: revision.into(),
-                note_id: note_id.map_or(Loose::Absent, Loose::from),
-            };
-            let error = daemon.send_note_items(&send("stale", None)).await.unwrap_err();
-            assert_eq!(error.to_string(), "These notes changed meanwhile; try again");
-            let error = daemon
-                .send_note_items(&send(&revision, Some("worktree:x")))
-                .await
-                .unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "This session now shares another note; nothing was sent"
-            );
-            let sent = daemon.send_note_items(&send(&revision, None)).await.unwrap();
-            assert_eq!(sent.sent, 2);
-            assert_eq!(titles(&sent.tasks), ["One", "Two"]);
-            let tasks = parse_tasks(&sent.tasks.text);
-            assert_eq!(
-                sent.session.shared_notes.clone().unwrap().text,
-                format!(
-                    "- ↗ One <!-- dh:t={} -->\n- [x] Done\n- ↗ Two <!-- dh:t={} -->\n",
-                    tasks[0].id, tasks[1].id
-                )
-            );
-            // Nothing open any more: nothing sent.
-            let revision = sent.session.shared_notes.clone().unwrap().revision;
-            assert_eq!(daemon.send_note_items(&send(&revision, None)).await.unwrap().sent, 0);
-            // A task returns to the shared note it came from.
-            daemon.return_task_to_note(&root, &tasks[1].id).await.unwrap();
-            assert_eq!(
-                daemon.get_session("s").unwrap().shared_notes.clone().unwrap().text,
-                format!("- ↗ One <!-- dh:t={} -->\n- [x] Done\n- [ ] Two\n", tasks[0].id)
-            );
-            // A worktree's note goes to the backlog from its branch; no record: nothing.
-            let record = worktree_record("w1", "/x", json!({}));
-            let note = NoteId {
-                kind: NoteKind::Worktree,
-                id: "w1".to_owned(),
-            };
-            let notes = daemon.notes();
-            notes
-                .save(&note, "- [ ] Step", &notes.get(&note).revision)
-                .await
-                .unwrap();
-            assert_eq!(
-                daemon
-                    .send_worktree_items_to_backlog(None, &root, Some("b"))
-                    .await
-                    .unwrap(),
-                0
-            );
-            let sent = daemon
-                .send_worktree_items_to_backlog(Some(&record), &root, Some("b"))
-                .await
-                .unwrap();
-            assert_eq!(sent, 1);
-            assert_eq!(
-                find(&daemon, &sent_key(&daemon, &root).await, "Step")
-                    .meta
-                    .from
-                    .as_deref(),
-                Some("b")
-            );
-        });
-    }
-
-    async fn sent_key(daemon: &Daemon, root: &str) -> String {
-        daemon.tasks_key_for(root).await.unwrap()
-    }
-
-    #[test]
-    fn merges_and_done_tick_linked_tasks_and_deleted_work_goes_back_to_the_backlog() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            let key = daemon.tasks_key_for(&root).await.unwrap();
-            let wt = TaskLink::Worktree { wt: "w1".to_owned() };
-            daemon
-                .change_tasks(&key, add_op("Worktree task", None, Some(wt), None))
-                .await
-                .unwrap();
-            let main_link = TaskLink::Session { s: "m".to_owned() };
-            daemon
-                .change_tasks(&key, add_op("Session task", None, Some(main_link), None))
-                .await
-                .unwrap();
-            let open = worktree_record("w1", "/x", json!({}));
-            let merged = worktree_record("w1", "/x", json!({"mergedAt": "2026-01-02T00:00:00.000Z"}));
-            daemon.sync_worktree_tasks(Some(&open), &merged, Some("b1")).await;
-            let ticked = find(&daemon, &key, "Worktree task");
-            assert!(ticked.done);
-            assert_eq!(ticked.meta.auto, Some(TaskAuto::Merge));
-            daemon.sync_worktree_tasks(Some(&merged), &open, Some("b1")).await;
-            assert!(!find(&daemon, &key, "Worktree task").done);
-            let deleted = worktree_record("w1", "/x", json!({"deletedAt": "2026-01-03T00:00:00.000Z"}));
-            daemon.sync_worktree_tasks(Some(&open), &deleted, Some("b1")).await;
-            let back = find(&daemon, &key, "Worktree task");
-            assert_eq!(
-                (back.meta.wt.as_deref(), back.meta.tried.as_deref()),
-                (None, Some("b1"))
-            );
-            // Done on a main-checkout session ticks its task; undone reopens it.
-            let main = record("m", &root, json!({"doneAt": "2026-01-02T00:00:00.000Z"}));
-            daemon.sync_done_tasks(&main, true).await;
-            let done = find(&daemon, &key, "Session task");
-            assert!(done.done);
-            assert_eq!(done.meta.auto, Some(TaskAuto::Done));
-            daemon.sync_done_tasks(&main, false).await;
-            assert!(!find(&daemon, &key, "Session task").done);
-            // A worktree's task is ticked once every session there is done.
-            let shared_work = TaskLink::Worktree { wt: "w2".to_owned() };
-            daemon
-                .change_tasks(&key, add_op("Shared work", None, Some(shared_work), None))
-                .await
-                .unwrap();
-            daemon
-                .worktrees
-                .borrow_mut()
-                .records
-                .insert("w2".to_owned(), worktree_record("w2", "/y", json!({})));
-            let mut first = worktree_session("a", &root, "w2");
-            first.done_at = Some("2026-01-02T00:00:00.000Z".to_owned());
-            daemon.set_session(first.clone());
-            daemon.set_session(worktree_session("b", &root, "w2"));
-            daemon.sync_done_tasks(&first, true).await;
-            assert!(!find(&daemon, &key, "Shared work").done);
-            let mut second = worktree_session("b", &root, "w2");
-            second.done_at = Some("2026-01-02T00:00:00.000Z".to_owned());
-            daemon.set_session(second.clone());
-            daemon.sync_done_tasks(&second, true).await;
-            assert!(find(&daemon, &key, "Shared work").done);
-        });
-    }
-
-    #[test]
-    fn w_onto_work_puts_the_task_into_its_note() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            daemon.set_session(record("s", &root, json!({"status": "exited"})));
-            let key = daemon.tasks_key_for(&root).await.unwrap();
-            daemon.change_tasks(&key, add("Step")).await.unwrap();
-            let step = find(&daemon, &key, "Step");
-            let edit = TaskOp::Edit {
-                id: step.id.clone(),
-                title: "Step".to_owned(),
-                body: "why".to_owned(),
-            };
-            daemon.change_tasks(&key, edit).await.unwrap();
-            let error = daemon.task_to_work_note(&root, &step.id, "nonsense").await.unwrap_err();
-            assert_eq!(error.to_string(), "Invalid work");
-            let error = daemon.task_to_work_note(&root, "gone", "s:s").await.unwrap_err();
-            assert_eq!(error.to_string(), "That task is no longer in the list");
-            let doc = daemon.task_to_work_note(&root, &step.id, "s:s").await.unwrap();
-            assert!(parse_tasks(&doc.text).is_empty());
-            assert_eq!(
-                daemon.get_session("s").unwrap().notes.as_deref(),
-                Some("- [ ] Step\n  why\n")
-            );
-            // A done task stays.
-            daemon.change_tasks(&key, add("Finished")).await.unwrap();
-            let finished = find(&daemon, &key, "Finished");
-            daemon
-                .change_tasks(
-                    &key,
-                    TaskOp::Toggle {
-                        id: finished.id.clone(),
+            let watched = daemon
+                .handle_watch_tasks(
+                    &conn,
+                    &CwdRequest {
+                        request_id: "r".into(),
+                        cwd: root.clone().into(),
                     },
                 )
                 .await
                 .unwrap();
-            let error = daemon.task_to_work_note(&root, &finished.id, "s:s").await.unwrap_err();
-            assert_eq!(error.to_string(), "That task is done; space reopens it");
-            let error = daemon.return_task_to_note(&root, &finished.id).await.unwrap_err();
-            assert_eq!(error.to_string(), "That task is done; space reopens it");
-            // Work started for a task keeps it.
-            let linked = TaskLink::Session { s: "s".to_owned() };
-            daemon
-                .change_tasks(&key, add_op("Linked", None, Some(linked), None))
+            let notes = watched.notes.unwrap();
+            let summary: Vec<(WorkNoteKind, String, String)> = notes
+                .iter()
+                .map(|note| (note.kind, note.id.clone(), note.text.clone()))
+                .collect();
+            assert_eq!(
+                summary,
+                [
+                    (WorkNoteKind::Line, parked.id.clone(), "Why it waits\n".to_owned()),
+                    (WorkNoteKind::Brief, parked.id.clone(), "What it is for\n".to_owned()),
+                    (WorkNoteKind::Scratchpad, key.clone(), String::new()),
+                ]
+            );
+            assert_eq!(notes[1].from.as_deref(), Some("you"));
+            assert!(notes[2].path.ends_with(&format!("notes/repos/{key}.md")));
+            // One note changes: only it goes out.
+            let saved = daemon
+                .save_note(&save(
+                    WorkNoteKind::Line,
+                    &parked.id,
+                    "Why it waits, really",
+                    &notes[0].revision,
+                ))
                 .await
                 .unwrap();
-            let linked = find(&daemon, &key, "Linked");
-            let error = daemon.return_task_to_note(&root, &linked.id).await.unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "Some work is for that task; it stays a task (w: the backlog first)"
-            );
+            assert!(saved.saved && saved.session.is_none());
+            assert_eq!(saved.note.text, "Why it waits, really");
+            let pushed = received(&mut rx);
+            assert_eq!(pushed.len(), 1, "{pushed:?}");
+            assert_eq!(pushed[0]["type"], "work-note-updated");
+            assert_eq!(pushed[0]["key"], key.as_str());
+            assert_eq!(pushed[0]["note"]["kind"], "line");
+            assert_eq!(pushed[0]["note"]["text"], "Why it waits, really");
+            // The scratchpad is the repository's, by its list key.
+            let scratch = daemon
+                .save_note(&save(
+                    WorkNoteKind::Scratchpad,
+                    &key,
+                    "- [ ] someday",
+                    &notes[2].revision,
+                ))
+                .await
+                .unwrap();
+            assert!(scratch.saved);
+            let pushed = received(&mut rx);
+            assert_eq!(pushed[0]["note"]["kind"], "scratchpad");
+            daemon
+                .handle_task_op(&op(&root, json!({"type": "tick", "id": parked.id})))
+                .await
+                .unwrap();
+            let pushed = received(&mut rx);
+            assert_eq!(pushed.len(), 1);
+            assert_eq!(pushed[0]["type"], "tasks-updated");
+            assert!(pushed[0]["tasks"].get("notes").is_none());
         });
     }
 
+    /// The ops a client sends: lines added under lines with a note, retitled, ticked with the roll-up, moved and
+    /// reordered; a removed line's note and brief go to the trash with it; a session goes on a line only of its own
+    /// repository; the old model's ops are refused.
     #[test]
-    fn at_start_worktree_session_notes_merge_and_follow_ups_become_steps() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        local(async {
-            let daemon = daemon(dir.path()).await;
-            let notes = daemon.notes();
-            for (id, text) in [("a", "note of a"), ("b", "note of b")] {
-                let note = session_note(id);
-                notes.save(&note, text, &notes.get(&note).revision).await.unwrap();
-            }
-            let mut a = worktree_session("a", "/repo", "w1");
-            a.title = "Alpha".to_owned();
-            let mut b = worktree_session("b", "/repo", "w1");
-            b.title = "Beta".to_owned();
-            b.created_at = "2026-01-02T00:00:00.000Z".to_owned();
-            daemon
-                .merge_worktree_session_notes(&[b.clone(), a.clone()])
-                .await
-                .unwrap();
-            let worktree_note = NoteId {
-                kind: NoteKind::Worktree,
-                id: "w1".to_owned(),
-            };
-            let merged = notes.get(&worktree_note).text;
-            assert!(merged.contains("## Alpha\nnote of a") && merged.contains("## Beta\nnote of b"));
-            assert_eq!(notes.get(&session_note("a")).text, "");
-            assert!(!note_file_path(&session_note("a")).exists());
-            let trash = std::fs::read_dir(deckhand_sys::paths::notes_dir().join("trash"))
-                .unwrap()
-                .count();
-            assert_eq!(trash, 2);
-            // Follow-ups of the old model move into their work's note; one whose work is gone stays, in the backlog.
-            daemon
-                .worktrees
-                .borrow_mut()
-                .records
-                .insert("w1".to_owned(), worktree_record("w1", "/repo-w1", json!({})));
-            let tasks = tasks_note("k");
-            let legacy = "- [ ] Add tests <!-- dh:t=f wt=w1 assigned=2026-10-01 added=2026-10-01 -->\n  details\n- [ ] Gone work <!-- dh:t=g wt=w9 assigned=2026-10-01 -->\n- [ ] Main <!-- dh:t=m s=main assigned=2026-10-01 -->\n";
-            notes.save(&tasks, legacy, &notes.get(&tasks).revision).await.unwrap();
-            let main = record("main", "/repo", json!({}));
-            daemon.migrate_follow_up_tasks(&[main, a]).await;
-            let list = parse_tasks(&notes.get(&tasks).text);
-            assert_eq!(list.len(), 1);
-            assert_eq!(
-                (list[0].title.as_str(), list[0].meta.wt.as_deref()),
-                ("Gone work", None)
-            );
-            assert_eq!(
-                notes.get(&worktree_note).text,
-                format!("{merged}\n- [ ] Add tests\n  details\n")
-            );
-            assert_eq!(notes.get(&session_note("main")).text, "- [ ] Main\n");
-        });
-    }
-
-    #[test]
-    fn a_prompt_replaces_a_tasks_text_and_the_task_is_still_linked() {
-        use crate::daemon::{DaemonOptions, DaemonPaths};
-        use deckhand_protocol::data::{CreateSessionInput, ProgramKey};
-        use std::os::unix::fs::PermissionsExt;
+    fn client_ops_change_the_tree_and_its_notes_follow() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         let root = repo(&dir.path().join("repo"));
         local(async {
-            // A fake agent (its `--help` offers nothing), and a worker that cannot start: the launch fails after the
-            // task is linked, and nothing real runs.
-            let daemon = Daemon::with_paths(
-                DaemonOptions {
-                    worker_exe: Some(dir.path().join("no-worker")),
-                },
-                DaemonPaths {
-                    config_dir: dir.path().to_path_buf(),
-                    socket: dir.path().join("daemon.sock"),
-                    pid_file: dir.path().join("daemon.pid"),
-                    log_file: dir.path().join("daemon.log"),
-                    worker_dir: dir.path().join("workers"),
-                },
-            );
-            daemon.notes().load().await.unwrap();
-            let agent = dir.path().join("claude");
-            std::fs::write(&agent, "#!/bin/sh\nexit 0\n").unwrap();
-            std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o755)).unwrap();
-            daemon
-                .launch
-                .borrow_mut()
-                .program_command_cache
-                .insert(ProgramKey::Claude, agent.to_string_lossy().into_owned());
-            let key = daemon.tasks_key_for(&root).await.unwrap();
-            for title in ["Sent", "Drafted", "Plain"] {
-                let op = TaskOp::Add {
-                    title: title.to_owned(),
-                    body: Some("Its details".to_owned()),
-                    link: None,
-                    id: None,
-                    from: None,
-                    parent: None,
-                    at: None,
-                };
-                daemon.change_tasks(&key, op).await.unwrap();
-            }
-            let create = |title: &str, extra: Value| {
-                let mut input = json!({"title": title, "program": "claude", "cwd": root, "repoRoot": root,
-                    "cols": 80, "rows": 24});
-                if let (Value::Object(map), Value::Object(extra)) = (&mut input, extra) {
-                    map.extend(extra);
-                }
-                let input: CreateSessionInput = serde_json::from_value(input).unwrap();
-                let daemon = daemon.clone();
-                async move { daemon.create_session(input).await.unwrap() }
+            let daemon = daemon(dir.path()).await;
+            let send = |value: Value| {
+                let (daemon, root) = (&daemon, root.clone());
+                async move { daemon.handle_client_task_op(&root, &value).await }
             };
-            let brief = "Fix the login form.\nDone when the tests pass.";
-            // Sent: the prompt is the first message; the task's text is not typed.
-            let sent_task = find(&daemon, &key, "Sent").id;
-            let sent = create("sent", json!({"taskId": sent_task, "prompt": brief})).await;
-            assert_eq!(sent.first_message.as_deref(), Some(brief));
-            assert_eq!(sent.start_prompt, None);
-            // Drafted (`submit: false`): typed as the task's text would be, not sent.
-            let drafted_task = find(&daemon, &key, "Drafted").id;
-            let drafted = create(
-                "drafted",
-                json!({"taskId": drafted_task, "prompt": brief, "submit": false}),
-            )
-            .await;
-            assert_eq!(drafted.start_prompt.as_deref(), Some(brief));
-            assert_eq!(drafted.first_message, None);
-            // A blank prompt is none: the task's own text is the draft.
-            let plain_task = find(&daemon, &key, "Plain").id;
-            let plain = create("plain", json!({"taskId": plain_task, "prompt": "  \n"})).await;
-            assert_eq!(plain.start_prompt.as_deref(), Some("Plain: Its details"));
-            assert_eq!(plain.first_message, None);
-            // Without a task.
-            let alone = create("alone", json!({"prompt": brief, "submit": true})).await;
-            assert_eq!(alone.first_message.as_deref(), Some(brief));
-            // Each task is still this session's work (linked before the launch, which fails here).
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            let launched = |daemon: &Daemon| {
-                [&sent, &drafted, &plain, &alone]
-                    .iter()
-                    .all(|session| daemon.get_session(&session.id).unwrap().status == SessionStatus::Exited)
-            };
-            while !launched(&daemon) && std::time::Instant::now() < deadline {
-                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-            }
-            for (title, session) in [("Sent", &sent), ("Drafted", &drafted), ("Plain", &plain)] {
-                assert_eq!(
-                    find(&daemon, &key, title).meta.s.as_deref(),
-                    Some(session.id.as_str()),
-                    "{title}"
-                );
-            }
-            // The launch got as far as its arguments: the prompt follows `--`, once.
-            let args = daemon.get_session(&sent.id).unwrap().args.clone().unwrap_or_default();
-            assert_eq!(args[args.len() - 2..], ["--".to_owned(), brief.to_owned()]);
-            let args = daemon
-                .get_session(&drafted.id)
+            let doc = send(json!({"type": "add", "title": "Rework auth"})).await.unwrap();
+            let key = doc.key.clone();
+            let idea = line(&daemon, &key, "Rework auth");
+            send(json!({"type": "add", "title": "Token storage", "parent": idea.id}))
+                .await
+                .unwrap();
+            send(json!({"type": "add", "title": "Login UI", "parent": idea.id, "at": 0, "note": "Use the kit"}))
+                .await
+                .unwrap();
+            assert_eq!(titles_under(&daemon, &key, &idea.id), ["Login UI", "Token storage"]);
+            let login = line(&daemon, &key, "Login UI");
+            assert_eq!(daemon.work_note(WorkNoteKind::Line, &login.id).text, "Use the kit\n");
+            send(json!({"type": "retitle", "id": login.id, "title": "Login screen"}))
+                .await
+                .unwrap();
+            send(json!({"type": "reorder", "id": login.id, "down": true}))
+                .await
+                .unwrap();
+            assert_eq!(titles_under(&daemon, &key, &idea.id), ["Token storage", "Login screen"]);
+            // The last open line under a line ticks it (`auto=lines`); reopening one reopens it.
+            let tokens = line(&daemon, &key, "Token storage");
+            send(json!({"type": "tick", "id": tokens.id})).await.unwrap();
+            assert!(!line(&daemon, &key, "Rework auth").done);
+            send(json!({"type": "tick", "id": login.id})).await.unwrap();
+            let rolled = line(&daemon, &key, "Rework auth");
+            assert!(rolled.done && rolled.meta.auto == Some(TaskAuto::Lines));
+            send(json!({"type": "reopen", "id": login.id})).await.unwrap();
+            assert!(!line(&daemon, &key, "Rework auth").done);
+            // Moved to the top level, then removed: its note goes to the trash.
+            send(json!({"type": "move-to", "id": login.id, "parent": null}))
+                .await
+                .unwrap();
+            assert_eq!(line(&daemon, &key, "Login screen").parent, None);
+            send(json!({"type": "remove", "id": login.id})).await.unwrap();
+            assert!(daemon.task_list(&key).get(&login.id).is_none());
+            assert_eq!(daemon.work_note(WorkNoteKind::Line, &login.id).text, "");
+            let trash: Vec<String> = std::fs::read_dir(dir.path().join("notes").join("trash"))
                 .unwrap()
-                .args
-                .clone()
-                .unwrap_or_default();
-            assert!(!args.contains(&brief.to_owned()), "{args:?}");
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            assert!(
+                trash.iter().any(|name| name.contains("_line_login-screen_")),
+                "{trash:?}"
+            );
+            // A session of this repository goes on a line; another repository's, or none, is refused.
+            daemon.set_session(record("here", &root, json!({})));
+            let elsewhere = dir.path().join("elsewhere");
+            std::fs::create_dir_all(&elsewhere).unwrap();
+            daemon.set_session(record("there", elsewhere.to_str().unwrap(), json!({})));
+            let error = send(json!({"type": "session-on", "id": tokens.id, "s": "there"}))
+                .await
+                .unwrap_err();
+            assert_eq!(error.to_string(), "That session belongs to another repository");
+            let error = send(json!({"type": "session-on", "id": tokens.id, "s": "nobody"}))
+                .await
+                .unwrap_err();
+            assert_eq!(error.to_string(), "That session is gone");
+            send(json!({"type": "reopen", "id": tokens.id})).await.unwrap();
+            send(json!({"type": "session-on", "id": tokens.id, "s": "here"}))
+                .await
+                .unwrap();
+            assert_eq!(line(&daemon, &key, "Token storage").meta.s.as_deref(), Some("here"));
+            assert_eq!(
+                daemon.session_line("here").map(|(_, line)| line.id),
+                Some(tokens.id.clone())
+            );
+            send(json!({"type": "session-off", "s": "here"})).await.unwrap();
+            assert!(daemon.session_line("here").is_none());
+            for refused in [
+                json!({"type": "assign", "id": tokens.id, "link": {"s": "here"}}),
+                json!({"type": "edit", "id": tokens.id, "title": "x", "body": "y"}),
+                json!({"type": "link", "id": tokens.id, "link": {"wt": "w1"}}),
+            ] {
+                assert_eq!(send(refused).await.unwrap_err().to_string(), "Unknown task change");
+            }
+            // Nothing written carries a worktree link.
+            assert!(!daemon.tasks_doc(&key).text.contains("wt="));
+        });
+    }
+
+    /// A session has no line until something needs one; then it gets one, named after it, under its parent session's
+    /// line (else at the top level), once.
+    #[test]
+    fn a_session_gets_a_line_only_when_something_needs_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon.set_session(record("parent", &root, json!({"title": "Token storage"})));
+            daemon.set_session(record(
+                "child",
+                &root,
+                json!({"title": "Refresh tokens", "parentSessionId": "parent"}),
+            ));
+            daemon.set_session(record("quick", &root, json!({"title": "Quick look"})));
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            assert!(daemon.session_line("quick").is_none());
+            assert!(
+                daemon.task_list(&key).lines().is_empty(),
+                "no line for sessions with nothing on them"
+            );
+            let send = |value: Value| {
+                let (daemon, root) = (&daemon, root.clone());
+                async move { daemon.handle_client_task_op(&root, &value).await }
+            };
+            send(json!({"type": "session-line", "s": "parent"})).await.unwrap();
+            send(json!({"type": "session-line", "s": "child"})).await.unwrap();
+            send(json!({"type": "session-line", "s": "child"})).await.unwrap();
+            let parent = line(&daemon, &key, "Token storage");
+            let child = line(&daemon, &key, "Refresh tokens");
+            assert_eq!(parent.meta.s.as_deref(), Some("parent"));
+            assert_eq!(parent.parent, None);
+            assert_eq!(child.meta.s.as_deref(), Some("child"));
+            assert_eq!(child.parent.as_deref(), Some(parent.id.as_str()));
+            assert_eq!(daemon.task_list(&key).lines().len(), 2, "made once");
+            // A sub-session whose parent has no line goes to the top level.
+            daemon.set_session(record(
+                "orphan",
+                &root,
+                json!({"title": "Side", "parentSessionId": "quick"}),
+            ));
+            send(json!({"type": "session-line", "s": "orphan"})).await.unwrap();
+            assert_eq!(line(&daemon, &key, "Side").parent, None);
+            let error = send(json!({"type": "session-line"})).await.unwrap_err();
+            assert_eq!(error.to_string(), "Invalid task change: s");
+        });
+    }
+
+    /// Saves are revision-checked for every kind of note; a line's note needs its line; a brief keeps who wrote it and
+    /// when.
+    #[test]
+    fn saves_are_revision_checked_and_a_brief_keeps_its_author() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon.set_session(record("s1", &root, json!({})));
+            let saved = daemon
+                .save_note(&save(WorkNoteKind::Session, "s1", "mine", &empty()))
+                .await
+                .unwrap();
+            assert!(saved.saved);
+            assert_eq!(saved.session.unwrap().notes.as_deref(), Some("mine"));
+            let stale = daemon
+                .save_note(&save(WorkNoteKind::Session, "s1", "theirs", &empty()))
+                .await
+                .unwrap();
+            assert!(!stale.saved);
+            assert_eq!(stale.note.text, "mine");
+            let gone = daemon
+                .save_note(&save(WorkNoteKind::Line, "deadbeef", "x", &empty()))
+                .await
+                .unwrap_err();
+            assert_eq!(gone.to_string(), "That line is no longer in the list");
+            let invalid = daemon
+                .save_note(&save(WorkNoteKind::Scratchpad, "../x", "x", &empty()))
+                .await
+                .unwrap_err();
+            assert_eq!(invalid.to_string(), "Invalid note");
+            let bad = SaveNote {
+                note: Loose::Other(json!({"kind": "worktree", "id": "w1"})),
+                ..save(WorkNoteKind::Session, "s1", "x", &empty())
+            };
+            assert_eq!(daemon.save_note(&bad).await.unwrap_err().to_string(), "Invalid note");
+            // A brief written by an orchestrator keeps its author through an edit by hand.
+            let doc = daemon
+                .handle_task_op(&op(&root, json!({"type": "add", "title": "Token storage"})))
+                .await
+                .unwrap();
+            let id = line(&daemon, &doc.key, "Token storage").id;
+            daemon
+                .write_brief(&doc.key, &id, "Store them encrypted", "◎ Orchestrator")
+                .await
+                .unwrap();
+            let brief = daemon.work_note(WorkNoteKind::Brief, &id);
+            let edited = daemon
+                .save_note(&save(
+                    WorkNoteKind::Brief,
+                    &id,
+                    "Store them encrypted, at rest",
+                    &brief.revision,
+                ))
+                .await
+                .unwrap();
+            assert!(edited.saved);
+            assert_eq!(edited.note.text, "Store them encrypted, at rest\n");
+            assert_eq!(edited.note.from.as_deref(), Some("◎ Orchestrator"));
+            assert_eq!(edited.note.at, brief.at);
+            let file = std::fs::read_to_string(dir.path().join("notes/briefs").join(format!("{id}.md"))).unwrap();
+            assert!(file.starts_with("<!-- dh:brief at="), "{file}");
+            // One written by hand here is yours.
+            let doc = daemon
+                .handle_task_op(&op(&root, json!({"type": "add", "title": "Login UI"})))
+                .await
+                .unwrap();
+            let id = line(&daemon, &doc.key, "Login UI").id;
+            let mine = daemon
+                .save_note(&save(WorkNoteKind::Brief, &id, "Use the kit", &empty()))
+                .await
+                .unwrap();
+            assert_eq!(mine.note.from.as_deref(), Some("you"));
+        });
+    }
+
+    /// A note's checkbox becomes a line (`ctrl+p`): under the note's line, under a session's line (made for it), or in
+    /// the backlog from the scratchpad; it leaves the note, and what was indented under it is the new line's note.
+    #[test]
+    fn a_promoted_checkbox_becomes_a_line_where_its_note_belongs() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon.set_session(record("s1", &root, json!({"title": "Fix login"})));
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            let note = "Thinking\n- [ ] Retry setup\n  when trust changes\n- [x] Done already\n";
+            let saved = daemon
+                .save_note(&save(WorkNoteKind::Session, "s1", note, &empty()))
+                .await
+                .unwrap();
+            let promoted = daemon
+                .promote_note_item(&promote(WorkNoteKind::Session, "s1", 1, &saved.note.revision))
+                .await
+                .unwrap();
+            let session_line = line(&daemon, &key, "Fix login");
+            assert_eq!(session_line.meta.s.as_deref(), Some("s1"), "the session got its line");
+            let retry = line(&daemon, &key, "Retry setup");
+            assert_eq!(promoted.line_id, retry.id);
+            assert_eq!(retry.parent.as_deref(), Some(session_line.id.as_str()));
+            assert_eq!(
+                daemon.work_note(WorkNoteKind::Line, &retry.id).text,
+                "when trust changes\n"
+            );
+            assert_eq!(promoted.note.text, "Thinking\n- [x] Done already\n");
+            assert_eq!(
+                promoted.session.unwrap().notes.as_deref(),
+                Some("Thinking\n- [x] Done already\n")
+            );
+            let ticked = daemon
+                .promote_note_item(&promote(WorkNoteKind::Session, "s1", 1, &promoted.note.revision))
+                .await
+                .unwrap_err();
+            assert_eq!(
+                ticked.to_string(),
+                "That item is already ticked; only open items become lines"
+            );
+            let stale = daemon
+                .promote_note_item(&promote(WorkNoteKind::Session, "s1", 1, &empty()))
+                .await
+                .unwrap_err();
+            assert_eq!(stale.to_string(), "These notes changed meanwhile; try again");
+            // From a line's note: under that line.
+            let current = daemon.work_note(WorkNoteKind::Line, &retry.id).revision;
+            let line_note = daemon
+                .save_note(&save(
+                    WorkNoteKind::Line,
+                    &retry.id,
+                    "- [ ] Log it\nwhen trust changes\n",
+                    &current,
+                ))
+                .await
+                .unwrap();
+            assert!(line_note.saved);
+            daemon
+                .promote_note_item(&promote(WorkNoteKind::Line, &retry.id, 0, &line_note.note.revision))
+                .await
+                .unwrap();
+            assert_eq!(titles_under(&daemon, &key, &retry.id), ["Log it"]);
+            // From the scratchpad: the backlog.
+            let scratch = daemon
+                .save_note(&save(
+                    WorkNoteKind::Scratchpad,
+                    &key,
+                    "- [ ] Someday: dark mode\n",
+                    &empty(),
+                ))
+                .await
+                .unwrap();
+            daemon
+                .promote_note_item(&promote(WorkNoteKind::Scratchpad, &key, 0, &scratch.note.revision))
+                .await
+                .unwrap();
+            let someday = line(&daemon, &key, "Someday: dark mode");
+            assert!(someday.parent.is_none() && !someday.is_taken());
+            let brief = daemon
+                .promote_note_item(&promote(WorkNoteKind::Brief, &retry.id, 0, &empty()))
+                .await
+                .unwrap_err();
+            assert_eq!(brief.to_string(), "A brief's checkboxes stay in it");
+        });
+    }
+
+    /// Merging a worktree ticks the line of every session in it and lifts their open steps out beside them, marked
+    /// with the branch, unless the merge keeps them; a stacked worktree's line, under its parent's, rolls it up once
+    /// it was the last open one; unmerging reopens them.
+    #[test]
+    fn merging_ticks_the_worktrees_session_lines_and_rolls_up() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            for (id, path) in [("wp", "parent"), ("wc", "child"), ("wk", "kept")] {
+                let record = worktree_record(id, &format!("{root}-{path}"), json!({}));
+                daemon.worktrees.borrow_mut().records.insert(id.to_owned(), record);
+            }
+            daemon.set_session(in_worktree("parent", &root, "wp", json!({"title": "Token storage"})));
+            daemon.set_session(in_worktree(
+                "child",
+                &root,
+                "wc",
+                json!({"title": "Refresh tokens", "parentSessionId": "parent"}),
+            ));
+            daemon.set_session(in_worktree("kept", &root, "wk", json!({"title": "Kept"})));
+            let send = |value: Value| {
+                let (daemon, root) = (&daemon, root.clone());
+                async move { daemon.handle_client_task_op(&root, &value).await }
+            };
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            for s in ["parent", "child", "kept"] {
+                send(json!({"type": "session-line", "s": s})).await.unwrap();
+            }
+            let parent = line(&daemon, &key, "Token storage");
+            let child = line(&daemon, &key, "Refresh tokens");
+            send(json!({"type": "add", "title": "schema", "parent": parent.id}))
+                .await
+                .unwrap();
+            send(json!({"type": "tick", "id": line(&daemon, &key, "schema").id}))
+                .await
+                .unwrap();
+            send(json!({"type": "add", "title": "rotate keys", "parent": child.id}))
+                .await
+                .unwrap();
+            assert_eq!(daemon.open_steps_of_worktree("wc"), 1);
+            let merged = |id: &str| {
+                let before = daemon.worktrees.borrow().records.get(id).cloned().unwrap();
+                let mut after = before.clone();
+                after.merged_at = Some("2026-11-14T12:00:00.000Z".to_owned());
+                (before, after)
+            };
+            // The child merges into the parent's branch: its line ticks and its open step moves up beside it (under
+            // the parent's line), so the parent's line still has an open line.
+            let (before, after) = merged("wc");
+            daemon.sync_worktree_tasks(Some(&before), &after, Some("b-wc")).await;
+            let child_now = line(&daemon, &key, "Refresh tokens");
+            assert!(child_now.done && child_now.meta.auto == Some(TaskAuto::Merge));
+            let rotate = line(&daemon, &key, "rotate keys");
+            assert_eq!(rotate.parent.as_deref(), Some(parent.id.as_str()));
+            assert_eq!(rotate.meta.from.as_deref(), Some("b-wc"));
+            assert!(!line(&daemon, &key, "Token storage").done);
+            // Its last open line ticked: the parent's line rolls up.
+            send(json!({"type": "tick", "id": rotate.id})).await.unwrap();
+            let rolled = line(&daemon, &key, "Token storage");
+            assert!(rolled.done && rolled.meta.auto == Some(TaskAuto::Lines));
+            // Unmerged: the child's line reopens, and so does the line it rolled up.
+            daemon.sync_worktree_tasks(Some(&after), &before, Some("b-wc")).await;
+            assert!(!line(&daemon, &key, "Refresh tokens").done);
+            assert!(!line(&daemon, &key, "Token storage").done);
+            // A merge that keeps the open steps leaves them under the ticked line.
+            let kept = line(&daemon, &key, "Kept");
+            send(json!({"type": "add", "title": "later", "parent": kept.id}))
+                .await
+                .unwrap();
+            daemon.notes_tasks.borrow_mut().keep_open_steps.insert("wk".into());
+            let (before, after) = merged("wk");
+            daemon.sync_worktree_tasks(Some(&before), &after, Some("b-wk")).await;
+            assert!(line(&daemon, &key, "Kept").done);
+            assert_eq!(titles_under(&daemon, &key, &kept.id), ["later"]);
+            assert!(daemon.notes_tasks.borrow().keep_open_steps.is_empty());
+        });
+    }
+
+    /// Done ticks the session's line (`auto=done`) and undone reopens it; a worktree deleted unmerged unhooks its
+    /// sessions' open lines, marked `tried` in its branch, where they are.
+    #[test]
+    fn done_ticks_and_a_worktree_deleted_unmerged_unhooks_its_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon
+                .worktrees
+                .borrow_mut()
+                .records
+                .insert("w1".into(), worktree_record("w1", &format!("{root}-w1"), json!({})));
+            daemon.set_session(in_worktree("a", &root, "w1", json!({"title": "A"})));
+            daemon.set_session(in_worktree("b", &root, "w1", json!({"title": "B"})));
+            daemon.set_session(record("m", &root, json!({"title": "Main"})));
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            for s in ["a", "b", "m"] {
+                daemon
+                    .handle_task_op(&op(&root, json!({"type": "session-line", "s": s})))
+                    .await
+                    .unwrap();
+            }
+            let main = daemon.get_session("m").unwrap();
+            daemon.sync_done_tasks(&main, true).await;
+            let ticked = line(&daemon, &key, "Main");
+            assert!(ticked.done && ticked.meta.auto == Some(TaskAuto::Done));
+            daemon.sync_done_tasks(&main, false).await;
+            assert!(!line(&daemon, &key, "Main").done);
+            // Each session has its own line: done on one ticks only its own.
+            daemon.sync_done_tasks(&daemon.get_session("a").unwrap(), true).await;
+            assert!(line(&daemon, &key, "A").done && !line(&daemon, &key, "B").done);
+            let before = daemon.worktrees.borrow().records.get("w1").cloned().unwrap();
+            let mut deleted = before.clone();
+            deleted.deleted_at = Some("2026-11-14T12:00:00.000Z".into());
+            daemon.sync_worktree_tasks(Some(&before), &deleted, Some("b-w1")).await;
+            let b = line(&daemon, &key, "B");
+            assert!(!b.is_taken() && !b.done);
+            assert_eq!(b.meta.tried.as_deref(), Some("b-w1"));
+            // A ticked line is no dropped attempt: it keeps its session.
+            assert_eq!(line(&daemon, &key, "A").meta.s.as_deref(), Some("a"));
+        });
+    }
+
+    /// Removing a session unhooks its line (marked `tried` in its branch when open) and, when asked, first moves what
+    /// is still open in its note into its line's note, making the line when it had none.
+    #[test]
+    fn a_removed_session_leaves_its_line_and_can_leave_its_note_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon
+                .worktrees
+                .borrow_mut()
+                .records
+                .insert("w1".into(), worktree_record("w1", &format!("{root}-w1"), json!({})));
+            daemon.set_session(in_worktree("s1", &root, "w1", json!({"title": "Fix login"})));
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            daemon
+                .save_note(&save(
+                    WorkNoteKind::Session,
+                    "s1",
+                    "Review crypto.rs\n- [x] told it the scope\n- [ ] check the diff\n",
+                    &empty(),
+                ))
+                .await
+                .unwrap();
+            daemon.move_session_note_to_line("s1").await.unwrap();
+            let fix = line(&daemon, &key, "Fix login");
+            assert_eq!(
+                daemon.work_note(WorkNoteKind::Line, &fix.id).text,
+                "From the note of session Fix login:\n\nReview crypto.rs\n- [ ] check the diff\n"
+            );
+            daemon.remove_session("s1").await.unwrap();
+            let left = line(&daemon, &key, "Fix login");
+            assert!(!left.is_taken());
+            assert_eq!(left.meta.tried.as_deref(), Some("b-w1"));
+            // A session with nothing open in its note gets no line.
+            daemon.set_session(record("s2", &root, json!({"title": "Quick", "status": "exited"})));
+            daemon.move_session_note_to_line("s2").await.unwrap();
+            assert!(daemon.session_line("s2").is_none());
+        });
+    }
+
+    /// A handoff carries the line the session is on: its title, steps, brief and note.
+    #[test]
+    fn a_handoff_names_the_line_its_steps_brief_and_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon.set_session(record("s1", &root, json!({"title": "Token storage"})));
+            assert_eq!(daemon.handoff_task(&daemon.get_session("s1").unwrap()), None);
+            let (key, id) = daemon
+                .ensure_session_line(&daemon.get_session("s1").unwrap())
+                .await
+                .unwrap();
+            daemon
+                .handle_task_op(&op(&root, json!({"type": "add", "title": "schema", "parent": id})))
+                .await
+                .unwrap();
+            daemon
+                .write_brief(&key, &id, "Store them encrypted", "◎ Orchestrator")
+                .await
+                .unwrap();
+            daemon.append_line_note(&key, &id, "Found the cache").await.unwrap();
+            let task = daemon.handoff_task(&daemon.get_session("s1").unwrap()).unwrap();
+            assert_eq!(task.title, "Token storage");
+            assert_eq!(task.body, "Found the cache\n");
+            assert_eq!(
+                task.steps,
+                [HandoffStep {
+                    title: "schema".into(),
+                    done: false
+                }]
+            );
+            let brief = task.brief.unwrap();
+            assert_eq!(brief.text, "Store them encrypted\n");
+            assert_eq!(brief.from.as_deref(), Some("◎ Orchestrator"));
+        });
+    }
+
+    /// An editor's change to a line's note reaches the clients watching its list.
+    #[test]
+    fn an_edit_outside_deckhand_reaches_the_lists_watchers() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            let doc = daemon
+                .handle_task_op(&op(&root, json!({"type": "add", "title": "Parked"})))
+                .await
+                .unwrap();
+            let id = line(&daemon, &doc.key, "Parked").id;
+            let (client, mut rx) = test_client(1);
+            let conn = Connection::new(client);
+            daemon
+                .handle_watch_tasks(
+                    &conn,
+                    &CwdRequest {
+                        request_id: "r".into(),
+                        cwd: root.clone().into(),
+                    },
+                )
+                .await
+                .unwrap();
+            let file = dir.path().join("notes/lines").join(format!("{id}.md"));
+            std::fs::write(&file, "written in vim\n").unwrap();
+            // What the watcher does once it has re-read the file.
+            daemon
+                .notes()
+                .modify(&note(NoteKind::Line, &id), |text| Ok((text.to_owned(), ())))
+                .await
+                .unwrap();
+            daemon.notes_changed(NoteKind::Line, &id);
+            let pushed = received(&mut rx);
+            assert_eq!(pushed.last().unwrap()["note"]["text"], "written in vim\n");
         });
     }
 }

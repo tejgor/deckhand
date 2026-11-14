@@ -372,7 +372,7 @@ impl NotesFlow {
         draft.in_flight = None;
         match result {
             Ok(result) => {
-                let doc = doc_of(Some(&result.session), draft.section);
+                let doc = doc_of(result.session.as_deref(), draft.section);
                 match doc {
                     Some(doc) if result.saved => {
                         draft.saved = doc.text;
@@ -573,7 +573,7 @@ impl NotesFlow {
             Ok(result) => result,
             Err(error) => return cx.set_error(error_message(&error)),
         };
-        if let (Some(draft), Some(doc)) = (self.drafts.get_mut(key), doc_of(Some(&result.session), section)) {
+        if let (Some(draft), Some(doc)) = (self.drafts.get_mut(key), doc_of(result.session.as_deref(), section)) {
             if draft.text == sent {
                 draft.text = doc.text;
                 draft.saved = draft.text.clone();
@@ -1213,7 +1213,10 @@ mod tests {
 
         /// The daemon's answer to a save.
         async fn saved(&mut self, request: &Value, record: &SessionRecord, saved: bool) {
-            let body = json!({"ok": true, "data": {"saved": saved, "session": record}});
+            let note = json!({"kind": "session", "id": record.id, "path": "/notes/s.md",
+                "text": record.notes.clone().unwrap_or_default(),
+                "revision": record.notes_file.as_ref().map(|file| file.revision.clone()).unwrap_or_default()});
+            let body = json!({"ok": true, "data": {"saved": saved, "note": note, "session": record}});
             self.daemon.respond(request, body).await;
         }
 
@@ -1557,11 +1560,9 @@ mod tests {
                 second_key.elapsed()
             );
             assert_eq!(request["type"], "save-note");
-            assert_eq!(request["sessionId"], "s1");
-            assert_eq!(request["section"], "session");
+            assert_eq!(request["note"], json!({"kind": "session", "id": "s1"}));
             assert_eq!(request["text"], "hiab");
             assert_eq!(request["revision"], "r1");
-            assert!(request.get("noteId").is_none());
             assert_eq!(h.draft(KEY).in_flight.as_deref(), Some("hiab"));
             h.saved(&request, &noted("s1", "hiab", "r2"), true).await;
             h.pump().await;
@@ -1746,20 +1747,19 @@ mod tests {
     }
 
     #[test]
-    fn a_shared_note_is_saved_with_its_note_id() {
+    fn a_shared_note_is_no_longer_saved() {
         run(async {
+            // Since protocol 60 the daemon sends no shared note; one the UI still holds is not sent anywhere.
             let mut h = Harness::new(vec![side_by_side(noted("s1", "", "r1"), "w", "w1")], "s1");
             h.press(key(|key| key.tab = true));
             h.type_text("!");
-            let request = h.request().await;
-            assert_eq!(
-                (
-                    request["section"].as_str(),
-                    request["noteId"].as_str(),
-                    request["text"].as_str(),
-                    request["revision"].as_str()
-                ),
-                (Some("shared"), Some("worktree:wt1"), Some("w!"), Some("w1"))
+            h.run_for(Duration::from_millis(400)).await;
+            h.pump().await;
+            assert!(h.daemon.lines.try_recv().is_err());
+            assert!(
+                h.error().is_some_and(|error| error.contains("no shared note")),
+                "{:?}",
+                h.error()
             );
         });
     }
@@ -1908,10 +1908,13 @@ mod tests {
                 (promote["line"].as_i64(), promote["revision"].as_str()),
                 (Some(0), Some("r2"))
             );
+            assert_eq!(promote["note"], json!({"kind": "session", "id": "s1"}));
             let linked = noted("s1", "- [ ] one! ↗ T1\n- [ ] two", "r3");
             let body = json!({"ok": true, "data": {
-                "session": linked,
                 "tasks": {"key": "k", "path": "/repo/tasks.md", "text": "- [ ] one!", "revision": "t1"},
+                "lineId": "T1",
+                "note": {"kind": "session", "id": "s1", "path": "/notes/s1.md", "text": "- [ ] two", "revision": "r3"},
+                "session": linked,
             }});
             h.daemon.respond(&promote, body).await;
             h.pump().await;
@@ -1972,10 +1975,8 @@ mod tests {
             assert_eq!(save["type"], "save-note");
             h.saved(&save, &noted("s1", "x", "r2"), true).await;
             let open = h.request().await;
-            assert_eq!(
-                (open["type"].as_str(), open["section"].as_str()),
-                (Some("open-note"), Some("session"))
-            );
+            assert_eq!(open["type"], "open-note");
+            assert_eq!(open["note"], json!({"kind": "session", "id": "s1"}));
             h.daemon
                 .respond(&open, json!({"ok": true, "data": "/notes/s1.md"}))
                 .await;
@@ -1992,7 +1993,7 @@ mod tests {
             h.app.flows.notes.section = NoteSection::Shared;
             let got = h.active_file();
             let open = h.request().await;
-            assert_eq!(open["section"], "session");
+            assert_eq!(open["note"], json!({"kind": "session", "id": "s1"}));
             h.daemon
                 .respond(&open, json!({"ok": false, "error": "no such note"}))
                 .await;

@@ -758,6 +758,8 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
         on_error: Some(Box::new(move |next_error: DhError| {
             error.update(move |app: &mut App| app.set_error(Some(next_error.to_string())));
         })),
+        // Line notes, briefs and the scratchpad: shown from stage 4 on.
+        on_work_note_updated: None,
         on_close: Some(Box::new(move || {
             close.update(move |app: &mut App| {
                 // Only the current connection's close reconnects (an older client was closed by its cleanup).

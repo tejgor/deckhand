@@ -19,18 +19,17 @@ use deckhand_core::jsstr::{date, path};
 use deckhand_core::plan::{PlanContext, PlanParent, ValidPlan, plan_problems_message, validate_plan};
 use deckhand_core::project_config::resolve_settings;
 use deckhand_core::session_scope::is_path_inside;
-use deckhand_core::tasks::{new_task_id, parse_tasks};
+use deckhand_core::tasks::new_task_id;
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
     CreateSessionInput, OkResult, OrchestratorResult, PendingPlan, PlanCreatedSession, PlanCreatedTask, PlanDecision,
     PlanFailure, PlanOutcome, PlanSession, PlanStatus, PlanSummary, PlanWorktree, ProgramKey, SessionRecord,
-    SessionRole, SessionStatus, SubSessionKind, TaskOp, WorktreeMode,
+    SessionRole, SessionStatus, SubSessionKind, WorktreeMode,
 };
 use deckhand_protocol::events::{PlanPending, PlanSettled, ServerMessage};
 use deckhand_protocol::wire::{Loose, OpenOrchestrator, PlanDecide, PlanRequest};
 use deckhand_sys::config::load_project_config;
 use deckhand_sys::git::{current_branch, find_repo_root, optional_git};
-use deckhand_sys::notes_store::{NoteId, NoteKind};
 use deckhand_sys::storage::load_app_config;
 use indexmap::IndexMap;
 use serde_json::Value;
@@ -179,14 +178,8 @@ impl Daemon {
             }
         }
         let key = self.tasks_key_for(repo_root).await?;
-        let text = self
-            .notes()
-            .get(&NoteId {
-                kind: NoteKind::Tasks,
-                id: key,
-            })
-            .text;
-        let tasks = parse_tasks(&text);
+        // Any open line nobody is on can be started on, at any depth.
+        let tasks: Vec<_> = self.task_list(&key).lines().iter().map(|line| line.task()).collect();
         let config_dir = self.paths.config_dir.to_string_lossy().into_owned();
         let default_agent = match (load_project_config(repo_root, None).await, load_app_config().await) {
             (Ok(project), Ok(config)) => resolve_settings(Some(&project), &config, &config_dir)
@@ -423,6 +416,20 @@ impl Daemon {
             tasks: Vec::new(),
             failed: None,
         };
+        // Who wrote the briefs: the orchestrator (or the session) that applied the plan, else the plan run by hand.
+        let brief_from = spawned_by
+            .as_deref()
+            .and_then(|caller| self.get_session(caller))
+            .map_or_else(
+                || "a plan".to_owned(),
+                |caller| {
+                    if caller.role.is_some() {
+                        format!("◎ {}", caller.title)
+                    } else {
+                        caller.title.clone()
+                    }
+                },
+            );
         for (index, session) in valid.plan.sessions.iter().enumerate() {
             let parent = match valid.parents.get(index).cloned().flatten() {
                 None => None,
@@ -442,10 +449,23 @@ impl Daemon {
             }
             .await;
             match created {
-                Ok(record) => outcome.sessions.push(PlanCreatedSession {
-                    key: session.key.clone(),
-                    session: record,
-                }),
+                Ok(record) => {
+                    // What it was told is its line's brief (a brief is a reason to have a line; a session started on a
+                    // line is on it already): its sub-sessions' lines go under it.
+                    let brief = async {
+                        let (key, line) = self.ensure_session_line(&record).await?;
+                        self.write_brief(&key, &line, &session.prompt, &brief_from).await
+                    }
+                    .await;
+                    if let Err(error) = brief {
+                        self.log(&format!("plan {id}: the brief of {} failed: {error}", session.key))
+                            .await;
+                    }
+                    outcome.sessions.push(PlanCreatedSession {
+                        key: session.key.clone(),
+                        session: record,
+                    });
+                }
                 Err(error) => {
                     outcome.status = PlanStatus::Failed;
                     outcome.failed = Some(PlanFailure {
@@ -474,17 +494,18 @@ impl Daemon {
             };
             for task in &valid.plan.tasks {
                 let task_id = new_task_id();
-                let op = TaskOp::Add {
-                    title: task.title.clone(),
-                    body: task.details.clone(),
-                    link: None,
-                    id: Some(task_id.clone()),
-                    from: None,
-                    parent: None,
-                    at: None,
-                };
-                match self.change_tasks(&key, op).await {
-                    Ok(_) => outcome.tasks.push(PlanCreatedTask {
+                let op = crate::notes_tasks::add_line(&task.title, &task_id, None, None);
+                // Its details are its line's note.
+                let added = async {
+                    self.change_tasks(&key, op).await?;
+                    match task.details.as_deref().filter(|details| !details.trim().is_empty()) {
+                        Some(details) => self.append_line_note(&key, &task_id, details).await,
+                        None => Ok(()),
+                    }
+                }
+                .await;
+                match added {
+                    Ok(()) => outcome.tasks.push(PlanCreatedTask {
                         id: task_id,
                         title: task.title.clone(),
                     }),
@@ -756,12 +777,14 @@ mod tests {
             assert_eq!(settled.len(), 1);
             assert_eq!(settled[0]["planId"], id.as_str());
             assert_eq!(settled[0]["decision"], "approved");
-            // The task is in the backlog, with its details.
+            // The task is a line in the backlog; its details are the line's note.
             let key = daemon.tasks_key_for(&root).await.unwrap();
-            let tasks = parse_tasks(&daemon.tasks_doc(&key).text);
-            let added = tasks.iter().find(|task| task.id == outcome.tasks[0].id).unwrap();
+            let list = daemon.task_list(&key);
+            let added = list.get(&outcome.tasks[0].id).unwrap();
             assert_eq!(added.title, "Remove legacy endpoint");
-            assert!(added.body.contains("After Auth rework merges"), "{added:?}");
+            assert!(added.body.is_empty() && added.parent.is_none() && !added.is_taken());
+            let note = daemon.work_note(deckhand_protocol::data::WorkNoteKind::Line, &added.id);
+            assert!(note.text.contains("After Auth rework merges"), "{note:?}");
         });
     }
 
@@ -784,7 +807,7 @@ mod tests {
             assert_eq!(outcome.status, PlanStatus::Cancelled);
             assert!(outcome.tasks.is_empty() && outcome.sessions.is_empty());
             let key = daemon.tasks_key_for(&root).await.unwrap();
-            assert!(parse_tasks(&daemon.tasks_doc(&key).text).is_empty());
+            assert!(daemon.task_list(&key).lines().is_empty());
         });
     }
 

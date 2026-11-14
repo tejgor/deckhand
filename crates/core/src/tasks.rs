@@ -291,7 +291,7 @@ pub(crate) fn set_link(meta: &mut TaskMeta, link: &TaskLink) {
 }
 
 /// `now.toISOString().slice(0, 10)`; an invalid date throws as JS does.
-pub(crate) fn today(now_ms: i64) -> Result<String> {
+pub fn today(now_ms: i64) -> Result<String> {
     let iso = jsstr::date::to_iso_string(now_ms).ok_or_else(|| DhError::msg("Invalid time value"))?;
     Ok(iso.chars().take(10).collect())
 }
@@ -356,8 +356,8 @@ pub(crate) const NO_LONGER_LISTED: &str =
 /// ticked. It runs up from the parent of what changed and stops at the first line it leaves as it was.
 ///
 /// **Worktree links** (`wt=`) are read, kept and matched (tick-linked, reopen-linked and abandon-linked accept
-/// `{wt}`). No list op adds one, except the old ones today's daemon still sends with `{wt}` (add, link, assign) until
-/// stage 3 moves it to sessions; session-on clears it.
+/// `{wt}`), and add, link and assign still take `{wt}`, but nothing sends one: the daemon puts sessions on lines
+/// (`{s}`), and the work-items migration moved every `wt=` onto a session. session-on clears it.
 pub fn apply_task_op(text: &str, op: &TaskOp, now_ms: i64) -> Result<TaskOpResult> {
     apply_task_op_with(text, op, now_ms, &mut new_task_id)
 }
@@ -377,61 +377,81 @@ fn object_fields(raw: &Value) -> Option<&serde_json::Map<String, Value>> {
     raw.as_object()
 }
 
-/// TS: tasks.ts clientLink.
-fn client_link(raw: &Value) -> Result<TaskLink> {
-    let fields = object_fields(raw);
-    let get = |key: &str| fields.and_then(|fields| fields.get(key));
-    match (get("wt"), get("s")) {
-        (Some(Value::String(wt)), None) if !wt.is_empty() => Ok(TaskLink::Worktree { wt: wt.clone() }),
-        (None, Some(Value::String(s))) if !s.is_empty() => Ok(TaskLink::Session { s: s.clone() }),
-        _ => Err(DhError::msg("Invalid task change: link")),
-    }
-}
-
-/// TS: tasks.ts clientTaskOp (the ops a client may send, checked). The daemon also checks an `add`/`assign` link
-/// names work in this repository; starting (`link`) and the linked-work ops are the daemon's own.
+/// The ops a client may send, checked (errors `Invalid task change: <key>`, `Unknown task change`): `add` (`title`,
+/// optional `parent` and `at`), `retitle`, `toggle`, `tick`, `reopen`, `remove`, `move` (`target`, `after`),
+/// `move-to` (optional `parent` and `at`), `reorder` (`down`), `session-on` (`id`, `s`) and `session-off` (`s`). An
+/// add's `body`, `link`, `id` and `from` are not taken (a line's details are its note, and putting sessions on lines
+/// is `session-on`); `edit`, `assign`, `link` and the linked-work ops are not a client's. The daemon also checks that
+/// a `session-on`'s session belongs to the repository, and handles its own `session-line` before this.
 pub fn client_task_op(raw: &Value) -> Result<TaskOp> {
     let fields = object_fields(raw);
     let get = |key: &str| fields.and_then(|fields| fields.get(key));
+    let invalid = |key: &str| DhError::msg(format!("Invalid task change: {key}"));
     let text = |key: &str| -> Result<String> {
         match get(key) {
             Some(Value::String(value)) => Ok(value.clone()),
-            _ => Err(DhError::msg(format!("Invalid task change: {key}"))),
+            _ => Err(invalid(key)),
         }
     };
-    let link = || get("link").map(client_link).transpose();
+    let id = || text("id").and_then(|id| if id.is_empty() { Err(invalid("id")) } else { Ok(id) });
+    // Absent or null: none; otherwise a line ID.
+    let parent = || -> Result<Option<String>> {
+        match get("parent") {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::String(parent)) if !parent.is_empty() => Ok(Some(parent.clone())),
+            _ => Err(invalid("parent")),
+        }
+    };
+    // Absent or null: at the end; otherwise a position (0-based).
+    let at = || -> Result<Option<usize>> {
+        match get("at") {
+            None | Some(Value::Null) => Ok(None),
+            Some(value) => value
+                .as_u64()
+                .and_then(|at| usize::try_from(at).ok())
+                .map(Some)
+                .ok_or_else(|| invalid("at")),
+        }
+    };
+    let session = || text("s").and_then(|s| if s.is_empty() { Err(invalid("s")) } else { Ok(s) });
     match get("type").and_then(Value::as_str) {
-        Some("add") => {
-            let title = text("title")?;
-            let body = get("body").and_then(Value::as_str).map(str::to_owned);
-            Ok(TaskOp::Add {
-                title,
-                body,
-                link: link()?,
-                id: None,
-                from: None,
-                parent: None,
-                at: None,
-            })
-        }
-        Some("assign") => {
-            let id = text("id")?;
-            Ok(TaskOp::Assign { id, link: link()? })
-        }
-        Some("edit") => {
-            let id = text("id")?;
-            let title = text("title")?;
-            let body = text("body")?;
-            Ok(TaskOp::Edit { id, title, body })
-        }
-        Some("toggle") => Ok(TaskOp::Toggle { id: text("id")? }),
-        Some("remove") => Ok(TaskOp::Remove { id: text("id")? }),
+        Some("add") => Ok(TaskOp::Add {
+            title: text("title")?,
+            body: None,
+            link: None,
+            id: None,
+            from: None,
+            parent: parent()?,
+            at: at()?,
+        }),
+        Some("retitle") => Ok(TaskOp::Retitle {
+            id: id()?,
+            title: text("title")?,
+        }),
+        Some("toggle") => Ok(TaskOp::Toggle { id: id()? }),
+        Some("tick") => Ok(TaskOp::Tick { id: id()? }),
+        Some("reopen") => Ok(TaskOp::Reopen { id: id()? }),
+        Some("remove") => Ok(TaskOp::Remove { id: id()? }),
         Some("move") => {
-            let id = text("id")?;
+            let id = id()?;
             let target = text("target")?;
             let after = (get("after") == Some(&Value::Bool(true))).then_some(true);
             Ok(TaskOp::Move { id, target, after })
         }
+        Some("move-to") => Ok(TaskOp::MoveTo {
+            id: id()?,
+            parent: parent()?,
+            at: at()?,
+        }),
+        Some("reorder") => Ok(TaskOp::Reorder {
+            id: id()?,
+            down: get("down") == Some(&Value::Bool(true)),
+        }),
+        Some("session-on") => Ok(TaskOp::SessionOn {
+            id: id()?,
+            s: session()?,
+        }),
+        Some("session-off") => Ok(TaskOp::SessionOff { s: session()? }),
         _ => Err(DhError::msg("Unknown task change")),
     }
 }
@@ -542,31 +562,6 @@ pub fn note_task_link_line(indent: &str, title: &str, id: &str) -> String {
     format!("{indent}- ↗ {title} <!-- dh:t={id} -->")
 }
 
-/// TS: tasks.ts promoteNoteLine result.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PromotedNoteLine {
-    pub title: String,
-    pub done: bool,
-    pub text: String,
-}
-
-/// TS: tasks.ts promoteNoteLine (`line` 0-based). The checklist item on `line`, to send to Tasks: its title and the
-/// note with that line replaced by a link to the new task (`id`); `None` unless the line is a checklist item.
-pub fn promote_note_line(note_text: &str, line: usize, id: &str) -> Option<PromotedNoteLine> {
-    let mut lines: Vec<String> = note_text.split('\n').map(str::to_owned).collect();
-    let item = parse_checklist_line(lines.get(line)?)?;
-    let title = clean_task_title(&item.text);
-    if title.is_empty() {
-        return None;
-    }
-    lines[line] = note_task_link_line(&item.indent, &title, id);
-    Some(PromotedNoteLine {
-        title,
-        done: item.checked,
-        text: lines.join("\n"),
-    })
-}
-
 /// TS: tasks.ts promoteOpenNoteLines item.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PromotedItem {
@@ -612,28 +607,6 @@ pub fn find_note_task_link(note_text: &str, id: &str) -> Option<usize> {
     note_text
         .split('\n')
         .position(|line| parse_note_task_link(line).is_some_and(|link| link.id == id))
-}
-
-/// TS: tasks.ts returnTaskToNote. Error: `That note no longer links to the task`. The link on `line` turned back
-/// into an open checklist item: the task's title, its details indented under it.
-pub fn return_task_to_note(note_text: &str, line: usize, task: &Task) -> Result<String> {
-    let mut lines: Vec<String> = note_text.split('\n').map(str::to_owned).collect();
-    let link = lines
-        .get(line)
-        .and_then(|text| parse_note_task_link(text))
-        .ok_or_else(|| DhError::msg("That note no longer links to the task"))?;
-    let mut replacement = vec![format!("{}- [ ] {}", link.indent, task.title)];
-    if !task.body.is_empty() {
-        replacement.extend(task.body.split('\n').map(|text| {
-            if text.is_empty() {
-                String::new()
-            } else {
-                format!("{}  {text}", link.indent)
-            }
-        }));
-    }
-    lines.splice(line..=line, replacement);
-    Ok(lines.join("\n"))
 }
 
 /// TS: tasks.ts openNoteItems (the unchecked items, as task titles).
@@ -939,27 +912,15 @@ mod tests {
 
     #[test]
     fn note_lines() {
-        let note = "scratch\n  - [ ] Retry setup when trust changes\nmore";
-        let promoted = promote_note_line(note, 1, "abcd1234");
+        let line = "  - ↗ Retry setup when trust changes <!-- dh:t=abcd1234 -->";
         assert_eq!(
-            promoted,
-            Some(PromotedNoteLine {
-                title: "Retry setup when trust changes".to_owned(),
-                done: false,
-                text: "scratch\n  - ↗ Retry setup when trust changes <!-- dh:t=abcd1234 -->\nmore".to_owned(),
-            })
-        );
-        let line = promoted.map(|promoted| promoted.text).unwrap_or_default();
-        assert_eq!(
-            parse_note_task_link(line.split('\n').nth(1).unwrap_or("")),
+            parse_note_task_link(line),
             Some(NoteTaskLink {
                 indent: "  ".to_owned(),
                 title: "Retry setup when trust changes".to_owned(),
                 id: "abcd1234".to_owned(),
             })
         );
-        assert_eq!(promote_note_line(note, 0, "x"), None);
-        assert_eq!(promote_note_line(note, 9, "x"), None);
         assert_eq!(
             open_note_items(Some("- [ ] a\n- [x] b\n  * [ ] c\n- ↗ d <!-- dh:t=1 -->")),
             ["a", "c"]
@@ -1075,54 +1036,100 @@ mod tests {
         assert_eq!(append_note_item("", "First", ""), "- [ ] First\n");
     }
 
+    /// A client changes lines, not links: the old model's ops and the daemon's own are refused, and an add's details,
+    /// link, ID and origin are not taken.
     #[test]
-    fn client_ops() {
-        let ok = |raw: Value| {
-            client_task_op(&raw)
-                .map(|op| serde_json::to_value(op).unwrap_or(Value::Null))
-                .ok()
-        };
+    fn clients_send_line_ops_only() {
+        let op = |raw: Value| client_task_op(&raw).map_err(|error| error.to_string());
+        for refused in [
+            json!({"type": "assign", "id": "a", "link": {"s": "s"}}),
+            json!({"type": "edit", "id": "a", "title": "t", "body": "b"}),
+            json!({"type": "link", "id": "a", "link": {"s": "s"}}),
+            json!({"type": "tick-linked", "link": {"s": "s"}, "auto": "merge"}),
+            json!({"type": "abandon-linked", "link": {"s": "s"}}),
+        ] {
+            assert_eq!(op(refused), Err("Unknown task change".to_owned()));
+        }
         assert_eq!(
-            ok(json!({"type": "add", "title": "x", "link": {"wt": "w1"}})),
-            Some(json!({"type": "add", "title": "x", "link": {"wt": "w1"}}))
+            op(json!({"type": "add", "title": "T", "body": "B", "link": {"wt": "w"}, "id": "forged", "from": "x"})),
+            Ok(TaskOp::Add {
+                title: "T".into(),
+                body: None,
+                link: None,
+                id: None,
+                from: None,
+                parent: None,
+                at: None
+            })
         );
         assert_eq!(
-            ok(json!({"type": "assign", "id": "a", "link": {"s": "s1"}})),
-            Some(json!({"type": "assign", "id": "a", "link": {"s": "s1"}}))
+            op(json!({"type": "add", "title": "T", "parent": "p1", "at": 2})),
+            Ok(TaskOp::Add {
+                title: "T".into(),
+                body: None,
+                link: None,
+                id: None,
+                from: None,
+                parent: Some("p1".into()),
+                at: Some(2)
+            })
         );
         assert_eq!(
-            ok(json!({"type": "assign", "id": "a"})),
-            Some(json!({"type": "assign", "id": "a"}))
-        );
-        let fails =
-            |raw: Value, needle: &str| client_task_op(&raw).is_err_and(|error| error.to_string().contains(needle));
-        assert!(fails(
-            json!({"type": "assign", "id": "a", "link": {"wt": "w", "s": "s"}}),
-            "link"
-        ));
-        assert!(fails(json!({"type": "assign", "id": "a", "link": {"wt": ""}}), "link"));
-        assert!(fails(
-            json!({"type": "tick-linked", "link": {"wt": "w"}}),
-            "Unknown task change"
-        ));
-    }
-
-    #[test]
-    fn task_back_to_note() {
-        let note = "scratch\n  - ↗ Retry setup <!-- dh:t=abcd1234 -->\nmore";
-        assert_eq!(find_note_task_link(note, "abcd1234"), Some(1));
-        assert_eq!(find_note_task_link(note, "other"), None);
-        assert_eq!(
-            return_task_to_note(note, 1, &titled("Retry setup when trust changes", "why:\n\nit breaks")).ok(),
-            Some("scratch\n  - [ ] Retry setup when trust changes\n    why:\n\n    it breaks\nmore".to_owned())
+            op(json!({"type": "add", "title": "T", "at": -1})),
+            Err("Invalid task change: at".into())
         );
         assert_eq!(
-            return_task_to_note(note, 1, &titled("Retry setup", "")).ok(),
-            Some("scratch\n  - [ ] Retry setup\nmore".to_owned())
+            op(json!({"type": "add", "title": "T", "parent": 5})),
+            Err("Invalid task change: parent".into())
         );
-        assert!(
-            return_task_to_note(note, 0, &titled("x", ""))
-                .is_err_and(|error| error.to_string().contains("no longer links"))
+        assert_eq!(
+            op(json!({"type": "move-to", "id": "a", "parent": null})),
+            Ok(TaskOp::MoveTo {
+                id: "a".into(),
+                parent: None,
+                at: None
+            })
+        );
+        assert_eq!(
+            op(json!({"type": "reorder", "id": "a", "down": true})),
+            Ok(TaskOp::Reorder {
+                id: "a".into(),
+                down: true
+            })
+        );
+        assert_eq!(
+            op(json!({"type": "retitle", "id": "a", "title": "New"})),
+            Ok(TaskOp::Retitle {
+                id: "a".into(),
+                title: "New".into()
+            })
+        );
+        assert_eq!(
+            op(json!({"type": "tick", "id": "a"})),
+            Ok(TaskOp::Tick { id: "a".into() })
+        );
+        assert_eq!(
+            op(json!({"type": "reopen", "id": "a"})),
+            Ok(TaskOp::Reopen { id: "a".into() })
+        );
+        assert_eq!(
+            op(json!({"type": "session-on", "id": "a", "s": "s1"})),
+            Ok(TaskOp::SessionOn {
+                id: "a".into(),
+                s: "s1".into()
+            })
+        );
+        assert_eq!(
+            op(json!({"type": "session-on", "id": "a"})),
+            Err("Invalid task change: s".into())
+        );
+        assert_eq!(
+            op(json!({"type": "session-off", "s": "s1"})),
+            Ok(TaskOp::SessionOff { s: "s1".into() })
+        );
+        assert_eq!(
+            op(json!({"type": "tick", "id": ""})),
+            Err("Invalid task change: id".into())
         );
     }
 
@@ -1147,12 +1154,6 @@ mod tests {
         iso.as_str()
             .and_then(jsstr::date::parse)
             .ok_or_else(|| format!("arg {index}: not a date"))
-    }
-
-    /// A line index: TS reads `lines[-1]` as undefined, which no `usize` line reaches either.
-    fn line_arg(case: &Case, index: usize) -> Result<usize, String> {
-        let line = case.arg_i64(index)?;
-        Ok(usize::try_from(line).unwrap_or(usize::MAX))
     }
 
     /// A `Pick<Task, ...>` literal (or `{meta}`) as a whole Task.
@@ -1332,14 +1333,6 @@ mod tests {
     }
 
     #[test]
-    fn promote_note_line_parity() {
-        replay("tasks/promoteNoteLine", |case: &Case| {
-            let promoted = promote_note_line(case.arg_str(0)?, line_arg(case, 1)?, case.arg_str(2)?);
-            Ok::<_, String>(maybe(promoted))
-        });
-    }
-
-    #[test]
     fn promote_open_note_lines_parity() {
         replay("tasks/promoteOpenNoteLines", |case: &Case| {
             if case.fn_name(1) != Some("seq") {
@@ -1351,14 +1344,6 @@ mod tests {
                 format!("id{n}")
             };
             Ok(promote_open_note_lines(case.arg_str(0)?, &mut next))
-        });
-    }
-
-    #[test]
-    fn return_task_to_note_parity() {
-        replay("tasks/returnTaskToNote", |case: &Case| {
-            let task = partial_task(case.arg(2))?;
-            return_task_to_note(case.arg_str(0)?, line_arg(case, 1)?, &task).map_err(message)
         });
     }
 

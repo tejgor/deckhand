@@ -10,16 +10,16 @@ pub const SKILL_NAME: &str = "deckhand";
 
 /// The skill's description: all an agent with lazily loaded skills keeps in context until it uses the skill.
 pub const SKILL_DESCRIPTION: &str = "Deckhand actions in this Deckhand session: start sessions or sub-sessions, add \
-tasks to the backlog, add steps to the note, list or tick tasks. Only when the user asks for one.";
+tasks to the backlog, add steps or notes to this session's line, list or tick tasks. Only when the user asks for one.";
 
 /// The always-loaded instruction for agents without lazily loaded skills.
 pub const TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
-session, add a task or a note step), run `deckhand guide` once per conversation, unless it is still in context.";
+session, add a task, a step or a note), run `deckhand guide` once per conversation, unless it is still in context.";
 
 /// The always-loaded instruction for Codex when it has the `deckhand` MCP tool (`deckhand mcp`), whose sandbox keeps
 /// its shell from reaching the daemon.
 pub const CODEX_TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
-session, add a task or a note step), call the `deckhand` tool with args [\"guide\"] once per conversation, unless \
+session, add a task, a step or a note), call the `deckhand` tool with args [\"guide\"] once per conversation, unless \
 it is still in context.";
 
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
@@ -40,14 +40,14 @@ deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <i
   Default: a sub-session in a new worktree stacked on this branch (--flat: not); same: this worktree; none: the
   main checkout; --top-level: a sibling; --parent: under one you started. Sent at once (--draft: typed). Brief it
   fully (context, constraints, what done is): it knows nothing of this chat unless --fork. Long prompts: quoted
-  heredoc (new --help). --task: works on that task, replacing its text; ticked when merged or done; top-level
-  unless in a new worktree.
+  heredoc (new --help). --task: on that line, ticked when merged or done.
 deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
-  Told to park something? Just task add it.
-deckhand note add <item>  a step in this session's note
+  Told to park something? task add it.
+deckhand step add <text> | step done|reopen <id> | step list  your steps
+deckhand note add <text>  findings for your line's note
 deckhand ls               sessions (* is this one)
 deckhand kill <id>        end a session you started
-deckhand remove <id>      then take it off the list
+deckhand remove <id>      take it off the list
 
 IDs: any unique prefix. --json anywhere; <command> --help for more.
 As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.

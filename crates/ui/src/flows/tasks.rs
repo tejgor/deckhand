@@ -32,7 +32,7 @@ use deckhand_core::tasks_board::{
 };
 use deckhand_core::text_editor::{EditOptions, EditorLine, EditorState, edit_text, wrap_rows, wrapped_editor_lines};
 use deckhand_protocol::data::{
-    NoteSaveResult, NoteSection, PromoteNoteItemResult, SendOpenItemsResult, SessionRecord, Task, TaskOp, TasksDoc,
+    NoteSaveResult, NoteSection, PromoteNoteItemResult, SessionRecord, Task, TaskOp, TasksDoc,
 };
 
 use crate::app::state::App;
@@ -46,6 +46,9 @@ use crate::theme::{THEME, color};
 
 /// TS: useTasksFlow apply's `then`: runs with the new task list.
 pub type ApplyThen = Box<dyn FnOnce(&mut TasksFlow, &TasksDoc, &mut FlowCx<App, TasksFlow>)>;
+
+/// What moving work between the list and a note says since protocol 60, until the board shows the nested list.
+const NOTES_ARE_SEPARATE: &str = "The list and the notes are separate now: ctrl+p in a note makes a checkbox a line";
 
 /// TS: tasksFlow.tsx DETAIL_ROWS.
 pub const DETAIL_ROWS: usize = 5;
@@ -1062,7 +1065,9 @@ impl TasksFlow {
                 )
             },
             Box::new(move |flow, result: NoteSaveResult, cx| {
-                cx.emit(FlowEffect::Session(Box::new(result.session.into_inner())));
+                if let Some(session) = result.session {
+                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
+                }
                 if !result.saved {
                     cx.set_status(Some("The note changed meanwhile; try again".to_owned()));
                     return;
@@ -1233,24 +1238,10 @@ impl TasksFlow {
         let Some(option) = rows.get(state.index).cloned() else {
             return;
         };
-        let repo_root = props.repo_root.to_owned();
-        let task_id = state.task_id.clone();
+        // The daemon no longer moves a line into a note (protocol 60): the list and the notes are separate.
         if option.kind == WorkOptionKind::Note {
-            let message = format!(
-                "Back in the note of {}: {}",
-                state.origin.as_deref().unwrap_or("undefined"),
-                truncate(&state.title, 40)
-            );
-            self.run(
-                props,
-                cx,
-                move |client| client.return_task_to_note(&repo_root, &task_id),
-                Box::new(move |flow, next: TasksDoc, cx| {
-                    cx.emit(FlowEffect::TasksDoc(Box::new(next)));
-                    flow.picker = None;
-                    cx.set_status(Some(message));
-                }),
-            );
+            self.picker = None;
+            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
             return;
         }
         if option.section == state.current {
@@ -1259,24 +1250,11 @@ impl TasksFlow {
             return;
         }
         if Self::becomes_step(&state, option.section.as_deref(), props.tasks) {
-            let section = option.section.clone().unwrap_or_default();
-            let message = format!(
-                "Now a step in the note of {} (it has its task already): {}",
-                option.label,
-                truncate(&state.title, 40)
-            );
-            self.run(
-                props,
-                cx,
-                move |client| client.task_to_note(&repo_root, &task_id, &section),
-                Box::new(move |flow, next: TasksDoc, cx| {
-                    cx.emit(FlowEffect::TasksDoc(Box::new(next)));
-                    flow.picker = None;
-                    cx.set_status(Some(message));
-                }),
-            );
+            self.picker = None;
+            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
             return;
         }
+        let task_id = state.task_id.clone();
         let section = option.section.as_deref().filter(|section| !section.is_empty());
         let link = section.and_then(link_of_key);
         let message = match section {
@@ -1334,7 +1312,9 @@ impl TasksFlow {
                 )
             },
             Box::new(move |_, result: NoteSaveResult, cx| {
-                cx.emit(FlowEffect::Session(Box::new(result.session.into_inner())));
+                if let Some(session) = result.session {
+                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
+                }
                 cx.set_status(Some(if result.saved {
                     done_message
                 } else {
@@ -1361,7 +1341,9 @@ impl TasksFlow {
                 )
             },
             Box::new(move |_, result: PromoteNoteItemResult, cx| {
-                cx.emit(FlowEffect::Session(Box::new(result.session.into_inner())));
+                if let Some(session) = result.session {
+                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
+                }
                 cx.emit(FlowEffect::TasksDoc(Box::new(result.tasks)));
                 cx.set_status(Some(message));
             }),
@@ -1431,27 +1413,7 @@ impl TasksFlow {
                 cx.set_status(Some("No open items in this note".to_owned()));
                 return;
             }
-            self.run(
-                props,
-                cx,
-                move |client| {
-                    client.send_open_items(
-                        &block.session_id,
-                        block.section,
-                        &block.revision,
-                        block.note_id.as_deref(),
-                    )
-                },
-                Box::new(|_, result: SendOpenItemsResult, cx| {
-                    cx.emit(FlowEffect::Session(Box::new(result.session.into_inner())));
-                    cx.emit(FlowEffect::TasksDoc(Box::new(result.tasks)));
-                    cx.set_status(Some(format!(
-                        "Sent {} item{} to Tasks (the note keeps a ↗ link for each)",
-                        result.sent,
-                        if result.sent == 1 { "" } else { "s" }
-                    )));
-                }),
-            );
+            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
             return;
         }
         if key.return_
@@ -3133,6 +3095,7 @@ pub(crate) mod tests {
             text: TS_TASKS.to_owned(),
             revision: "r".to_owned(),
             too_large: None,
+            notes: None,
         };
         let props = TasksFlowProps {
             client: None,
@@ -3272,6 +3235,7 @@ pub(crate) mod tests {
             text: "- [ ] A <!-- dh:t=aa -->\n- [ ] B <!--\tdh:t=bb added=1 -->\n- [ ] C <!--dh:t=XY -->\n".to_owned(),
             revision: "r".to_owned(),
             too_large: None,
+            notes: None,
         };
         let before: HashSet<String> = ["aa".to_owned()].into_iter().collect();
         assert_eq!(parse_added(&doc, &before), Some("bb".to_owned()));
@@ -3712,6 +3676,7 @@ pub(crate) mod tests {
                 text: "- [ ] One <!-- dh:t=aa -->\n- [ ] Two <!-- dh:t=bb -->\n".to_owned(),
                 revision: "r1".to_owned(),
                 too_large: None,
+                notes: None,
             }));
             app.flows.tasks.selected = RowSelection::task("bb");
             app.tasks_flow_call(|flow, props, cx| flow.handle_input(props, &Input::text("K"), cx));

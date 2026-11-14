@@ -511,7 +511,7 @@ mod tests {
         let refused = reply(&server, &call(json!(["restart"]))).unwrap();
         assert_eq!(
             refused["result"]["content"][0]["text"],
-            "`deckhand restart` is not available here. The tool runs: new, ls, task, note, kill, remove, guide."
+            "`deckhand restart` is not available here. The tool runs: new, ls, task, step, note, kill, remove, guide."
         );
         // Outside a Deckhand session nothing runs.
         let (outside, calls) = fake_server(false, ok(""));

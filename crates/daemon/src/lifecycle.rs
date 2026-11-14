@@ -189,7 +189,9 @@ impl Daemon {
                 worktrees.records.insert(record.id.clone(), record.clone());
             }
         }
-        // Notes live in files: ones older versions kept in state.json move there first (idempotent), then all are read.
+        // Notes live in files: ones older versions kept in state.json move there first (idempotent); then, once, the
+        // work-items migration turns the old layout (worktree notes, `wt=` tasks) into the nested list and line notes;
+        // then all are read.
         let notes = self.notes_tasks.borrow().notes.clone();
         let legacy_notes = match notes {
             Some(notes) => {
@@ -199,16 +201,19 @@ impl Daemon {
                     .map(|session| (session.id.clone(), session.notes.clone().map(Value::String)))
                     .collect();
                 let migrated = notes.migrate(&legacy).await?;
+                // A failure is logged and leaves no marker: Deckhand runs on the new model now, and the migration runs
+                // again at the next start. The UIs are told (`ping`'s notice).
+                if let Err(error) = self.migrate_work_items(&stored.sessions, &stored.worktrees).await {
+                    self.notes_tasks.borrow_mut().notice = Some(format!(
+                        "Moving your tasks and notes to the new list failed ({error}); nothing was lost, and Deckhand \
+                         tries again at its next start (daemon.log has the details)"
+                    ));
+                }
                 notes.load().await?;
                 migrated
             }
             None => false,
         };
-        // Before the sessions project their notes, so they show the merged worktree notes.
-        self.merge_worktree_session_notes(&stored.sessions).await?;
-        // Before anything writes a task list (it would drop the old follow-up bookkeeping), and before the sessions
-        // project their notes.
-        self.migrate_follow_up_tasks(&stored.sessions).await;
         for session in stored.sessions {
             self.set_session(session);
         }
@@ -1026,7 +1031,6 @@ done
             attached_agent: RefCell::new(None),
             delete_worktree_on_exit: Cell::new(false),
             delete_branch_on_exit: Cell::new(false),
-            send_open_items_on_exit: Cell::new(false),
             hook_token: String::new(),
             launch_id: String::new(),
             allow_data_loss: Cell::new(false),

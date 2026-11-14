@@ -84,6 +84,15 @@ fn truthy(value: Option<&str>) -> bool {
 }
 
 /// `new Date().toISOString()`.
+/// The worktree record a session works in, if any.
+fn worktree_id_of(session: &SessionRecord) -> Option<String> {
+    session
+        .worktree
+        .as_ref()
+        .and_then(|worktree| worktree.id.clone())
+        .filter(|id| !id.is_empty())
+}
+
 fn now_iso() -> String {
     date::to_iso_string(date::now_ms()).unwrap_or_default()
 }
@@ -257,15 +266,16 @@ impl Daemon {
         get_merge_preview(&worktree_path, target_cwd).await
     }
 
-    /// TS: InkDaemon.mergeSessionWorktree: merges (or records the conflict as pending, or the skip), marks the
-    /// worktree merged and, when asked, sends its note's open items to the backlog.
+    /// TS: InkDaemon.mergeSessionWorktree: merges (or records the conflict as pending, or the skip) and marks the
+    /// worktree merged, which ticks its sessions' lines (`Daemon::sync_worktree_tasks`): their open steps move up out
+    /// of them unless `keep_open_steps`; `liftedSteps` counts them.
     pub async fn merge_session_worktree(
         &self,
         session_id: &str,
         mode: WorktreeMergeMode,
         target_cwd: &str,
         commit_first: bool,
-        send_open_items: bool,
+        keep_open_steps: bool,
     ) -> Result<Ordered<WorktreeMergeResult>> {
         let MergeSource { session, worktree_path } = self.merge_source(session_id)?;
         // Not in the TS: merging into a parent's worktree (stacked) changes files under its agent.
@@ -328,31 +338,29 @@ impl Daemon {
                 merge_source_sha: result.source_sha.clone(),
                 ..WorktreeMarkers::default()
             };
-            self.save_merge_markers(session_id, Some(markers), None).await?;
+            // The steps the merge lifts out of its sessions' lines, counted before it does (the confirmation offered to
+            // keep them).
+            let record = worktree_id_of(&session);
+            let lifted = match record.as_deref() {
+                Some(record) if !keep_open_steps => self.open_steps_of_worktree(record),
+                _ => 0,
+            };
+            if keep_open_steps && let Some(record) = record.clone() {
+                self.notes_tasks.borrow_mut().keep_open_steps.insert(record);
+            }
+            let saved = self.save_merge_markers(session_id, Some(markers), None).await;
+            if let Some(record) = record.as_deref() {
+                self.notes_tasks.borrow_mut().keep_open_steps.remove(record);
+            }
+            saved?;
             self.log(&format!(
                 "{mode} merged {title} ({}) into {}",
                 result.source_ref, result.target_branch
             ))
             .await;
-            // Steps left open in its note go to the backlog (the confirmation offered it): the work they belonged to
-            // is merged.
-            if send_open_items {
-                let held = self.require_session(session_id)?;
-                let record = self.worktree_record_of(&held);
-                let branch = session.worktree.as_ref().and_then(|worktree| worktree.branch.clone());
-                let sent = match self
-                    .send_worktree_items_to_backlog(record.as_deref(), &session.repo_root, branch.as_deref())
-                    .await
-                {
-                    Ok(sent) => sent,
-                    Err(error) => {
-                        self.log(&format!("sending open note items of {title} failed: {error}"))
-                            .await;
-                        0
-                    }
-                };
-                result.touch("sentItems");
-                result.sent_items = Some(i64::try_from(sent).unwrap_or(i64::MAX));
+            if lifted > 0 {
+                result.touch("liftedSteps");
+                result.lifted_steps = Some(i64::try_from(lifted).unwrap_or(i64::MAX));
             }
         }
         Ok(result)
@@ -979,7 +987,7 @@ pub(crate) mod tests {
                 .await
                 .unwrap();
             assert_eq!(result.skipped, Some(true));
-            assert_eq!(result.sent_items, None);
+            assert_eq!(result.lifted_steps, None);
             let value = result.to_value().unwrap();
             assert_eq!(
                 keys(&value),

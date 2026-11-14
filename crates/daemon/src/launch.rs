@@ -77,8 +77,6 @@ pub struct WorkerRuntime {
     pub attached_agent: RefCell<Option<ClientHandle>>,
     pub delete_worktree_on_exit: Cell<bool>,
     pub delete_branch_on_exit: Cell<bool>,
-    /// Before deleting the worktree on exit, send its note's open checklist items to the backlog.
-    pub send_open_items_on_exit: Cell<bool>,
     pub hook_token: String,
     pub launch_id: String,
     pub allow_data_loss: Cell<bool>,
@@ -102,7 +100,6 @@ impl WorkerRuntime {
             attached_agent: RefCell::new(None),
             delete_worktree_on_exit: Cell::new(false),
             delete_branch_on_exit: Cell::new(false),
-            send_open_items_on_exit: Cell::new(false),
             hook_token,
             launch_id,
             allow_data_loss: Cell::new(false),

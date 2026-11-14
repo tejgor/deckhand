@@ -25,7 +25,7 @@
 //!   fractions included), `save-config` raw/revision (checkDraft), `worktree-candidate-sizes` paths, worktree paths
 //!   (`Invalid worktree path`), `task-to-note` section (`Invalid work`), `create` input (createSession's order,
 //!   [`Daemon::create_session_request`]).
-//! - Flags: truthiness (`done`, `archived`, `?? default` ones), `=== true` (`sendOpenItems` of kill/merge); sizes
+//! - Flags: truthiness (`done`, `archived`, `?? default` ones), `=== true` (`keepOpenSteps` of merge, `moveNote` of remove); sizes
 //!   through clampSize (floored; not a number: the fallback).
 //! - A failure is reported to any message with a `requestId` (an input's too); a success without one is answered
 //!   without one.
@@ -227,24 +227,7 @@ impl Daemon {
             Request::WatchTasks(r) => reply(client, &r.request_id, self.handle_watch_tasks(conn, &r).await),
             Request::TaskOp(r) => reply(client, &r.request_id, self.handle_task_op(&r).await),
             Request::OpenTasks(r) => reply(client, &r.request_id, self.handle_open_tasks(&r).await),
-            Request::SendOpenItems(r) => reply(client, &r.request_id, self.send_note_items(&r).await),
             Request::PromoteNoteItem(r) => reply(client, &r.request_id, self.promote_note_item(&r).await),
-            Request::ReturnTaskToNote(r) => {
-                let returned = match r.cwd.known() {
-                    Some(cwd) => self.return_task_to_note(cwd, &r.task_id).await,
-                    None => Err(DhError::msg("Invalid repository path")),
-                };
-                reply(client, &r.request_id, returned)
-            }
-            Request::TaskToNote(r) => {
-                // `typeof section === 'string' ? linkOfKey(section) : undefined`: no text is no work (`Invalid work`).
-                let section = r.section.as_deref().unwrap_or_default();
-                let moved = match r.cwd.known() {
-                    Some(cwd) => self.task_to_work_note(cwd, &r.task_id, section).await,
-                    None => Err(DhError::msg("Invalid repository path")),
-                };
-                reply(client, &r.request_id, moved)
-            }
             Request::ListBranches(r) => reply(
                 client,
                 &r.request_id,
@@ -305,7 +288,7 @@ impl Daemon {
                         r.mode.known().copied().unwrap_or(WorktreeMergeMode::Merge),
                         &find_root_cwd(&r.target_cwd),
                         r.commit_first.unwrap_or(false),
-                        r.send_open_items == Some(true),
+                        r.keep_open_steps == Some(true),
                     )
                     .await;
                 reply(client, &r.request_id, merged)

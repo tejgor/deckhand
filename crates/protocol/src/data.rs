@@ -169,6 +169,16 @@ string_union!(WorktreeMissing { Prunable = "prunable", Unlisted = "unlisted" });
 string_union!(WorktreeInUse { This = "this", Other = "other" });
 string_union!(WorktreeRemoved { Deleted = "deleted", Pruned = "pruned", Forgotten = "forgotten" });
 string_union!(NoteSection { Session = "session", Shared = "shared" });
+string_union!(
+    /// Which kind of note a [`NoteRef`] names: a session's note, a line's note, a line's brief, or a repository's
+    /// scratchpad.
+    WorkNoteKind {
+        Session = "session",
+        Line = "line",
+        Brief = "brief",
+        Scratchpad = "scratchpad",
+    }
+);
 string_union!(StageMode { Stage = "stage", Unstage = "unstage" });
 string_union!(MoveDirection { Up = "up", Down = "down" });
 string_union!(ResolveMergeAction { Keep = "keep", Abort = "abort" });
@@ -363,7 +373,39 @@ pub struct NoteFile {
     pub too_large: Option<bool>,
 }
 
-/// A worktree's (or the main checkout's) note shared by its sessions (types.ts SharedNote).
+/// A note a request is about: a session's (`id` its session ID), a line's note or brief (`id` the line ID), or a
+/// repository's scratchpad (`id` the list key, [`TasksDoc::key`]).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NoteRef {
+    pub kind: WorkNoteKind,
+    pub id: String,
+}
+
+/// A note as the daemon has it now: what `save-note` answers, `watch-tasks` lists (line notes, briefs and the
+/// scratchpad) and `work-note-updated` pushes. Empty `text`: there is no such note (yet, or any more).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkNote {
+    pub kind: WorkNoteKind,
+    pub id: String,
+    /// Its file (it may not exist yet).
+    pub path: String,
+    /// A brief's text leaves out its bookkeeping line (`from`, `at`).
+    pub text: String,
+    /// What a save must name to replace it (of the whole file, a brief's bookkeeping line included).
+    pub revision: String,
+    pub too_large: Option<bool>,
+    /// A brief: who wrote it (`◎ Orchestrator`, `you`).
+    pub from: Option<String>,
+    /// A brief: when it was written (ISO-8601).
+    pub at: Option<String>,
+}
+
+/// Not sent by the daemon since protocol 60 (the worktree and main-checkout notes became line notes and the
+/// scratchpad); kept until the UI stops reading it. A worktree's (or the main checkout's) note shared by its sessions
+/// (types.ts SharedNote).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -412,8 +454,10 @@ pub struct SessionRecord {
     pub forked_from_agent_session_ref: Option<AgentSessionRef>,
     /// Any JS number (TS writes back what it read; sessionOrder.ts orderValue reads a non-finite one as 0).
     pub sidebar_order: Option<JsNumber>,
+    /// The session's own note (every session has one; `notes_file` names its file).
     pub notes: Option<String>,
     pub notes_file: Option<NoteFile>,
+    /// Not sent since protocol 60 (see [`SharedNote`]).
     pub shared_notes: Option<SharedNote>,
     pub agent_session_ref: Option<AgentSessionRef>,
     pub pid: Option<i64>,
@@ -561,7 +605,6 @@ pub struct WorktreeDeleteResult {
     pub branch_deleted: Option<String>,
     pub stopped: i64,
     pub archived: i64,
-    pub sent_items: Option<i64>,
 }
 
 /// WorktreeMergeResult.committed: the worktree's changes committed before merging.
@@ -590,7 +633,8 @@ pub struct WorktreeMergeResult {
     pub reason: Option<String>,
     pub stdout: String,
     pub stderr: String,
-    pub sent_items: Option<i64>,
+    /// Open steps of the merged sessions' lines that moved up out of them (beside their line, marked `from`).
+    pub lifted_steps: Option<i64>,
 }
 
 /// MergePreview.diff.
@@ -646,7 +690,8 @@ pub struct MergePreview {
     pub in_progress: Option<TargetOperation>,
 }
 
-/// types.ts TasksDoc.
+/// A repository's list (types.ts TasksDoc): `key` names it (the hash of the repository's main checkout), `text` is
+/// the file (`deckhand_core::task_list::TaskList::parse` reads it: lines, nesting, who is on what).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -656,6 +701,10 @@ pub struct TasksDoc {
     pub text: String,
     pub revision: String,
     pub too_large: Option<bool>,
+    /// Only in `watch-tasks`' answer: every line note and brief with text of the list's lines, and the scratchpad
+    /// (always, for its path and revision). Later changes come as `work-note-updated`; a doc without `notes` leaves
+    /// what a client holds as it is.
+    pub notes: Option<Vec<WorkNote>>,
 }
 
 /// types.ts BranchList.
@@ -669,29 +718,26 @@ pub struct BranchList {
     pub branch_from: BranchFrom,
 }
 
-/// types.ts NoteSaveResult.
+/// `save-note`'s answer: `saved` false when the file had changed (nothing was written); `note` is the note as it is
+/// now either way, and `session` the session as projected now when it is a session's note.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NoteSaveResult {
     pub saved: bool,
-    pub session: Ordered<SessionRecord>,
+    pub note: WorkNote,
+    pub session: Option<Ordered<SessionRecord>>,
 }
 
-/// `promote-note-item` result.
+/// `promote-note-item`'s answer: the list with the new line (`lineId`), the note without the checkbox, and the
+/// session as projected now when it was a session's note.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromoteNoteItemResult {
-    pub session: Ordered<SessionRecord>,
     pub tasks: TasksDoc,
-}
-
-/// `send-open-items` result.
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SendOpenItemsResult {
-    pub session: Ordered<SessionRecord>,
-    pub tasks: TasksDoc,
-    pub sent: i64,
+    pub line_id: String,
+    pub note: WorkNote,
+    pub session: Option<Ordered<SessionRecord>>,
 }
 
 /// types.ts AgentVersionInfo (agentVersionCheck.ts snapshot literal order).
@@ -891,6 +937,7 @@ pub struct CreateSessionInput {
     pub sub_session_kind: Option<SubSessionKind>,
     pub handoff_from_session_id: Option<String>,
     pub base_branch: Option<String>,
+    /// A line of the list (its ID) the session takes on: open, and nobody on it.
     pub task_id: Option<String>,
     pub project_fingerprint: Option<String>,
     /// Not in the TS: the session a top-level fork (`subSessionKind: "forked"`, no parent) copies the conversation of.
@@ -1327,7 +1374,10 @@ pub struct Task {
 /// One change to a repository's list (internally tagged on `type`). The list nests: any line can have lines under
 /// it, and at most one session is on a line. `deckhand_core::tasks::apply_task_op` documents what each op does; `id`,
 /// `target` and `parent` are line IDs (`t=`), `at` a position among the new parent's lines (0-based; past the end, or
-/// absent: at the end).
+/// absent: at the end). Clients may send `add` (`title`, `parent`, `at`), `retitle`, `toggle`, `tick`, `reopen`,
+/// `remove`, `move`, `move-to`, `reorder`, `session-on` and `session-off` (`deckhand_core::tasks::client_task_op`);
+/// the rest are the daemon's. `edit`, `link`, `assign` and `{wt}` links are the old model's: the list still reads them,
+/// nothing sends them.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -1581,6 +1631,9 @@ pub struct PingResult {
     pub build: Option<String>,
     /// The daemon's process id.
     pub pid: Option<u32>,
+    /// Something the daemon wants the user to know (the work-items migration failed and runs again at its next
+    /// start, say), for a UI to show once it connects.
+    pub notice: Option<String>,
 }
 
 /// types.ts UiExitResult: what the UI process exits with (never on the wire; kept with the other shared types).

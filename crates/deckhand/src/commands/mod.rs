@@ -1,5 +1,5 @@
-//! `deckhand new|ls|task|note|kill|remove|guide|plan|do`: Deckhand actions from a shell, for the agents Deckhand runs
-//! (not in the TS), the orchestrator's `plan` and your `do`.
+//! `deckhand new|ls|task|step|note|kill|remove|guide|plan|do`: Deckhand actions from a shell, for the agents Deckhand
+//! runs (not in the TS), the orchestrator's `plan` and your `do`.
 //!
 //! Inside a session the command acts for that session, the caller: its `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID`
 //! and `DECKHAND_HOOK_TOKEN` go with `create`, `kill` and `remove`, and the daemon checks them as it does hook
@@ -24,13 +24,16 @@ use deckhand_core::agent_guide::GUIDE;
 use deckhand_core::display::truncate;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date::now_ms;
+use deckhand_core::notes::note_revision;
 use deckhand_core::plan::summary_lines;
 use deckhand_core::session_order::sort_sessions_for_sidebar;
-use deckhand_core::tasks::{append_note_item, parse_tasks};
-use deckhand_core::tasks_board::{work_key_of, work_label};
+use deckhand_core::task_list::{Line, TaskList};
+use deckhand_core::work_notes::append_paragraph;
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::{PlanStatus, SessionRecord, SessionStatus, Task, TaskOp};
+use deckhand_protocol::data::{
+    NoteRef, PlanStatus, SessionRecord, SessionStatus, Task, TasksDoc, WorkNote, WorkNoteKind,
+};
 use deckhand_protocol::wire::AgentCaller;
 use deckhand_sys::git::ensure_git_repo;
 
@@ -38,8 +41,10 @@ use crate::cli::print_line;
 use crate::hook::HookEnv;
 
 use args::{Action, Invocation, MoveTo, NewArgs, PlanSource, WorktreeChoice};
-use plan::{MovePlan, NewContext, caller_note, create_input, find_session, find_task, plan_move, session_path};
-use view::{short_id, task_view};
+use plan::{
+    MovePlan, MoveTarget, NewContext, create_input, find_line, find_session, find_task, plan_move, session_path,
+};
+use view::{line_view, short_id};
 
 /// How long `deckhand new` waits for the new session's worktree before printing what it has.
 const START_WAIT: Duration = Duration::from_secs(20);
@@ -109,7 +114,11 @@ impl Cx {
             Action::TaskDone(id) => self.task_tick(&id, true).await,
             Action::TaskReopen(id) => self.task_tick(&id, false).await,
             Action::TaskMove { id, to } => self.task_move(&id, &to).await,
-            Action::NoteAdd(item) => self.note_add(&item).await,
+            Action::StepAdd(text) => self.step_add(&text).await,
+            Action::StepDone(id) => self.step_tick(&id, true).await,
+            Action::StepReopen(id) => self.step_tick(&id, false).await,
+            Action::StepList => self.step_list().await,
+            Action::NoteAdd(text) => self.note_add(&text).await,
             Action::Kill(id) => self.end(&id, true).await,
             Action::Remove(id) => self.end(&id, false).await,
             Action::PlanCheck(source) => self.plan_check(&source).await,
@@ -145,9 +154,15 @@ impl Cx {
         ensure_git_repo(None).await
     }
 
-    /// The tasks of `cwd`'s repository.
+    /// The list of `cwd`'s repository, with its notes (`watch-tasks`).
+    async fn list(&self, cwd: &str) -> Result<TasksDoc, DhError> {
+        self.client.watch_tasks(cwd).await
+    }
+
+    /// Every line of `cwd`'s repository's list, as tasks (any of them can be started on).
     async fn tasks(&self, cwd: &str) -> Result<Vec<Task>, DhError> {
-        Ok(parse_tasks(&self.client.watch_tasks(cwd).await?.text))
+        let doc = self.list(cwd).await?;
+        Ok(TaskList::parse(&doc.text).lines().iter().map(Line::task).collect())
     }
 
     async fn new_session(&mut self, args: &NewArgs) -> Result<(), DhError> {
@@ -250,169 +265,269 @@ impl Cx {
         if self.json {
             return print_json(&ordered);
         }
-        let tasks = self.tasks(&repo_root).await.unwrap_or_default();
+        let list = self
+            .list(&repo_root)
+            .await
+            .map(|doc| TaskList::parse(&doc.text))
+            .unwrap_or_default();
         let caller = self.caller.as_ref().map(|caller| caller.session_id.as_str());
-        print_line(&view::session_table(&ordered, &tasks, caller));
+        print_line(&view::session_table(&ordered, &list, caller));
         Ok(())
     }
 
-    /// The repository's sessions (for the work tasks name) and tasks.
-    async fn board(&self) -> Result<(String, Vec<SessionRecord>, Vec<Task>), DhError> {
+    /// The repository's sessions (for who is on what) and its list with its notes.
+    async fn board(&self) -> Result<(String, Vec<SessionRecord>, TasksDoc), DhError> {
         let repo_root = self.repo_root().await?;
         let sessions = self.client.subscribe(&repo_root).await?;
-        let tasks = self.tasks(&repo_root).await?;
-        Ok((repo_root, sessions, tasks))
+        let doc = self.list(&repo_root).await?;
+        Ok((repo_root, sessions, doc))
     }
 
     async fn task_list(&self) -> Result<(), DhError> {
-        let (_, sessions, tasks) = self.board().await?;
+        let (_, sessions, doc) = self.board().await?;
+        let list = TaskList::parse(&doc.text);
+        let notes = doc.notes.unwrap_or_default();
         if self.json {
-            let views: Vec<_> = tasks.iter().map(|task| task_view(task, &sessions)).collect();
+            let views: Vec<_> = list.lines().iter().map(|line| line_view(line, &list, &notes)).collect();
             return print_json(&views);
         }
-        print_line(&view::task_list(&tasks, &sessions, now_ms()));
+        print_line(&view::task_tree(&list, &sessions, &notes, now_ms()));
         Ok(())
     }
 
-    /// Applies `op` to the repository's tasks and returns the list after it.
-    async fn apply(&self, repo_root: &str, op: TaskOp) -> Result<Vec<Task>, DhError> {
-        Ok(parse_tasks(&self.client.task_op(repo_root, op).await?.text))
+    /// `op` (as JSON) on the list of `repo_root`; the list after it.
+    async fn apply(&self, repo_root: &str, op: Value) -> Result<TaskList, DhError> {
+        Ok(TaskList::parse(&self.client.task_op_value(repo_root, op).await?.text))
     }
 
-    /// Prints `task` (looked up again in `tasks` by ID) as JSON, or `message`.
-    fn report_task(&self, id: &str, tasks: &[Task], sessions: &[SessionRecord], message: &str) -> Result<(), DhError> {
+    /// Prints line `id` of `list` as JSON, or `message`.
+    fn report_line(&self, id: &str, list: &TaskList, message: &str) -> Result<(), DhError> {
         if self.json {
-            let task = tasks.iter().find(|task| task.id == id);
-            return print_json(&task.map(|task| task_view(task, sessions)));
+            let view = list.get(id).map(|line| line_view(line, list, &[]));
+            return print_json(&view);
         }
         print_line(message);
         Ok(())
     }
 
-    async fn task_add(&self, title: &str, details: Option<String>) -> Result<(), DhError> {
-        let (repo_root, sessions, before) = self.board().await?;
-        let op = TaskOp::Add {
-            title: title.to_owned(),
-            body: details,
-            link: None,
-            id: None,
-            from: None,
-            parent: None,
-            at: None,
-        };
-        let after = self.apply(&repo_root, op).await?;
-        let added = after
+    /// The line added by the change from `before` to `after` (the one whose ID is new).
+    fn added(before: &TaskList, after: &TaskList) -> Result<Line, DhError> {
+        after
+            .lines()
             .iter()
-            .rev()
-            .find(|task| !before.iter().any(|old| old.id == task.id))
-            .ok_or_else(|| DhError::msg("The task was saved but is not in the list"))?;
-        let message = format!("Added to the backlog: {} {}", short_id(&added.id), added.title);
-        self.report_task(&added.id, &after, &sessions, &message)
+            .find(|line| before.get(&line.id).is_none())
+            .cloned()
+            .ok_or_else(|| DhError::msg("The line was saved but is not in the list"))
     }
 
-    async fn task_tick(&self, id: &str, done: bool) -> Result<(), DhError> {
-        let (repo_root, sessions, tasks) = self.board().await?;
-        let task = find_task(id, &tasks)?.clone();
+    async fn task_add(&self, title: &str, details: Option<String>) -> Result<(), DhError> {
+        let (repo_root, _, doc) = self.board().await?;
+        let before = TaskList::parse(&doc.text);
+        let after = self
+            .apply(&repo_root, json!({"type": "add", "title": title, "note": details}))
+            .await?;
+        let added = Self::added(&before, &after)?;
+        let message = format!("Added to the backlog: {} {}", short_id(&added.id), added.title);
+        self.report_line(&added.id, &after, &message)
+    }
+
+    /// Ticks (`done`) or reopens one of `lines` of the list of `repo_root`.
+    async fn tick(&self, repo_root: &str, line: &Line, done: bool, list: &TaskList) -> Result<(), DhError> {
         let (verb, already) = if done {
             ("Ticked", "already done")
         } else {
             ("Reopened", "not done")
         };
-        if task.done == done {
-            let message = format!("It is {already}: {} {}", short_id(&task.id), task.title);
-            return self.report_task(&task.id, &tasks, &sessions, &message);
+        if line.done == done {
+            let message = format!("It is {already}: {} {}", short_id(&line.id), line.title);
+            return self.report_line(&line.id, list, &message);
         }
-        let after = self.apply(&repo_root, TaskOp::Toggle { id: task.id.clone() }).await?;
-        let message = format!("{verb}: {} {}", short_id(&task.id), task.title);
-        self.report_task(&task.id, &after, &sessions, &message)
+        let kind = if done { "tick" } else { "reopen" };
+        let after = self.apply(repo_root, json!({"type": kind, "id": line.id})).await?;
+        let mut message = format!("{verb}: {} {}", short_id(&line.id), line.title);
+        if let Some(parent) = line.parent.as_deref().and_then(|parent| after.get(parent))
+            && parent.done
+            && done
+        {
+            message.push_str(&format!(" (and {}: every line under it is ticked)", parent.title));
+        }
+        self.report_line(&line.id, &after, &message)
+    }
+
+    async fn task_tick(&self, id: &str, done: bool) -> Result<(), DhError> {
+        let (repo_root, _, doc) = self.board().await?;
+        let list = TaskList::parse(&doc.text);
+        let line = find_line(id, list.lines(), "deckhand task list")?.clone();
+        self.tick(&repo_root, &line, done, &list).await
     }
 
     async fn task_move(&self, id: &str, to: &MoveTo) -> Result<(), DhError> {
-        let (repo_root, sessions, tasks) = self.board().await?;
-        let task = find_task(id, &tasks)?.clone();
+        let (repo_root, sessions, doc) = self.board().await?;
+        let list = TaskList::parse(&doc.text);
+        let line = find_line(id, list.lines(), "deckhand task list")?.clone();
         let target = match to {
-            MoveTo::Backlog => None,
-            MoveTo::Session(session) => Some(find_session(session, &sessions)?),
+            MoveTo::Backlog => MoveTarget::Backlog,
+            MoveTo::Session(to) => match (find_session(to, &sessions), find_line(to, list.lines(), "")) {
+                (Ok(session), Err(_)) => MoveTarget::Session(session),
+                (Err(_), Ok(under)) => MoveTarget::Line(under),
+                (Ok(_), Ok(_)) => {
+                    return Err(DhError::msg(format!(
+                        "{to} names a session and a line; give more of it"
+                    )));
+                }
+                (Err(_), Err(_)) => {
+                    return Err(DhError::msg(format!(
+                        "No session or line {to} (see deckhand ls and deckhand task list)"
+                    )));
+                }
+            },
         };
-        let title = truncate(&task.title, 40);
-        let label = target.map(|target| work_label(&work_key_of(target), &sessions));
-        let (after, message) = match plan_move(&task, target, &tasks) {
-            MovePlan::Already => (tasks.clone(), "It is already there".to_owned()),
-            MovePlan::Step { section } => {
-                let doc = self.client.task_to_note(&repo_root, &task.id, &section).await?;
-                let message = format!(
-                    "Now a step in the note of {} (it has its task already): {title}",
-                    label.unwrap_or_default()
-                );
-                (parse_tasks(&doc.text), message)
-            }
-            MovePlan::Assign { link } => {
-                let backlog = link.is_none();
+        let title = truncate(&line.title, 40);
+        let (after, message) = match plan_move(&line, target, &list) {
+            MovePlan::Already => (list.clone(), "It is already there".to_owned()),
+            MovePlan::SessionOn { s } => {
                 let after = self
-                    .apply(
-                        &repo_root,
-                        TaskOp::Assign {
-                            id: task.id.clone(),
-                            link,
-                        },
-                    )
+                    .apply(&repo_root, json!({"type": "session-on", "id": line.id, "s": s}))
                     .await?;
-                let message = if backlog {
-                    format!("Moved to the backlog: {title}")
-                } else {
-                    format!(
-                        "Now the task of {} (merging or finishing that work ticks it): {title}",
-                        label.unwrap_or_default()
-                    )
+                let name = match target {
+                    MoveTarget::Session(session) => session_path(session).to_owned(),
+                    _ => s,
+                };
+                let message = format!("Now the line of {name} (merging or finishing that work ticks it): {title}");
+                (after, message)
+            }
+            MovePlan::MoveTo { parent, unhook } => {
+                if let Some(s) = unhook {
+                    self.apply(&repo_root, json!({"type": "session-off", "s": s})).await?;
+                }
+                let after = self
+                    .apply(&repo_root, json!({"type": "move-to", "id": line.id, "parent": parent}))
+                    .await?;
+                let message = match target {
+                    MoveTarget::Backlog => format!("Moved to the backlog: {title}"),
+                    MoveTarget::Session(session) => {
+                        format!("Now a step of the line of {}: {title}", session_path(session))
+                    }
+                    MoveTarget::Line(under) => format!("Now under {}: {title}", truncate(&under.title, 40)),
                 };
                 (after, message)
             }
         };
-        self.report_task(&task.id, &after, &sessions, &message)
+        self.report_line(&line.id, &after, &message)
     }
 
-    async fn note_add(&self, item: &str) -> Result<(), DhError> {
+    /// The caller (`what` needs one) and the sessions the daemon has.
+    async fn caller(&self, what: &str) -> Result<(SessionRecord, Vec<SessionRecord>), DhError> {
+        let needs = || {
+            DhError::msg(format!(
+                "deckhand {what} needs a Deckhand session to act for: run it inside one (DECKHAND_SESSION_ID is not \
+                 set)"
+            ))
+        };
         if self.caller.is_none() {
-            return Err(DhError::msg(
-                "deckhand note add needs a Deckhand session to act for: run it inside one (DECKHAND_SESSION_ID is not set)",
-            ));
+            return Err(needs());
         }
-        let mut created_file = false;
+        let (sessions, caller) = self.sessions().await?;
+        Ok((caller.ok_or_else(needs)?, sessions))
+    }
+
+    /// The caller's line, made when it has none (lines on demand); the list after that.
+    async fn caller_line(&self, caller: &SessionRecord) -> Result<(Line, TaskList), DhError> {
+        let list = self
+            .apply(&caller.repo_root, json!({"type": "session-line", "s": caller.id}))
+            .await?;
+        let line = list
+            .line_of_session(&caller.id)
+            .cloned()
+            .ok_or_else(|| DhError::msg("This session's line was made but is not in the list"))?;
+        Ok((line, list))
+    }
+
+    async fn step_add(&self, text: &str) -> Result<(), DhError> {
+        let (caller, _) = self.caller("step add").await?;
+        let (line, before) = self.caller_line(&caller).await?;
+        let after = self
+            .apply(
+                &caller.repo_root,
+                json!({"type": "add", "title": text, "parent": line.id}),
+            )
+            .await?;
+        let added = Self::added(&before, &after)?;
+        let message = format!(
+            "Added a step to {}: {} {}",
+            truncate(&line.title, 40),
+            short_id(&added.id),
+            added.title
+        );
+        self.report_line(&added.id, &after, &message)
+    }
+
+    async fn step_tick(&self, id: &str, done: bool) -> Result<(), DhError> {
+        let what = if done { "step done" } else { "step reopen" };
+        let (caller, _) = self.caller(what).await?;
+        let list = TaskList::parse(&self.list(&caller.repo_root).await?.text);
+        let Some(line) = list.line_of_session(&caller.id) else {
+            return Err(DhError::msg(
+                "This session has no steps yet (deckhand step add adds one)",
+            ));
+        };
+        let steps: Vec<Line> = list.subtree(&line.id).into_iter().skip(1).cloned().collect();
+        let step = find_line(id, &steps, "deckhand step list")?.clone();
+        self.tick(&caller.repo_root, &step, done, &list).await
+    }
+
+    async fn step_list(&self) -> Result<(), DhError> {
+        let (caller, sessions) = self.caller("step list").await?;
+        let doc = self.list(&caller.repo_root).await?;
+        let list = TaskList::parse(&doc.text);
+        let notes = doc.notes.unwrap_or_default();
+        let line = list.line_of_session(&caller.id);
+        if self.json {
+            let views: Vec<_> = line
+                .map(|line| list.subtree(&line.id))
+                .unwrap_or_default()
+                .into_iter()
+                .map(|line| line_view(line, &list, &notes))
+                .collect();
+            return print_json(&views);
+        }
+        print_line(&match line {
+            Some(line) => view::step_tree(&list, &line.id, &sessions, &notes),
+            None => "This session has no line yet: deckhand step add gives it one, with its first step".to_owned(),
+        });
+        Ok(())
+    }
+
+    async fn note_add(&self, text: &str) -> Result<(), DhError> {
+        let (caller, _) = self.caller("note add").await?;
+        let (line, _) = self.caller_line(&caller).await?;
         for _ in 0..NOTE_ATTEMPTS {
-            let (sessions, caller) = self.sessions().await?;
-            let Some(caller) = caller else { break };
-            let Some(note) = caller_note(&caller, &sessions)? else {
-                if created_file {
-                    return Err(DhError::msg("This session has no note"));
-                }
-                // A session's own note has no file until it is first opened.
-                let section = deckhand_protocol::data::NoteSection::Session;
-                self.client.open_note(&caller.id, section).await?;
-                created_file = true;
-                continue;
+            let doc = self.list(&caller.repo_root).await?;
+            let current: Option<WorkNote> = doc
+                .notes
+                .unwrap_or_default()
+                .into_iter()
+                .find(|note| note.kind == WorkNoteKind::Line && note.id == line.id);
+            let (before, revision) = match current {
+                Some(note) => (note.text, note.revision),
+                None => (String::new(), note_revision("")),
             };
-            let text = append_note_item(&note.text, item, "");
-            let saved = self
-                .client
-                .save_note(
-                    &note.session_id,
-                    note.section,
-                    &text,
-                    &note.revision,
-                    note.note_id.as_deref(),
-                )
-                .await?;
+            let next = append_paragraph(&before, text);
+            let note = NoteRef {
+                kind: WorkNoteKind::Line,
+                id: line.id.clone(),
+            };
+            let saved = self.client.save_work_note(note, &next, &revision).await?;
             if !saved.saved {
                 continue;
             }
-            let section = work_key_of(&caller);
             if self.json {
-                return print_json(&json!({"work": section, "item": item, "text": text}));
+                return print_json(&json!({"line": line.id, "text": saved.note.text}));
             }
             print_line(&format!(
-                "Added a step to the note of {}: {}",
-                work_label(&section, &sessions),
-                truncate(item, 60)
+                "Added to the note of {}: {}",
+                truncate(&line.title, 40),
+                truncate(text, 60)
             ));
             return Ok(());
         }

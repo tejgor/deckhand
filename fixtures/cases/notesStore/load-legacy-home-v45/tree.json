@@ -113,6 +113,16 @@
       "mode": "0755"
     },
     {
+      "path": "notes/briefs",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/lines",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
       "path": "notes/repos",
       "type": "dir",
       "mode": "0755"

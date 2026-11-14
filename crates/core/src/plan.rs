@@ -37,7 +37,7 @@ pub const TASK_KEYS: &[&str] = &["title", "details"];
 pub struct PlanContext<'a> {
     /// The repository's sessions (with their paths projected, as the daemon holds them).
     pub sessions: &'a [SessionRecord],
-    /// The repository's tasks.
+    /// The repository's lines, at every depth (a session may start on any open line nobody is on).
     pub tasks: &'a [Task],
     /// The repository's `defaultAgent`.
     pub default_agent: Option<ProgramKey>,
@@ -378,12 +378,6 @@ pub fn validate_plan(raw: &Value, cx: &PlanContext<'_>) -> Result<ValidPlan, Vec
             ));
         }
         let Some(task_id) = entry.task.as_deref() else { continue };
-        if has_parent && worktree != PlanWorktree::New {
-            problems.push(format!(
-                "{}: a task starts only a top-level session or a sub-session in a new worktree",
-                entry.label
-            ));
-        }
         match find_by_id(task_id, cx.tasks, |task| &task.id) {
             Err("ambiguous") => problems.push(format!(
                 "{}: task \"{task_id}\" is the start of more than one task ID; give more of it",
@@ -865,7 +859,6 @@ mod tests {
             "sessions[6] (e): flat applies only to worktree \"new\"",
             "sessions[7] (f): base \"nope\" is not a branch or commit of this repository",
             "sessions[8] (g): no task \"zz\" (see deckhand task list)",
-            "sessions[9] (h): a task starts only a top-level session or a sub-session in a new worktree",
         ];
         assert_eq!(problems, expected);
     }

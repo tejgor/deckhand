@@ -28,8 +28,9 @@ use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{js_len, js_slice, js_to_lower, js_trim};
 use deckhand_core::notes::{MAX_NOTES_CHARS, MAX_NOTES_LABEL, note_revision};
 
-/// TS: notesStore.ts NoteKind: a session's own note, a linked worktree incarnation's, the main checkout's, or a
-/// repository's task list.
+/// TS: notesStore.ts NoteKind: a session's own note, a linked worktree incarnation's (the old model's: no longer
+/// written, read only by the work-items migration), a repository's scratchpad (`repo`, by list key), a repository's
+/// list, a line's note, or a line's brief.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NoteKind {
     #[serde(rename = "session")]
@@ -40,11 +41,22 @@ pub enum NoteKind {
     Repo,
     #[serde(rename = "tasks")]
     Tasks,
+    #[serde(rename = "line")]
+    Line,
+    #[serde(rename = "brief")]
+    Brief,
 }
 
 impl NoteKind {
-    /// TS: notesStore.ts KINDS (DIRECTORIES key order).
-    pub const ALL: [NoteKind; 4] = [NoteKind::Session, NoteKind::Worktree, NoteKind::Repo, NoteKind::Tasks];
+    /// TS: notesStore.ts KINDS (DIRECTORIES key order), then the line notes and briefs.
+    pub const ALL: [NoteKind; 6] = [
+        NoteKind::Session,
+        NoteKind::Worktree,
+        NoteKind::Repo,
+        NoteKind::Tasks,
+        NoteKind::Line,
+        NoteKind::Brief,
+    ];
 
     /// The kind's name (`session`, ...), as in cache keys and trash file names.
     pub fn as_str(self) -> &'static str {
@@ -53,6 +65,8 @@ impl NoteKind {
             NoteKind::Worktree => "worktree",
             NoteKind::Repo => "repo",
             NoteKind::Tasks => "tasks",
+            NoteKind::Line => "line",
+            NoteKind::Brief => "brief",
         }
     }
 
@@ -63,6 +77,8 @@ impl NoteKind {
             NoteKind::Worktree => "worktrees",
             NoteKind::Repo => "repos",
             NoteKind::Tasks => "tasks",
+            NoteKind::Line => "lines",
+            NoteKind::Brief => "briefs",
         }
     }
 }

@@ -14,19 +14,18 @@ use deckhand_core::display::session_path_names_by;
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, date, path};
 use deckhand_core::project_config::{resolve_settings, resolve_setup_command};
-use deckhand_core::session_features::HandoffTask;
 use deckhand_core::session_order::{
     Placement, compare_session_order, parent_of, place_session, sort_sessions_for_sidebar,
 };
 use deckhand_core::session_scope::sessions_in_scope;
-use deckhand_core::tasks::{parse_tasks, task_prompt};
+use deckhand_core::work_notes::line_prompt;
 use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
 use deckhand_protocol::data::{
     AgentActivityStatus, AgentSessionRef, AttentionState, CreateSessionInput, ExitReason, InterruptedWhile, JsNumber,
     LoadedProject, MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord, SessionRestartOutcome, SessionRole,
-    SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink,
-    TaskOp, WorktreeCreator, WorktreeMode, WorktreeOrigin,
+    SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskOp,
+    WorkNoteKind, WorktreeCreator, WorktreeMode, WorktreeOrigin,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
@@ -123,8 +122,6 @@ pub struct KillOptions {
     pub delete_branch: bool,
     pub force: bool,
     pub allow_data_loss: bool,
-    /// Send the worktree note's open items to the backlog before deleting it.
-    pub send_open_items: bool,
 }
 
 /// A JS-truthy optional string (set and not empty).
@@ -401,7 +398,7 @@ impl Daemon {
             let worktrees = self.worktrees.borrow();
             let projected = project_worktree(&session, &worktrees.records);
             match notes {
-                Some(notes) => crate::notes_tasks::project_notes(projected, &worktrees.records, &notes),
+                Some(notes) => crate::notes_tasks::project_notes(projected, &notes),
                 // No store (never in a running daemon): nothing to project.
                 None => projected,
             }
@@ -646,15 +643,6 @@ impl Daemon {
                     worker.allow_data_loss.get(),
                 )
                 .await?;
-                if worker.send_open_items_on_exit.get() {
-                    let record = self.worktree_record_of(&*self.require_session(session_id)?);
-                    self.send_worktree_items_to_backlog(
-                        record.as_deref(),
-                        &existing.repo_root,
-                        worktree.branch.as_deref(),
-                    )
-                    .await?;
-                }
                 // The workspace's shared Terminal/Git/Dev run inside the worktree: stop them (and wait) before removal.
                 if let Some(workspace) = workspace_key(existing) {
                     self.stop_changes_watch(&workspace);
@@ -1109,32 +1097,27 @@ impl Daemon {
             .reduce(f64::max)
             .map_or(0.0, |max| max + 1.0);
         let mut start_prompt = None;
+        // The line it starts on (any open line nobody is on): its list's key and its ID.
+        let mut task_line: Option<(String, String)> = None;
         if let Some(task_id) = input.task_id.as_deref() {
-            // Not in the TS: a sub-session in a worktree of its own may start from a task too (`deckhand new --task`).
-            let own_worktree = input.worktree_mode == Some(WorktreeMode::New);
-            if checks.task_id_not_text || handoff_from.is_some() || (parent_session.is_some() && !own_worktree) {
-                return Err(DhError::msg(
-                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
-                ));
+            if checks.task_id_not_text {
+                return Err(DhError::msg("That task is no longer in the list"));
             }
             let key = self.tasks_key_for(&input.cwd).await?;
-            let text = self
-                .notes()
-                .get(&NoteId {
-                    kind: NoteKind::Tasks,
-                    id: key,
-                })
-                .text;
-            let Some(task) = parse_tasks(&text).into_iter().find(|item| item.id == task_id) else {
+            let list = self.task_list(&key);
+            let Some(line) = list.get(task_id) else {
                 return Err(DhError::msg("That task is no longer in the list"));
             };
-            if task.done {
+            if line.done {
                 return Err(DhError::msg("That task is done; reopen it (space) to work on it"));
             }
-            if truthy(task.meta.wt.as_deref()) || truthy(task.meta.s.as_deref()) {
+            if line.is_taken() {
                 return Err(DhError::msg("That task is already being worked on"));
             }
-            start_prompt = Some(task_prompt(&task)).filter(|prompt| !prompt.is_empty());
+            let brief = self.work_note(WorkNoteKind::Brief, &line.id).text;
+            let note = self.work_note(WorkNoteKind::Line, &line.id).text;
+            start_prompt = Some(line_prompt(&line.title, &brief, &note)).filter(|prompt| !prompt.is_empty());
+            task_line = Some((key, line.id.clone()));
         }
         // Not in the TS: a prompt (blank: none) replaces a task's text; it is sent as the agent's first message unless
         // `submit` is false, when it is typed as the draft a task's text is.
@@ -1239,6 +1222,17 @@ impl Daemon {
 
         self.set_session(base_session.clone());
         self.broadcast_session_updated(&base_session);
+        // Started on a line: it is on it from now (a removal, should the start fail, unhooks it again).
+        if let Some((key, id)) = task_line {
+            let op = TaskOp::SessionOn {
+                id: id.clone(),
+                s: base_session.id.clone(),
+            };
+            if let Err(error) = self.change_tasks(&key, op).await {
+                self.log(&format!("putting {} on line {id} failed: {error}", base_session.id))
+                    .await;
+            }
+        }
         {
             let persisted = self.persist();
             drop(spawn(async move {
@@ -1266,8 +1260,8 @@ impl Daemon {
         Ok(base_session)
     }
 
-    /// TS: InkDaemon.finishCreateSession: worktree (new or existing), launch plan, worktree incarnation, task link,
-    /// setup, then the worker.
+    /// TS: InkDaemon.finishCreateSession: worktree (new or existing), launch plan, worktree incarnation, setup, then
+    /// the worker.
     pub async fn finish_create_session(&self, session_id: &str, input: CreateSessionInput) -> Result<()> {
         let Some(starting_session) = self
             .get_session(session_id)
@@ -1501,23 +1495,6 @@ impl Daemon {
         }
         if let Some(superseded) = joined.as_ref().and_then(|joined| joined.superseded.clone()) {
             self.save_worktree_record(superseded).await?;
-        }
-        // Started from a task: it is now this worktree's (or, in the main checkout, this session's) work.
-        if let Some(task_id) = input.task_id.as_deref().filter(|id| !id.is_empty()) {
-            let link = match joined.as_ref() {
-                Some(joined) => TaskLink::Worktree { wt: joined.id.clone() },
-                None => TaskLink::Session {
-                    s: session_id.to_owned(),
-                },
-            };
-            let key = self.tasks_key_for(&input.cwd).await?;
-            let op = TaskOp::Link {
-                id: task_id.to_owned(),
-                link,
-            };
-            if let Err(error) = self.change_tasks(&key, op).await {
-                self.log(&format!("linking task {task_id} failed: {error}")).await;
-            }
         }
         if cancelled {
             return Ok(());
@@ -2027,9 +2004,6 @@ impl Daemon {
         worker.allow_data_loss.set(options.allow_data_loss);
         worker.delete_worktree_on_exit.set(delete_on_exit);
         worker.delete_branch_on_exit.set(options.delete_branch);
-        worker
-            .send_open_items_on_exit
-            .set(delete_on_exit && options.send_open_items);
         assign(&mut current, "exitReason");
         current.exit_reason = Some(ExitReason::Stopped);
         assign(&mut current, "cleanupError");
@@ -2097,48 +2071,17 @@ impl Daemon {
             self.worktrees.borrow_mut().records.shift_remove(dropped);
         }
         self.persist().await?;
-        // A session's note goes with it, a worktree's with its record; the main checkout's note is never deleted.
-        let notes = self.notes();
+        // A session's note goes with it (to the trash when it has text).
         let session_note = NoteId {
             kind: NoteKind::Session,
             id: session_id.to_owned(),
         };
-        if let Err(error) = notes.remove(&session_note, Some(&path_title)).await {
+        if let Err(error) = self.notes().remove(&session_note, Some(&path_title)).await {
             self.log(&format!("removing notes of {session_id} failed: {error}"))
                 .await;
         }
-        let branch = existing
-            .worktree
-            .as_ref()
-            .and_then(|worktree| worktree.branch.clone())
-            .filter(|branch| !branch.is_empty());
-        if let Some(dropped) = dropped.as_deref() {
-            let worktree_note = NoteId {
-                kind: NoteKind::Worktree,
-                id: dropped.to_owned(),
-            };
-            let label = branch.clone().unwrap_or_else(|| path_title.clone());
-            if let Err(error) = notes.remove(&worktree_note, Some(&label)).await {
-                self.log(&format!("removing worktree notes {dropped} failed: {error}"))
-                    .await;
-            }
-        }
-        // Tasks it was doing go back to the backlog: the session's own link, and its worktree's once nothing refers to
-        // it.
-        self.change_linked_tasks(TaskOp::AbandonLinked {
-            link: TaskLink::Session {
-                s: session_id.to_owned(),
-            },
-            tried: branch.clone(),
-        })
-        .await;
-        if let Some(dropped) = dropped.as_deref() {
-            self.change_linked_tasks(TaskOp::AbandonLinked {
-                link: TaskLink::Worktree { wt: dropped.to_owned() },
-                tried: branch,
-            })
-            .await;
-        }
+        // Its line stays where it is, with nobody on it (marked tried in its branch when it was left open).
+        self.release_session_line(&existing).await;
         self.broadcast_session_removed(&existing);
         self.sync_change_watches();
         // Workspace panes outlive agents but not their workspace's sessions: with the last one gone, nothing could
@@ -2163,7 +2106,7 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.exportSessionHandoff: Git context (bounded, fail-soft; none for a deleted worktree) and the
-    /// linked task, written by sessionFeatures.ts exportHandoff; answers the file path.
+    /// line it is on, written by sessionFeatures.ts exportHandoff; answers the file path.
     pub async fn export_session_handoff(&self, session: &SessionRecord, include_output: bool) -> Result<String> {
         let worktree = session.worktree.as_ref();
         let git_context = if worktree.is_some_and(|worktree| truthy(worktree.deleted_at.as_deref())) {
@@ -2171,16 +2114,8 @@ impl Daemon {
         } else {
             get_handoff_git_context(&session.cwd, worktree.and_then(|worktree| worktree.base_ref.as_deref())).await
         };
-        let linked = self.linked_tasks_of(session);
-        let task = linked
-            .iter()
-            .find(|item| !item.done)
-            .or_else(|| linked.first())
-            .map(|task| HandoffTask {
-                title: task.title.clone(),
-                body: task.body.clone(),
-                done: task.done,
-            });
+        // The line it is on: its title and steps, its brief and its note (the session's own note is on the record).
+        let task = self.handoff_task(session);
         // Its `Task:` line names the session by its path (`parent / child`).
         let mut named = session.clone();
         named.title = self.session_path(session);
@@ -2363,7 +2298,6 @@ impl Daemon {
             delete_branch: request.delete_branch.unwrap_or(false),
             force: request.force.unwrap_or(false),
             allow_data_loss: request.allow_data_loss.unwrap_or(false),
-            send_open_items: request.send_open_items == Some(true),
         };
         if let Some(caller) = &request.caller {
             self.assert_callers_sub_session(caller, &request.session_id)?;
@@ -2445,14 +2379,14 @@ impl Daemon {
         None
     }
 
-    /// TS: handleRequest `remove`: moves the open note items first when asked, then removeSession. Not in the TS: with
-    /// a `caller`, only a session it started (or one under those).
+    /// TS: handleRequest `remove`: with `moveNote`, what is still open in the session's note goes to its line's note
+    /// first; then removeSession. Not in the TS: with a `caller`, only a session it started (or one under those).
     pub async fn handle_remove(&self, request: &Remove) -> Result<OkResult> {
         if let Some(caller) = &request.caller {
             self.assert_callers_sub_session(caller, &request.session_id)?;
         }
-        if request.move_open_items == Some(true) {
-            self.move_open_note_items(&request.session_id).await?;
+        if request.move_note == Some(true) {
+            self.move_session_note_to_line(&request.session_id).await?;
         }
         self.remove_session(&request.session_id).await?;
         Ok(OkResult::default())
@@ -3136,14 +3070,6 @@ mod tests {
                     "A base branch applies only to a new worktree",
                 ),
                 (json!({"handoffFromSessionId": "gone"}), "Session does not exist"),
-                (
-                    json!({"taskId": "t1", "parentSessionId": "p"}),
-                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
-                ),
-                (
-                    json!({"taskId": "t1", "handoffFromSessionId": "p"}),
-                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
-                ),
             ];
             for (fields, expected) in cases {
                 assert_eq!(
@@ -3152,13 +3078,18 @@ mod tests {
                     "{fields}"
                 );
             }
-            // A sub-session in a worktree of its own may start from a task: it is looked up (`/r` is no repository).
-            let own_worktree = input(json!({"taskId": "t1", "parentSessionId": "p", "worktreeMode": "new"}));
-            let looked_up = error(daemon.create_session(own_worktree).await);
-            assert!(
-                looked_up.starts_with("Command failed: git -C /r rev-parse"),
-                "{looked_up}"
-            );
+            // Any session may start on a line, a sub-session sharing its parent's worktree included: the line is looked
+            // up (`/r` is no repository).
+            for fields in [
+                json!({"taskId": "t1", "parentSessionId": "p", "worktreeMode": "new"}),
+                json!({"taskId": "t1", "parentSessionId": "p"}),
+            ] {
+                let looked_up = error(daemon.create_session(input(fields.clone())).await);
+                assert!(
+                    looked_up.starts_with("Command failed: git -C /r rev-parse"),
+                    "{fields}: {looked_up}"
+                );
+            }
             assert_eq!(daemon.all_sessions().len(), 5);
             assert!(daemon.sessions.borrow().preparing.is_empty());
         });
@@ -3465,7 +3396,7 @@ mod tests {
             let remove = Remove {
                 request_id: "r".into(),
                 session_id: "gone".into(),
-                move_open_items: None,
+                move_note: None,
                 caller: None,
             };
             assert_eq!(error(daemon.handle_remove(&remove).await), "session does not exist");

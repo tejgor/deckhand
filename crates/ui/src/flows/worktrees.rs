@@ -738,7 +738,6 @@ struct BulkJob {
     path: String,
     branch: String,
     delete_branch: bool,
-    send_open_items: bool,
 }
 
 /// TS deleteAll's loop state (the `for` over the entries with its counters).
@@ -750,7 +749,6 @@ struct BulkRun {
     deleted: i64,
     branches: i64,
     stopped: i64,
-    sent: i64,
     failed: Vec<String>,
 }
 
@@ -774,20 +772,6 @@ fn running_of<'a>(entry: &WorktreeOverviewEntry, sessions: &[&'a SessionRecord])
 /// TS `openItemsOf(entry)`.
 fn open_items_of(entry: &WorktreeOverviewEntry, sessions: &[&SessionRecord]) -> Vec<String> {
     worktree_open_items(entry.record_id.as_deref(), sessions)
-}
-
-/// TS `sendsItems(entry, keep)`.
-fn sends_items(entry: &WorktreeOverviewEntry, keep: bool, sessions: &[&SessionRecord]) -> bool {
-    !keep && !open_items_of(entry, sessions).is_empty()
-}
-
-/// TS `sentText(count)`.
-fn sent_text(count: i64) -> String {
-    if count == 0 {
-        String::new()
-    } else {
-        format!("{count} open note item{} to the backlog", plural(count))
-    }
 }
 
 /// The fallback check when the daemon could not inspect it (TS `satisfies WorktreeCleanupInspection`).
@@ -1124,7 +1108,8 @@ impl WorktreesFlow {
         entry: &WorktreeOverviewEntry,
         delete_branch: bool,
         allow_data_loss: bool,
-        keep_open_items: bool,
+        // Since protocol 60 a deletion leaves the sessions' lines and their steps where they are.
+        _keep_open_items: bool,
         props: &WorktreesFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
     ) {
@@ -1142,7 +1127,6 @@ impl WorktreesFlow {
             delete_branch: Some(delete_branch),
             stop_sessions: Some(true),
             allow_data_loss: Some(allow_data_loss),
-            send_open_items: Some(sends_items(entry, keep_open_items, props.sessions)),
         };
         let reply = client.delete_worktree(props.cwd, &entry.path, options);
         let cwd = props.cwd.to_owned();
@@ -1171,7 +1155,7 @@ impl WorktreesFlow {
                     } else {
                         String::new()
                     };
-                    let parts: Vec<String> = [done, stopped, sent_text(result.sent_items.unwrap_or(0)), archived]
+                    let parts: Vec<String> = [done, stopped, archived]
                         .into_iter()
                         .filter(|part| !part.is_empty())
                         .collect();
@@ -1192,7 +1176,7 @@ impl WorktreesFlow {
         &mut self,
         entries: Vec<WorktreeOverviewEntry>,
         with_branches: bool,
-        keep_open_items: bool,
+        _keep_open_items: bool,
         props: &WorktreesFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
     ) {
@@ -1211,7 +1195,6 @@ impl WorktreesFlow {
                 path: entry.path.clone(),
                 branch: entry.branch.clone(),
                 delete_branch: with_branches && self.can_delete_branch(entry),
-                send_open_items: sends_items(entry, keep_open_items, props.sessions),
             })
             .collect();
         let run = BulkRun {
@@ -1222,7 +1205,6 @@ impl WorktreesFlow {
             deleted: 0,
             branches: 0,
             stopped: 0,
-            sent: 0,
             failed: Vec::new(),
         };
         self.bulk_step(run, cx);
@@ -1254,10 +1236,7 @@ impl WorktreesFlow {
             } else {
                 String::new()
             };
-            let parts: Vec<String> = [deleted, stopped, sent_text(run.sent)]
-                .into_iter()
-                .filter(|part| !part.is_empty())
-                .collect();
+            let parts: Vec<String> = [deleted, stopped].into_iter().filter(|part| !part.is_empty()).collect();
             self.finish(parts.join(" · "), run.client, run.cwd, cx);
             return;
         };
@@ -1267,7 +1246,6 @@ impl WorktreesFlow {
             delete_branch: Some(job.delete_branch),
             stop_sessions: Some(true),
             allow_data_loss: None,
-            send_open_items: Some(job.send_open_items),
         };
         let reply = run.client.delete_worktree(&run.cwd, &job.path, options);
         let name = job.name.clone();
@@ -1276,7 +1254,6 @@ impl WorktreesFlow {
                 Ok(result) => {
                     run.deleted += 1;
                     run.stopped += result.stopped;
-                    run.sent += result.sent_items.unwrap_or(0);
                     if truthy(result.branch_deleted.as_deref()) {
                         run.branches += 1;
                     }
@@ -2366,24 +2343,23 @@ mod tests {
                     "path",
                     "branch",
                     "deleteBranch",
-                    "stopSessions",
-                    "sendOpenItems"
+                    "stopSessions"
                 ]
             );
             assert_eq!(request["path"], "/wt/shipped");
             assert_eq!(request["deleteBranch"], true);
-            assert_eq!(request["sendOpenItems"], true);
             // Keys wait while it works.
             press(&mut app, &escape());
             assert!(app.flows.worktrees.confirm.is_some());
             let screen = shown(&mut app, 90, 24);
             assert!(screen.contains("Deleting deckhand/shipped… 1/1"), "{screen}");
-            let result = json!({"removed": "deleted", "branchDeleted": "deckhand/shipped", "stopped": 1, "archived": 1, "sentItems": 1});
+            let result =
+                json!({"removed": "deleted", "branchDeleted": "deckhand/shipped", "stopped": 1, "archived": 1});
             daemon.respond(&request, json!({"ok": true, "data": result})).await;
             pump(&mut app, &mut rx).await;
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Deleted 1 worktree and 1 branch · stopped 1 session · 1 open note item to the backlog")
+                Some("Deleted 1 worktree and 1 branch · stopped 1 session")
             );
             assert!(app.flows.worktrees.confirm.is_none());
             assert!(app.flows.worktrees.working.is_none());
@@ -2482,7 +2458,7 @@ mod tests {
             assert_eq!(request["branch"], "scratch");
             assert_eq!(request["deleteBranch"], false);
             assert_eq!(request["allowDataLoss"], true);
-            assert_eq!(request["sendOpenItems"], false);
+            assert!(request.get("sendOpenItems").is_none());
             daemon
                 .respond(
                     &request,

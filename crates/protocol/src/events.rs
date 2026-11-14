@@ -12,8 +12,8 @@ use crate::data::{
     AgentUpdateResult, AgentVersions, AttachResult, BranchList, CandidateSizes, ChangeDiff, ChangeStageResult,
     ChangesRecord, CreatePrResult, MergePreview, NoteSaveResult, OkResult, OrchestratorResult, PaneRecord, PendingPlan,
     PingResult, PlanDecision, PlanOutcome, PlanSummary, PreviewRecord, ProjectInfo, PromoteNoteItemResult,
-    SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
-    SettingsInfo, TasksDoc, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
+    SavedConfigDocument, SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, TasksDoc,
+    WorkNote, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
     WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
 };
 use crate::order::Ordered;
@@ -134,6 +134,16 @@ pub struct TasksUpdated {
     pub tasks: TasksDoc,
 }
 
+/// Not in the TS: a line's note or brief, or a repository's scratchpad, changed (by a client, an agent or an editor),
+/// to the clients watching that list (`watch-tasks`). Empty `text`: the note is gone.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WorkNoteUpdated {
+    /// The list (`TasksDoc::key`) it belongs to.
+    pub key: String,
+    pub note: WorkNote,
+}
+
 /// Not in the TS: a plan waits for the user's answer (`plan-apply`); also sent to a client that subscribes while one
 /// is pending for its repository.
 #[skip_serializing_none]
@@ -179,6 +189,8 @@ pub enum ServerMessage {
     AgentVersionsUpdated(Box<AgentVersionsUpdated>),
     #[serde(rename = "tasks-updated")]
     TasksUpdated(TasksUpdated),
+    #[serde(rename = "work-note-updated")]
+    WorkNoteUpdated(WorkNoteUpdated),
     #[serde(rename = "plan-pending")]
     PlanPending(Box<PlanPending>),
     #[serde(rename = "plan-settled")]
@@ -228,6 +240,7 @@ impl ServerMessage {
         "changes-updated",
         "agent-versions-updated",
         "tasks-updated",
+        "work-note-updated",
         "plan-pending",
         "plan-settled",
         "terminal-output",
@@ -261,6 +274,7 @@ impl ServerMessage {
             ServerMessage::ChangesUpdated(_) => "changes-updated",
             ServerMessage::AgentVersionsUpdated(_) => "agent-versions-updated",
             ServerMessage::TasksUpdated(_) => "tasks-updated",
+            ServerMessage::WorkNoteUpdated(_) => "work-note-updated",
             ServerMessage::PlanPending(_) => "plan-pending",
             ServerMessage::PlanSettled(_) => "plan-settled",
             ServerMessage::TerminalOutput(_) => "terminal-output",
@@ -312,7 +326,6 @@ pub enum ResponseData {
     ChangeStage(ChangeStageResult),
     NoteSave(NoteSaveResult),
     Tasks(TasksDoc),
-    SendOpenItems(SendOpenItemsResult),
     PromoteNoteItem(PromoteNoteItemResult),
     Branches(BranchList),
     MergePreview(Box<MergePreview>),
@@ -386,8 +399,7 @@ impl ResponseData {
             "changes-diff" => ResponseData::ChangeDiff(from(data)?),
             "change-stage" => ResponseData::ChangeStage(from(data)?),
             "save-note" => ResponseData::NoteSave(from(data)?),
-            "watch-tasks" | "task-op" | "return-task-to-note" | "task-to-note" => ResponseData::Tasks(from(data)?),
-            "send-open-items" => ResponseData::SendOpenItems(from(data)?),
+            "watch-tasks" | "task-op" => ResponseData::Tasks(from(data)?),
             "promote-note-item" => ResponseData::PromoteNoteItem(from(data)?),
             "list-branches" => ResponseData::Branches(from(data)?),
             "merge-preview" => ResponseData::MergePreview(Box::new(from(data)?)),

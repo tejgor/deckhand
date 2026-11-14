@@ -1129,7 +1129,7 @@ pub async fn merge_worktree_into_current(
         reason: None,
         stdout: String::new(),
         stderr: String::new(),
-        sent_items: None,
+        lifted_steps: None,
     };
 
     if count_commits_to_merge(&target_root, &source_sha).await? == 0 {

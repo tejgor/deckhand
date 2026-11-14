@@ -776,6 +776,7 @@ fn check_ping_version(data: Option<&Value>) -> Result<PingResult, PingError> {
                 .and_then(Value::as_u64)
                 .and_then(|pid| u32::try_from(pid).ok())
                 .filter(|pid| *pid > 0),
+            notice: text("notice").filter(|notice| !notice.is_empty()),
         });
     }
     let got = version.map_or_else(|| String::from("undefined"), js_string);
@@ -1413,7 +1414,7 @@ mod tests {
 
     #[test]
     fn a_matching_ping_reports_the_daemon_build_and_pid_when_sent() {
-        let answer = json!({"ok": true, "version": PROTOCOL_VERSION, "home": "/h", "channel": "stable", "build": "3.0.1", "pid": 42});
+        let answer = json!({"ok": true, "version": PROTOCOL_VERSION, "home": "/h", "channel": "stable", "build": "3.0.1", "pid": 42, "notice": "migration failed"});
         assert_eq!(
             check_ping_version(Some(&answer)),
             Ok(PingResult {
@@ -1423,6 +1424,7 @@ mod tests {
                 channel: Some("stable".into()),
                 build: Some("3.0.1".into()),
                 pid: Some(42),
+                notice: Some("migration failed".into()),
             })
         );
         // Fields of an unexpected type are left out; the ping still succeeds.

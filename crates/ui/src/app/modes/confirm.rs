@@ -462,7 +462,6 @@ pub fn handle_confirm_loss(app: &mut App, input: &Input) {
                         delete_branch,
                         force,
                         allow_data_loss: true,
-                        send_open_items: false,
                     },
                 );
             }
@@ -475,10 +474,8 @@ pub fn handle_confirm_loss(app: &mut App, input: &Input) {
     }
 }
 
-/// TS `killSelected` (a 1.5 s check says to press X when a polite stop did not end it).
-///
-/// `options.send_open_items` is not read: whether the worktree note's open items go to the backlog is decided here,
-/// from the confirmation's choice, as TS does.
+/// TS `killSelected` (a 1.5 s check says to press X when a polite stop did not end it). Since protocol 60 a deletion
+/// leaves the session's line (and its steps) where it is, so there are no open items to send.
 pub fn kill_selected(app: &mut App, options: KillOptions) {
     let Some(client) = app.client() else {
         return;
@@ -490,9 +487,6 @@ pub fn kill_selected(app: &mut App, options: KillOptions) {
     app.set_error(None);
     let killed_session_id = session.id.clone();
     let deleting = options.delete_worktree || options.delete_branch;
-    let worktree_id = session.worktree.as_ref().and_then(|worktree| worktree.id.as_deref());
-    let send_open_items =
-        deleting && !app.kill.keep_open_items && !worktree_open_items(worktree_id, &app.data.repo_sessions).is_empty();
     let reply = client.kill_session(
         &killed_session_id,
         KillOptions {
@@ -500,7 +494,6 @@ pub fn kill_selected(app: &mut App, options: KillOptions) {
             delete_branch: options.delete_branch,
             force: options.force,
             allow_data_loss: options.allow_data_loss,
-            send_open_items,
         },
     );
     let force = options.force;
@@ -772,7 +765,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
         &target_cwd,
         MergeOptions {
             commit_first,
-            send_open_items,
+            keep_open_steps: !send_open_items,
         },
     );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
@@ -792,8 +785,8 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
 
 /// TS mergeSelected after the merge answered: the conflicts screen, or the outcome in the footer.
 fn merged(app: &mut App, session_id: String, mode: WorktreeMergeMode, result: WorktreeMergeResult, target_cwd: String) {
-    let sent = match result.sent_items {
-        Some(count) if count != 0 => format!(" · {} sent to the backlog", counted(count, "open note item")),
+    let sent = match result.lifted_steps {
+        Some(count) if count != 0 => format!(" · {} moved up out of its line", counted(count, "open step")),
         _ => String::new(),
     };
     let committed = result
@@ -2398,7 +2391,8 @@ mod tests {
             assert_eq!(kill["deleteBranch"], json!(true));
             assert_eq!(kill["force"], json!(false));
             assert_eq!(kill["allowDataLoss"], json!(false));
-            assert_eq!(kill["sendOpenItems"], json!(true));
+            // Since protocol 60 a deletion sends nothing to the backlog: the session's line keeps its steps.
+            assert!(kill.get("sendOpenItems").is_none());
             assert_eq!(app.mode, Mode::Browse);
             assert!(!app.messages.busy);
             // ...and a polite stop that did not end the session says so after 1.5 s.
@@ -2819,15 +2813,16 @@ mod tests {
             assert_eq!(request["type"], "merge-worktree");
             assert_eq!(request["mode"], "merge");
             assert_eq!(request["commitFirst"], json!(true));
-            assert!(request.get("sendOpenItems").is_none());
+            // No open note items to send: the merge keeps the open steps under the merged lines.
+            assert_eq!(request["keepOpenSteps"], json!(true));
             assert_eq!(app.mode, Mode::Browse);
             assert_eq!(
                 app.messages.status_message.as_deref(),
                 Some("Merge applied without commit from beta into main")
             );
-            // Squash, after committing, with open items sent.
+            // Squash, after committing, with open steps lifted out of the merged lines.
             *reply.borrow_mut() =
-                merge_result(json!({"mode": "squash", "committed": {"files": 1, "sha": "abc"}, "sentItems": 2}));
+                merge_result(json!({"mode": "squash", "committed": {"files": 1, "sha": "abc"}, "liftedSteps": 2}));
             app.set_mode(Mode::ConfirmMerge);
             app.merge.confirm_index = 1;
             handle_confirm_merge(&mut app, &enter());
@@ -2836,7 +2831,7 @@ mod tests {
             assert_eq!(
                 app.messages.status_message.as_deref(),
                 Some(
-                    "Committed 1 file, then squash applied from beta into main · 2 open note items sent to the backlog"
+                    "Committed 1 file, then squash applied from beta into main · 2 open steps moved up out of its line"
                 )
             );
             // Nothing to merge.
@@ -3015,7 +3010,8 @@ mod tests {
             settle(&mut app, &mut rx).await;
             let request = requests.borrow()[0].clone();
             assert_eq!(request["type"], "remove");
-            assert_eq!(request["moveOpenItems"], json!(true));
+            // `moveNote`: what is open in its note goes to its line's note (the UI's wording is stage 4's).
+            assert_eq!(request["moveNote"], json!(true));
             assert_eq!(
                 app.messages.status_message.as_deref(),
                 Some("Moved its open note items to Tasks (b)")
@@ -3026,14 +3022,14 @@ mod tests {
             request_remove(&mut app);
             handle_confirm_remove(&mut app, &press("x"));
             settle(&mut app, &mut rx).await;
-            assert!(requests.borrow()[1].get("moveOpenItems").is_none());
+            assert!(requests.borrow()[1].get("moveNote").is_none());
             assert_eq!(app.messages.status_message, None);
             // Without open items Enter just removes.
             app.data.repo_sessions[0].notes = None;
             request_remove(&mut app);
             handle_confirm_remove(&mut app, &enter());
             settle(&mut app, &mut rx).await;
-            assert!(requests.borrow()[2].get("moveOpenItems").is_none());
+            assert!(requests.borrow()[2].get("moveNote").is_none());
         });
     }
 

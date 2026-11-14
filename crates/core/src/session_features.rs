@@ -352,17 +352,37 @@ pub fn handoff_git_lines(context: &HandoffGitContext) -> Vec<String> {
     lines
 }
 
-/// TS: sessionFeatures.ts handoffMarkdown `task` argument.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The line a handed-off session is on: its title, its steps, its brief and its note (`body`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandoffTask {
     pub title: String,
+    /// The line's note.
     pub body: String,
+    pub done: bool,
+    #[serde(default)]
+    pub steps: Vec<HandoffStep>,
+    #[serde(default)]
+    pub brief: Option<HandoffBrief>,
+}
+
+/// A line under a handed-off session's line.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandoffStep {
+    pub title: String,
     pub done: bool,
 }
 
+/// What a line was set up to be (`deckhand_core::work_notes::Brief`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandoffBrief {
+    pub text: String,
+    pub from: Option<String>,
+    pub at: Option<String>,
+}
+
 /// TS: sessionFeatures.ts handoffMarkdown (`include_output`: the terminal excerpt, default off). `git` is gathered by
-/// the daemon at export time (omitted for sessions outside a repository); `task` is the repository task the session
-/// works on, if any (its steps are in the notes).
+/// the daemon at export time (omitted for sessions outside a repository); `task` is the line the session is on, if
+/// any: its title and steps, its brief and its note come before the session's own note.
 pub fn handoff_markdown(
     session: &SessionRecord,
     include_output: bool,
@@ -396,30 +416,51 @@ pub fn handoff_markdown(
             String::new(),
             format!("{} {}", if task.done { "[x]" } else { "[ ]" }, one_line(&task.title)),
         ]);
-        let body = js_trim(&task.body);
-        if !body.is_empty() {
-            lines.extend([String::new(), body.to_owned()]);
-        }
+        lines.extend(
+            task.steps
+                .iter()
+                .map(|step| format!("  {} {}", if step.done { "[x]" } else { "[ ]" }, one_line(&step.title))),
+        );
         lines.push(String::new());
+        if let Some(brief) = task.brief.as_ref().filter(|brief| !js_trim(&brief.text).is_empty()) {
+            let by: Vec<String> = [
+                brief.from.as_deref().map(|from| format!("from {}", one_line(from))),
+                brief
+                    .at
+                    .as_deref()
+                    .map(|at| one_line(&at.chars().take(10).collect::<String>())),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            let heading = if by.is_empty() {
+                "## Brief".to_owned()
+            } else {
+                format!("## Brief ({})", by.join(", "))
+            };
+            lines.extend([heading, String::new(), js_trim(&brief.text).to_owned(), String::new()]);
+        }
+        let body = js_trim(&task.body);
+        lines.extend([
+            "## Task notes".into(),
+            String::new(),
+            if body.is_empty() {
+                "(No task notes recorded.)"
+            } else {
+                body
+            }
+            .to_owned(),
+            String::new(),
+        ]);
     }
     let notes = js_trim(session.notes.as_deref().unwrap_or(""));
-    let shared = js_trim(session.shared_notes.as_ref().map_or("", |shared| shared.text.as_str()));
     lines.extend([
-        "## Notes".into(),
+        "## Session notes".into(),
         String::new(),
         if notes.is_empty() {
-            "(No notes recorded.)"
+            "(No session notes recorded.)"
         } else {
             notes
-        }
-        .to_owned(),
-        String::new(),
-        "## Worktree notes".into(),
-        String::new(),
-        if shared.is_empty() {
-            "(No worktree notes recorded.)"
-        } else {
-            shared
         }
         .to_owned(),
     ]);
@@ -721,16 +762,31 @@ pub(crate) mod tests {
             handoff_markdown(&done, false, None, None).contains("\nStatus: marked done 2026-10-05T12:00:00.000Z\n")
         );
         assert!(!plain.contains("Status: marked done"));
-        // The work's task comes first (its steps are in the notes).
+        // The line it is on comes first: its steps, its brief and its note, then the session's own note.
         let task = HandoffTask {
             title: "Add OAuth".into(),
             body: "with PKCE".into(),
             done: false,
+            steps: vec![
+                HandoffStep {
+                    title: "schema".into(),
+                    done: true,
+                },
+                HandoffStep {
+                    title: "refresh".into(),
+                    done: false,
+                },
+            ],
+            brief: Some(HandoffBrief {
+                text: "Store tokens encrypted.\n".into(),
+                from: Some("◎ Orchestrator".into()),
+                at: Some("2026-11-14T12:00:00.000Z".into()),
+            }),
         };
-        assert!(
-            handoff_markdown(&with_notes, false, None, Some(&task))
-                .contains("## Task\n\n[ ] Add OAuth\n\nwith PKCE\n\n## Notes")
-        );
+        assert!(handoff_markdown(&with_notes, false, None, Some(&task)).contains(
+            "## Task\n\n[ ] Add OAuth\n  [x] schema\n  [ ] refresh\n\n## Brief (from ◎ Orchestrator, 2026-11-14)\n\n\
+             Store tokens encrypted.\n\n## Task notes\n\nwith PKCE\n\n## Session notes\n\nImplement the feature"
+        ));
         assert!(!plain.contains("## Task"));
         let done_root = SessionRecord {
             done_at: Some("2026-10-05T12:00:00.000Z".into()),
@@ -859,6 +915,7 @@ pub(crate) mod tests {
                     body: text("body")?,
                     // A missing `done` is falsy, as in TS.
                     done: task.get("done").and_then(Value::as_bool).unwrap_or(false),
+                    ..HandoffTask::default()
                 })
             };
             Ok::<_, String>(handoff_markdown(&session, include_output, git.as_ref(), task.as_ref()))
@@ -866,7 +923,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn search_and_handoffs_include_worktree_notes() {
+    fn search_finds_worktree_notes_and_handoffs_carry_the_sessions_own_note() {
         let shared = json!({"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",
             "text": "Rollout checklist\n- [ ] flip the flag"});
         let sessions = vec![
@@ -876,13 +933,10 @@ pub(crate) mod tests {
         ];
         assert_eq!(listed_ids(&sessions, SessionFilter::Active, "rollout"), ["a"]);
         assert_eq!(listed_ids(&sessions, SessionFilter::Active, "flag"), ["a", "b"]);
+        // A shared note is not the session's: since line notes, a handoff carries only the session's own.
         let markdown = handoff_markdown(&sessions[0], false, None, None);
-        assert!(markdown.contains(
-            "## Notes\n\n(No notes recorded.)\n\n## Worktree notes\n\nRollout checklist\n- [ ] flip the flag"
-        ));
-        assert!(
-            handoff_markdown(&sessions[2], false, None, None)
-                .contains("## Worktree notes\n\n(No worktree notes recorded.)")
-        );
+        assert!(markdown.contains("## Session notes\n\n(No session notes recorded.)"));
+        assert!(!markdown.contains("Rollout checklist"));
+        assert!(handoff_markdown(&sessions[1], false, None, None).contains("## Session notes\n\nflag elsewhere"));
     }
 }

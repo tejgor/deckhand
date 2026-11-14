@@ -2,11 +2,10 @@
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::js_len;
-use deckhand_core::tasks::{link_key, link_of_key};
-use deckhand_core::tasks_board::{WorkNote, has_main_task, work_key_of, work_note};
+use deckhand_core::task_list::{Line, TaskList};
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use deckhand_protocol::data::{
-    CreateSessionInput, ProgramKey, SessionRecord, SessionStatus, SubSessionKind, Task, TaskLink, WorktreeMode,
+    CreateSessionInput, ProgramKey, SessionRecord, SessionStatus, SubSessionKind, Task, WorktreeMode,
 };
 use deckhand_ui::app::{fork_stays_in_parent, session_title_from_task};
 
@@ -42,9 +41,8 @@ fn needs_caller(what: &str) -> DhError {
 
 /// The `create` input for `deckhand new` (see `NEW_USAGE`), built as the UI's form does (`submit_create`).
 ///
-/// - A sub-session of `--parent`, else of the caller unless `--top-level` or no caller. With `--task` and a worktree
-///   other than a new one, top-level: the daemon starts a task only in a top-level session or a sub-session in a new
-///   worktree.
+/// - A sub-session of `--parent`, else of the caller unless `--top-level` or no caller. `--task` puts it on that line
+///   (any open line nobody is on), wherever it runs.
 /// - The new session starts from its parent's (or fork source's) directory, else the repository's checkout.
 ///   `--worktree same` is the parent's worktree (else the caller's).
 /// - The agent: `--agent`, the caller's, the repository's default, else Claude; a fork keeps the caller's.
@@ -53,12 +51,7 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
     if args.fork && caller.is_none() {
         return Err(needs_caller("--fork"));
     }
-    let task_outside_new_worktree = args.task.is_some()
-        && args
-            .worktree
-            .as_ref()
-            .is_some_and(|choice| *choice != WorktreeChoice::New);
-    let top_level = args.top_level || caller.is_none() || task_outside_new_worktree;
+    let top_level = args.top_level || caller.is_none();
     let parent = match cx.parent {
         Some(parent) => Some(parent),
         None => caller.filter(|_| !top_level),
@@ -221,48 +214,68 @@ pub fn find_task<'a>(id: &str, tasks: &'a [Task]) -> Result<&'a Task, DhError> {
     find_by_id(id, tasks, |task| &task.id, "task", "deckhand task list")
 }
 
-/// What `task move` does, by the rules of the board's `w` picker.
+/// The line `id` names (in full, or a unique prefix), among `lines`.
+pub fn find_line<'a>(id: &str, lines: &'a [Line], list: &str) -> Result<&'a Line, DhError> {
+    find_by_id(id, lines, |line| &line.id, "line", list)
+}
+
+/// Where `task move --to` sends a line.
+#[derive(Clone, Copy, Debug)]
+pub enum MoveTarget<'a> {
+    Backlog,
+    Session(&'a SessionRecord),
+    Line(&'a Line),
+}
+
+/// What `task move` does, by the rules of the board's `w`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MovePlan {
-    /// The task is there already.
+    /// The line is there already.
     Already,
-    /// The work has a task already: the task becomes a step in its note (`task-to-note`).
-    Step { section: String },
-    /// `assign`: the task of that work, or (`None`) back to the backlog.
-    Assign { link: Option<TaskLink> },
+    /// `move-to` under `parent` (`None`: the top level), after taking session `unhook` off it (to the backlog: nobody
+    /// is on a backlog line).
+    MoveTo {
+        parent: Option<String>,
+        unhook: Option<String>,
+    },
+    /// `session-on`: the line becomes the line of a session that has none.
+    SessionOn { s: String },
 }
 
-/// Moving `task` onto the work of `target` (`None`: the backlog).
-pub fn plan_move(task: &Task, target: Option<&SessionRecord>, tasks: &[Task]) -> MovePlan {
-    let section = target.map(work_key_of);
-    if section == link_key(&task.meta) {
-        return MovePlan::Already;
-    }
-    match section {
-        Some(section) if has_main_task(&section, tasks, Some(&task.id)) => MovePlan::Step { section },
-        section => MovePlan::Assign {
-            link: section.as_deref().and_then(link_of_key),
-        },
-    }
-}
-
-/// The note `note add` appends to: the caller's work's (its worktree's shared note, or a main-checkout session's
-/// own), as the board's steps are. `Ok(None)`: the session's own note has no file yet.
-pub fn caller_note(caller: &SessionRecord, sessions: &[SessionRecord]) -> Result<Option<WorkNote>, DhError> {
-    let Some(note) = work_note(&work_key_of(caller), sessions) else {
-        return Ok(None);
+/// Moving `line` to `target` in `list`: to the backlog it goes to the top level with nobody on it; onto a session's
+/// line it becomes a step of it, and onto a session without one it becomes its line; under a line, a step of it.
+pub fn plan_move(line: &Line, target: MoveTarget<'_>, list: &TaskList) -> MovePlan {
+    let under = |parent: &str| -> MovePlan {
+        if line.parent.as_deref() == Some(parent) {
+            MovePlan::Already
+        } else {
+            MovePlan::MoveTo {
+                parent: Some(parent.to_owned()),
+                unhook: None,
+            }
+        }
     };
-    if note.read_only == Some(true) {
-        return Err(DhError::msg(
-            "This session's worktree was deleted: its note is read-only",
-        ));
+    match target {
+        MoveTarget::Backlog => {
+            let unhook = line.meta.s.clone().filter(|s| !s.is_empty());
+            if line.parent.is_none() && unhook.is_none() {
+                MovePlan::Already
+            } else {
+                MovePlan::MoveTo { parent: None, unhook }
+            }
+        }
+        MoveTarget::Session(session) => match list.line_of_session(&session.id) {
+            Some(own) if own.id == line.id => MovePlan::Already,
+            Some(own) => under(&own.id),
+            None => MovePlan::SessionOn { s: session.id.clone() },
+        },
+        MoveTarget::Line(parent) => under(&parent.id),
     }
-    Ok(Some(note))
 }
 
 #[cfg(test)]
 mod tests {
-    use deckhand_protocol::data::{NoteSection, TaskMeta};
+    use deckhand_protocol::data::TaskMeta;
     use serde_json::json;
 
     use super::*;
@@ -289,22 +302,16 @@ mod tests {
         )
     }
 
-    fn task(id: &str, title: &str, link: Option<TaskLink>) -> Task {
-        let mut meta = TaskMeta {
-            t: Some(id.to_owned()),
-            ..TaskMeta::default()
-        };
-        match link {
-            Some(TaskLink::Worktree { wt }) => meta.wt = Some(wt),
-            Some(TaskLink::Session { s }) => meta.s = Some(s),
-            None => {}
-        }
+    fn task(id: &str, title: &str) -> Task {
         Task {
             id: id.to_owned(),
             title: title.to_owned(),
             done: false,
             body: String::new(),
-            meta,
+            meta: TaskMeta {
+                t: Some(id.to_owned()),
+                ..TaskMeta::default()
+            },
         }
     }
 
@@ -493,9 +500,9 @@ mod tests {
     }
 
     #[test]
-    fn a_task_starts_a_sub_session_in_a_new_worktree_named_after_it() {
+    fn a_task_starts_a_sub_session_named_after_it_wherever_it_runs() {
         let caller = in_worktree("lead", "claude");
-        let found = task("ab12cd34", "Fix the login redirect loop", None);
+        let found = task("ab12cd34", "Fix the login redirect loop");
         let mut cx = cx(Some(&caller), &[]);
         cx.task = Some(&found);
         let args = NewArgs {
@@ -511,13 +518,14 @@ mod tests {
             (input.cwd.as_str(), input.worktree_mode),
             ("/wt/lead", Some(WorktreeMode::New))
         );
-        // Outside a new worktree the daemon takes a task only for a top-level session.
+        // In the caller's worktree it is still a sub-session on that line.
         let same = NewArgs {
             worktree: Some(WorktreeChoice::Same),
             ..args
         };
         let input = create_input(&same, &cx).expect("input");
-        assert_eq!(input.parent_session_id, None);
+        assert_eq!(input.parent_session_id.as_deref(), Some("lead"));
+        assert_eq!(input.task_id.as_deref(), Some("ab12cd34"));
     }
 
     #[test]
@@ -640,72 +648,54 @@ mod tests {
     }
 
     #[test]
-    fn moving_a_task_follows_the_board_picker() {
+    fn moving_a_line_follows_the_boards_w() {
         let lead = in_worktree("lead", "claude");
-        let other = in_worktree("other", "claude");
-        let main = session("main", json!({}));
-        let wt = |id: &str| TaskLink::Worktree { wt: id.to_owned() };
-        let tasks = [
-            task("t1", "Backlog task", None),
-            task("t2", "Lead's task", Some(wt("wt-lead"))),
-        ];
-        // Onto work without a task: it becomes that work's task.
-        assert_eq!(
-            plan_move(&tasks[0], Some(&other), &tasks),
-            MovePlan::Assign {
-                link: Some(wt("wt-other"))
-            }
-        );
-        assert_eq!(
-            plan_move(&tasks[0], Some(&main), &tasks),
-            MovePlan::Assign {
-                link: Some(TaskLink::Session { s: "main".into() })
-            }
-        );
-        // Onto work that has a task: a step in its note.
-        assert_eq!(
-            plan_move(&tasks[0], Some(&lead), &tasks),
-            MovePlan::Step {
-                section: "wt:wt-lead".into()
-            }
-        );
-        // Where it is already, and back to the backlog.
-        assert_eq!(plan_move(&tasks[1], Some(&lead), &tasks), MovePlan::Already);
-        assert_eq!(plan_move(&tasks[0], None, &tasks), MovePlan::Already);
-        assert_eq!(plan_move(&tasks[1], None, &tasks), MovePlan::Assign { link: None });
-    }
-
-    #[test]
-    fn a_note_step_goes_to_the_worktree_note_or_the_sessions_own() {
-        let shared = |read_only: bool| json!({"kind": "worktree", "id": "wt-lead", "path": "/notes/wt.md", "text": "- [x] Read\n", "revision": "r1", "readOnly": read_only});
-        let lead = session(
-            "lead",
-            json!({"worktree": {"mode": "managed", "path": "/wt/lead", "id": "wt-lead"}, "sharedNotes": shared(false)}),
-        );
-        let note = caller_note(&lead, std::slice::from_ref(&lead))
-            .expect("note")
-            .expect("a note");
-        assert_eq!(
-            (note.section, note.note_id.as_deref(), note.revision.as_str()),
-            (NoteSection::Shared, Some("worktree:wt-lead"), "r1")
-        );
-
-        let main = session(
-            "main",
-            json!({"notes": "# Plan\n", "notesFile": {"path": "/notes/main.md", "revision": "r2"}}),
-        );
-        let note = caller_note(&main, std::slice::from_ref(&main))
-            .expect("note")
-            .expect("a note");
-        assert_eq!((note.section, note.text.as_str()), (NoteSection::Session, "# Plan\n"));
-
         let fresh = session("fresh", json!({}));
-        assert_eq!(caller_note(&fresh, std::slice::from_ref(&fresh)).ok(), Some(None));
-
-        let deleted = session(
-            "gone",
-            json!({"worktree": {"mode": "managed", "path": "/wt/gone", "id": "wt-lead"}, "sharedNotes": shared(true)}),
+        let list = TaskList::parse(
+            "- [ ] Backlog line <!-- dh:t=t1 -->\n- [ ] Lead's line <!-- dh:t=t2 s=lead -->\n  - [ ] A step <!-- dh:t=t3 \
+             -->\n",
         );
-        assert!(caller_note(&deleted, std::slice::from_ref(&deleted)).is_err());
+        let get = |id: &str| list.get(id).expect("a line").clone();
+        // Onto a session's line: a step of it; onto a session without one: its line.
+        assert_eq!(
+            plan_move(&get("t1"), MoveTarget::Session(&lead), &list),
+            MovePlan::MoveTo {
+                parent: Some("t2".into()),
+                unhook: None
+            }
+        );
+        assert_eq!(
+            plan_move(&get("t1"), MoveTarget::Session(&fresh), &list),
+            MovePlan::SessionOn { s: "fresh".into() }
+        );
+        // Under a line; where it is already.
+        assert_eq!(
+            plan_move(&get("t3"), MoveTarget::Line(&get("t2")), &list),
+            MovePlan::Already
+        );
+        assert_eq!(
+            plan_move(&get("t3"), MoveTarget::Session(&lead), &list),
+            MovePlan::Already
+        );
+        assert_eq!(
+            plan_move(&get("t2"), MoveTarget::Session(&lead), &list),
+            MovePlan::Already
+        );
+        // To the backlog: the top level, nobody on it.
+        assert_eq!(plan_move(&get("t1"), MoveTarget::Backlog, &list), MovePlan::Already);
+        assert_eq!(
+            plan_move(&get("t3"), MoveTarget::Backlog, &list),
+            MovePlan::MoveTo {
+                parent: None,
+                unhook: None
+            }
+        );
+        assert_eq!(
+            plan_move(&get("t2"), MoveTarget::Backlog, &list),
+            MovePlan::MoveTo {
+                parent: None,
+                unhook: Some("lead".into())
+            }
+        );
     }
 }

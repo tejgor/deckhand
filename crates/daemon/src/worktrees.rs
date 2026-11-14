@@ -974,28 +974,9 @@ impl Daemon {
             return Err(DhError::msg("worktree is already being deleted"));
         }
         let mut stopped: i64 = 0;
-        let mut sent: usize = 0;
         let mut branch_deleted: Option<String> = None;
         let removal: Result<WorktreeRemoved> = async {
-            let item = target.item.as_ref();
-            let send_open_items = message.send_open_items == Some(true);
-            // Missing: nothing on disk to stop or check, so its note's open items can go at once.
-            let missing = item.is_none_or(|item| item.prunable == Some(true));
-            if missing && send_open_items {
-                let left_in = item
-                    .map(|item| item.branch.clone())
-                    .filter(|branch| !branch.is_empty())
-                    .or_else(|| {
-                        target
-                            .sessions
-                            .iter()
-                            .find_map(|session| worktree_branch(session).map(str::to_owned))
-                    });
-                sent = self
-                    .send_worktree_items_to_backlog(target.record.as_deref(), &target.root, left_in.as_deref())
-                    .await?;
-            }
-            let Some(item) = item else {
+            let Some(item) = target.item.as_ref() else {
                 return Ok(WorktreeRemoved::Forgotten);
             };
             if item.prunable == Some(true) {
@@ -1013,12 +994,6 @@ impl Daemon {
             }
             self.stop_changes_watch(&key);
             self.retire_workspace(&key).await?;
-            // Its note's open items first, while the worktree record is still live (the confirmation offered it).
-            if send_open_items {
-                sent = self
-                    .send_worktree_items_to_backlog(target.record.as_deref(), &target.root, Some(&item.branch))
-                    .await?;
-            }
             let name = target.sessions.iter().find_map(|session| {
                 session
                     .worktree
@@ -1079,7 +1054,6 @@ impl Daemon {
             branch_deleted,
             stopped,
             archived,
-            sent_items: (sent > 0).then(|| i64::try_from(sent).unwrap_or(i64::MAX)),
         })
     }
 
@@ -1886,7 +1860,6 @@ mod tests {
                 delete_branch: Some(true),
                 stop_sessions: None,
                 allow_data_loss: Some(true),
-                send_open_items: None,
             };
             assert_eq!(
                 daemon.delete_worktree(&message, &client).await.unwrap_err().to_string(),

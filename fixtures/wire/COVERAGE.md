@@ -68,6 +68,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `dev-detach` | 0 | 1 |
 | c2d | - | `dev-input` | 0 | 1 |
 | c2d | - | `dev-resize` | 0 | 1 |
+| c2d | - | `dismiss-interrupted` | 0 | 1 |
 | c2d | - | `export-handoff` | 1 | 0 |
 | c2d | - | `git-detach` | 0 | 1 |
 | c2d | - | `git-input` | 0 | 1 |
@@ -98,12 +99,11 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `resize` | 0 | 1 |
 | c2d | - | `resolve-merge` | 2 | 0 |
 | c2d | - | `restart` | 2 | 0 |
+| c2d | - | `restart-sessions` | 0 | 1 |
 | c2d | - | `restart-terminal` | 0 | 2 |
-| c2d | - | `return-task-to-note` | 2 | 0 |
 | c2d | - | `run-action` | 2 | 0 |
 | c2d | - | `save-config` | 4 | 0 |
 | c2d | - | `save-note` | 3 | 0 |
-| c2d | - | `send-open-items` | 2 | 0 |
 | c2d | - | `set-reply-read` | 0 | 1 |
 | c2d | - | `set-session-done` | 2 | 0 |
 | c2d | - | `settings-info` | 2 | 0 |
@@ -112,8 +112,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `stop-action` | 2 | 0 |
 | c2d | - | `stop-dev` | 1 | 0 |
 | c2d | - | `subscribe` | 2 | 0 |
-| c2d | - | `task-op` | 10 | 0 |
-| c2d | - | `task-to-note` | 1 | 0 |
+| c2d | - | `task-op` | 10 | 2 |
 | c2d | - | `terminal-detach` | 1 | 1 |
 | c2d | - | `terminal-input` | 1 | 2 |
 | c2d | - | `terminal-resize` | 0 | 1 |
@@ -157,7 +156,8 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `terminal-detached` | 1 | 0 |
 | d2c | - | `terminal-output` | 1 | 0 |
 | d2c | - | `terminal-updated` | 1 | 1 |
-| d2c | - | response (failure) | 24 | 2 |
+| d2c | - | `work-note-updated` | 0 | 2 |
+| d2c | - | response (failure) | 21 | 2 |
 | d2c | - | response `agent-hook` | 1 | 0 |
 | d2c | - | response `agent-versions` | 3 | 0 |
 | d2c | - | response `archive-session` | 2 | 0 |
@@ -173,6 +173,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `create-pr` | 1 | 0 |
 | d2c | - | response `create` | 5 | 0 |
 | d2c | - | response `delete-worktree` | 4 | 0 |
+| d2c | - | response `dismiss-interrupted` | 0 | 1 |
 | d2c | - | response `export-handoff` | 1 | 0 |
 | d2c | - | response `global-link-candidates` | 0 | 2 |
 | d2c | - | response `inspect-cleanup` | 2 | 0 |
@@ -188,7 +189,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `open-note` | 1 | 0 |
 | d2c | - | response `open-orchestrator` | 0 | 1 |
 | d2c | - | response `open-tasks` | 0 | 1 |
-| d2c | - | response `ping` | 1 | 0 |
+| d2c | - | response `ping` | 1 | 1 |
 | d2c | - | response `plan-apply` | 0 | 2 |
 | d2c | - | response `plan-check` | 0 | 1 |
 | d2c | - | response `plan-decide` | 0 | 1 |
@@ -198,12 +199,11 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `reorder-session` | 0 | 1 |
 | d2c | - | response `resolve-merge` | 3 | 0 |
 | d2c | - | response `restart` | 9 | 0 |
+| d2c | - | response `restart-sessions` | 0 | 1 |
 | d2c | - | response `restart-terminal` | 0 | 1 |
-| d2c | - | response `return-task-to-note` | 1 | 0 |
 | d2c | - | response `run-action` | 1 | 0 |
 | d2c | - | response `save-config` | 2 | 0 |
 | d2c | - | response `save-note` | 6 | 0 |
-| d2c | - | response `send-open-items` | 2 | 0 |
 | d2c | - | response `set-reply-read` | 0 | 1 |
 | d2c | - | response `set-session-done` | 9 | 0 |
 | d2c | - | response `settings-info` | 10 | 0 |
@@ -213,7 +213,6 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `stop-dev` | 1 | 0 |
 | d2c | - | response `subscribe` | 5 | 0 |
 | d2c | - | response `task-op` | 1 | 0 |
-| d2c | - | response `task-to-note` | 1 | 0 |
 | d2c | - | response `trust-project` | 4 | 0 |
 | d2c | - | response `update-agent` | 1 | 0 |
 | d2c | - | response `watch-action` | 4 | 0 |
@@ -221,7 +220,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `watch-dev` | 5 | 0 |
 | d2c | - | response `watch-git` | 1 | 0 |
 | d2c | - | response `watch-preview` | 2 | 1 |
-| d2c | - | response `watch-tasks` | 1 | 0 |
+| d2c | - | response `watch-tasks` | 1 | 1 |
 | d2c | - | response `watch-terminal` | 2 | 1 |
 | d2c | - | response `workspace-summary` | 2 | 0 |
 | d2c | - | response `worktree-candidate-sizes` | 1 | 0 |

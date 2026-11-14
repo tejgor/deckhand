@@ -2,12 +2,15 @@
 
 use serde::Serialize;
 
+use std::collections::HashSet;
+
 use deckhand_core::jsstr::{js_len, js_pad_end};
 use deckhand_core::sidebar_model::status_words;
-use deckhand_core::tasks::{group_tasks, link_key};
-use deckhand_core::tasks_board::{linked_task, task_sessions, work_label};
+use deckhand_core::task_list::{Line, TaskList};
+use deckhand_core::tasks::{RECENT_DONE_DAYS, today};
 use deckhand_protocol::data::{
-    OrchestratorResult, PlanOutcome, PlanStatus, SessionRecord, SessionWorktreeMode, Task, WorktreeMode,
+    OrchestratorResult, PlanOutcome, PlanStatus, SessionRecord, SessionWorktreeMode, WorkNote, WorkNoteKind,
+    WorktreeMode,
 };
 
 use super::plan::session_path;
@@ -65,7 +68,7 @@ fn table(rows: &[Vec<String>]) -> String {
 }
 
 /// `deckhand ls`: one row per session in sidebar order, `*` marking `caller`.
-pub fn session_table(sessions: &[&SessionRecord], tasks: &[Task], caller: Option<&str>) -> String {
+pub fn session_table(sessions: &[&SessionRecord], list: &TaskList, caller: Option<&str>) -> String {
     if sessions.is_empty() {
         return "No sessions in this repository.".to_owned();
     }
@@ -75,8 +78,9 @@ pub fn session_table(sessions: &[&SessionRecord], tasks: &[Task], caller: Option
             .to_vec(),
     ];
     for session in sessions {
-        let task = linked_task(tasks, Some(session))
-            .map(|task| format!("{} {}", short_id(&task.id), task.title))
+        let task = list
+            .line_of_session(&session.id)
+            .map(|line| format!("{} {}", short_id(&line.id), line.title))
             .unwrap_or_default();
         rows.push(vec![
             if Some(session.id.as_str()) == caller { "*" } else { "" }.to_owned(),
@@ -95,71 +99,143 @@ pub fn session_table(sessions: &[&SessionRecord], tasks: &[Task], caller: Option
     table(&rows)
 }
 
-/// A task as `--json` prints it.
+/// A line as `--json` prints it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TaskView {
+pub struct LineView {
     pub id: String,
     pub title: String,
-    pub details: String,
     pub done: bool,
-    /// `progress` (the task of some work), `backlog` or `done`.
-    pub group: &'static str,
-    /// The work it is the task of: `wt:<worktree record>` or `s:<session>`.
-    pub work: Option<String>,
-    /// The sessions of that work.
-    pub sessions: Vec<String>,
+    /// The line it is under (`None`: top-level).
+    pub parent: Option<String>,
+    pub depth: usize,
+    /// The session on it.
+    pub session: Option<String>,
+    /// Ticked and total lines directly under it.
+    pub ticked: usize,
+    pub total: usize,
+    /// It has a note, a brief.
+    pub note: bool,
+    pub brief: bool,
+    /// When it was ticked (`YYYY-MM-DD`); the branch of an attempt dropped unmerged; the branch it was left open in.
+    pub done_at: Option<String>,
+    pub tried: Option<String>,
+    pub from: Option<String>,
 }
 
-/// `task` as `--json` prints it.
-pub fn task_view(task: &Task, sessions: &[SessionRecord]) -> TaskView {
-    let work = link_key(&task.meta);
-    TaskView {
-        id: task.id.clone(),
-        title: task.title.clone(),
-        details: task.body.clone(),
-        done: task.done,
-        group: match (task.done, work.is_some()) {
-            (true, _) => "done",
-            (false, true) => "progress",
-            (false, false) => "backlog",
-        },
-        work,
-        sessions: task_sessions(task, sessions)
-            .into_iter()
-            .map(|session| session.id.clone())
-            .collect(),
+/// Whether a note of `kind` with text belongs to line `id`.
+fn has_note(notes: &[WorkNote], kind: WorkNoteKind, id: &str) -> bool {
+    notes
+        .iter()
+        .any(|note| note.kind == kind && note.id == id && !note.text.trim().is_empty())
+}
+
+/// `line` as `--json` prints it (`notes`: the list's notes, as `watch-tasks` answers them).
+pub fn line_view(line: &Line, list: &TaskList, notes: &[WorkNote]) -> LineView {
+    let count = list.count(&line.id);
+    LineView {
+        id: line.id.clone(),
+        title: line.title.clone(),
+        done: line.done,
+        parent: line.parent.clone(),
+        depth: line.depth,
+        session: line.meta.s.clone().filter(|s| !s.is_empty()),
+        ticked: count.ticked,
+        total: count.total,
+        note: has_note(notes, WorkNoteKind::Line, &line.id),
+        brief: has_note(notes, WorkNoteKind::Brief, &line.id),
+        done_at: line.meta.done.clone(),
+        tried: line.meta.tried.clone(),
+        from: line.meta.from.clone(),
     }
 }
 
-/// One task's line: its ID, title and (in progress) its work.
-fn task_line(task: &Task, sessions: &[SessionRecord]) -> String {
-    let work = link_key(&task.meta)
-        .map(|section| format!("  ({})", work_label(&section, sessions)))
-        .unwrap_or_default();
-    format!("  {}  {}{work}", short_id(&task.id), task.title)
+/// One line of the tree: `☐ <id>  <title>  2/5 ✎  ← <session>  · tried in ⎇ <branch>`, indented by its depth (from
+/// `base`).
+fn line_row(line: &Line, base: usize, list: &TaskList, sessions: &[SessionRecord], notes: &[WorkNote]) -> String {
+    let mut row = format!(
+        "{}{} {}  {}",
+        "  ".repeat(line.depth.saturating_sub(base)),
+        if line.done { '☑' } else { '☐' },
+        short_id(&line.id),
+        line.title
+    );
+    let count = list.count(&line.id);
+    if count.total > 0 {
+        row.push_str(&format!("  {}/{}", count.ticked, count.total));
+    }
+    if has_note(notes, WorkNoteKind::Brief, &line.id) {
+        row.push_str("  ✎");
+    }
+    if let Some(s) = line.meta.s.as_deref().filter(|s| !s.is_empty()) {
+        let name = sessions.iter().find(|session| session.id == s).map_or_else(
+            || "a session no longer listed".to_owned(),
+            |session| session_path(session).to_owned(),
+        );
+        row.push_str(&format!("  ← {name} ({})", short_id(s)));
+    }
+    if let Some(tried) = line.meta.tried.as_deref().filter(|tried| !tried.is_empty()) {
+        row.push_str(&format!("  · tried in ⎇ {tried}"));
+    }
+    if let Some(from) = line.meta.from.as_deref().filter(|from| !from.is_empty()) {
+        row.push_str(&format!("  · left open in ⎇ {from}"));
+    }
+    row
 }
 
-/// `deckhand task list`: in progress, the backlog, and done in the last 7 days (the board's groups).
-pub fn task_list(tasks: &[Task], sessions: &[SessionRecord], now_ms: i64) -> String {
-    let groups = group_tasks(tasks, now_ms);
-    let mut out = Vec::new();
-    for (heading, list) in [
-        ("In progress", &groups.progress),
-        ("Backlog", &groups.backlog),
-        ("Done", &groups.done),
-    ] {
-        if list.is_empty() {
-            continue;
+/// `deckhand task list`: the list as a tree, open lines and those ticked in the last 7 days (with the lines above
+/// them), each with who is on it and how far its lines are.
+pub fn task_tree(list: &TaskList, sessions: &[SessionRecord], notes: &[WorkNote], now_ms: i64) -> String {
+    let cutoff = today(now_ms.saturating_sub(RECENT_DONE_DAYS * 86_400_000)).unwrap_or_default();
+    let recent = |line: &Line| !line.done || line.meta.done.as_deref().is_some_and(|done| *done >= *cutoff);
+    let mut shown: HashSet<&str> = HashSet::new();
+    let mut hidden = 0;
+    for line in list.lines() {
+        if recent(line) {
+            shown.insert(line.id.as_str());
+            for above in list.ancestors(&line.id) {
+                shown.insert(above.id.as_str());
+            }
+        } else {
+            hidden += 1;
         }
-        out.push(format!("{heading} ({})", list.len()));
-        out.extend(list.iter().map(|task| task_line(task, sessions)));
     }
-    if !groups.older_done.is_empty() {
-        out.push(format!("({} done earlier not listed)", groups.older_done.len()));
+    let mut out: Vec<String> = list
+        .lines()
+        .iter()
+        .filter(|line| shown.contains(line.id.as_str()))
+        .map(|line| line_row(line, 0, list, sessions, notes))
+        .collect();
+    let hidden = hidden
+        - list
+            .lines()
+            .iter()
+            .filter(|line| !recent(line) && shown.contains(line.id.as_str()))
+            .count();
+    if hidden > 0 {
+        out.push(format!("({hidden} done earlier not listed)"));
     }
     if out.is_empty() {
         return "No tasks in this repository.".to_owned();
+    }
+    out.join("\n")
+}
+
+/// `deckhand step list`: the caller's line and every line under it.
+pub fn step_tree(list: &TaskList, id: &str, sessions: &[SessionRecord], notes: &[WorkNote]) -> String {
+    let lines = list.subtree(id);
+    let Some(root) = lines.first() else {
+        return "This session has no line yet: deckhand step add gives it one".to_owned();
+    };
+    let mut out = vec![line_row(root, root.depth, list, sessions, notes)];
+    out.extend(
+        lines
+            .iter()
+            .skip(1)
+            .map(|line| format!("  {}", line_row(line, root.depth + 1, list, sessions, notes))),
+    );
+    if lines.len() == 1 {
+        out.push("  (no steps yet)".to_owned());
     }
     out.join("\n")
 }
@@ -281,7 +357,6 @@ pub fn orchestrator(result: &OrchestratorResult) -> String {
 
 #[cfg(test)]
 mod tests {
-    use deckhand_protocol::data::TaskMeta;
     use serde_json::json;
 
     use super::*;
@@ -296,21 +371,6 @@ mod tests {
             record.extend(extra.clone());
         }
         serde_json::from_value(record).expect("a session record")
-    }
-
-    fn task(id: &str, title: &str, wt: Option<&str>, done: Option<&str>) -> Task {
-        Task {
-            id: id.to_owned(),
-            title: title.to_owned(),
-            done: done.is_some(),
-            body: String::new(),
-            meta: TaskMeta {
-                t: Some(id.to_owned()),
-                wt: wt.map(str::to_owned),
-                done: done.map(str::to_owned),
-                ..TaskMeta::default()
-            },
-        }
     }
 
     #[test]
@@ -329,39 +389,69 @@ mod tests {
             "id": "9f8e7d6c-1111", "title": "tests", "pathTitle": "Fix auth / tests", "program": "codex",
             "parentSessionId": lead.id, "status": "starting",
         }));
-        let tasks = [task("5e6f7a8b", "Fix the login bug", Some("wt1"), None)];
+        let list = TaskList::parse(&format!(
+            "- [ ] Fix the login bug <!-- dh:t=5e6f7a8b s={} -->\n",
+            lead.id
+        ));
         assert_eq!(
-            session_table(&[&lead, &child], &tasks, Some(&lead.id)),
+            session_table(&[&lead, &child], &list, Some(&lead.id)),
             "   ID        PARENT    STATE     AGENT   SESSION           WORKTREE    TASK\n\
              *  1a2b3c4d  -         idle      claude  Fix auth          ⎇ fix-auth  5e6f7a8b Fix the login bug\n   \
              9f8e7d6c  1a2b3c4d  starting  codex   Fix auth / tests  checkout"
         );
-        assert_eq!(session_table(&[], &[], None), "No sessions in this repository.");
+        assert_eq!(session_table(&[], &list, None), "No sessions in this repository.");
     }
 
     #[test]
-    fn task_list_groups_like_the_board_and_names_the_work() {
-        let lead =
-            session(json!({"worktree": {"mode": "managed", "path": "/wt/a", "branch": "fix-auth", "id": "wt1"}}));
+    fn task_list_is_the_tree_with_who_is_on_what() {
+        let lead = session(json!({"pathTitle": "Fix auth"}));
         let now = deckhand_core::jsstr::date::now_ms();
         let today = deckhand_core::jsstr::date::to_iso_string(now).unwrap_or_default();
-        let tasks = [
-            task("5e6f7a8b", "Fix the login bug", Some("wt1"), None),
-            task("1234abcd", "Write docs", None, None),
-            task("99990000", "Old thing", None, Some("2000-01-01")),
-            task("77770000", "Shipped", None, Some(&today[..10])),
-        ];
+        let list = TaskList::parse(&format!(
+            "- [ ] Rework auth <!-- dh:t=aaaa0000 -->\n  - [x] Token storage <!-- dh:t=bbbb0000 done={} -->\n  - [ ] \
+             Login UI <!-- dh:t=cccc0000 s={} -->\n- [x] Old thing <!-- dh:t=dddd0000 done=2000-01-01 -->\n- [ ] \
+             Retry <!-- dh:t=eeee0000 tried=fix-auth -->\n",
+            &today[..10],
+            lead.id
+        ));
+        let brief = WorkNote {
+            kind: WorkNoteKind::Brief,
+            id: "cccc0000".into(),
+            path: String::new(),
+            text: "Use the kit\n".into(),
+            revision: String::new(),
+            too_large: None,
+            from: Some("you".into()),
+            at: None,
+        };
+        let notes = [brief];
         assert_eq!(
-            task_list(&tasks, std::slice::from_ref(&lead), now),
-            "In progress (1)\n  5e6f7a8b  Fix the login bug  (⎇ fix-auth)\nBacklog (1)\n  1234abcd  Write docs\n\
-             Done (1)\n  77770000  Shipped\n(1 done earlier not listed)"
+            task_tree(&list, std::slice::from_ref(&lead), &notes, now),
+            "☐ aaaa0000  Rework auth  1/2\n  ☑ bbbb0000  Token storage\n  ☐ cccc0000  Login UI  ✎  ← Fix auth \
+             (1a2b3c4d)\n☐ eeee0000  Retry  · tried in ⎇ fix-auth\n(1 done earlier not listed)"
         );
-        assert_eq!(task_list(&[], &[], now), "No tasks in this repository.");
-        let view = task_view(&tasks[0], std::slice::from_ref(&lead));
-        assert_eq!((view.group, view.work.as_deref()), ("progress", Some("wt:wt1")));
-        assert_eq!(view.sessions, vec![lead.id.clone()]);
-        assert_eq!(task_view(&tasks[1], &[]).group, "backlog");
-        assert_eq!(task_view(&tasks[2], &[]).group, "done");
+        assert_eq!(
+            task_tree(&TaskList::default(), &[], &[], now),
+            "No tasks in this repository."
+        );
+        assert_eq!(
+            step_tree(&list, "aaaa0000", &[], &notes),
+            "☐ aaaa0000  Rework auth  1/2\n  ☑ bbbb0000  Token storage\n  ☐ cccc0000  Login UI  ✎  ← a session no \
+             longer listed (1a2b3c4d)"
+        );
+        let view = line_view(list.get("cccc0000").expect("a line"), &list, &notes);
+        assert_eq!(
+            (
+                view.parent.as_deref(),
+                view.depth,
+                view.session.as_deref(),
+                view.brief,
+                view.note
+            ),
+            (Some("aaaa0000"), 1, Some(lead.id.as_str()), true, false)
+        );
+        let idea = line_view(list.get("aaaa0000").expect("a line"), &list, &notes);
+        assert_eq!((idea.ticked, idea.total), (1, 2));
     }
 
     #[test]
