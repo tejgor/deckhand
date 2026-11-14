@@ -614,15 +614,27 @@ pub fn connect(app: &mut App) {
                 }),
             );
             let flag = Rc::clone(&cancelled);
+            let ping = client.ping();
             drop(dispatch.spawn(
-                daemon_build_notice(client.ping(), |key: String| async move {
-                    deckhand_sys::daemon_notice::claim_notice(&key).await
-                }),
-                move |app: &mut App, notice| {
-                    if let Some(notice) = notice
-                        && !flag.get()
-                    {
-                        app.show_notice(notice);
+                async move {
+                    let answer = ping.await;
+                    // What the daemon says the user must know; a failed ping says nothing either way.
+                    let daemon = answer.as_ref().ok().map(|ping| ping.notice.clone());
+                    let build = daemon_build_notice(std::future::ready(answer), |key: String| async move {
+                        deckhand_sys::daemon_notice::claim_notice(&key).await
+                    })
+                    .await;
+                    (daemon, build)
+                },
+                move |app: &mut App, (daemon, build): (Option<Option<String>>, Option<String>)| {
+                    if flag.get() {
+                        return;
+                    }
+                    if let Some(daemon) = daemon {
+                        app.set_daemon_notice(daemon);
+                    }
+                    if let Some(build) = build {
+                        app.show_notice(build);
                     }
                 },
             ));

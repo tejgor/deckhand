@@ -106,7 +106,7 @@ pub fn with_reply_read(mut session: SessionRecord) -> SessionRecord {
     session
 }
 
-/// TS: sessionFeatures.ts filterSessionList `taskTitle`: the title of the task a session works on, if any.
+/// TS: sessionFeatures.ts filterSessionList `taskTitle`: the title of the line a session is on, if any.
 pub type TaskTitleOf<'a> = &'a dyn Fn(&SessionRecord) -> Option<String>;
 
 /// TS: sessionFeatures.ts filterSessionList (`task_title`: the task a session works on, so search finds it).
@@ -148,10 +148,9 @@ pub fn filter_session_list<'a, S: SessionLike>(
                 .unwrap_or_default();
             // Not in the TS: the path (`parent / child`), so a parent's name finds its sub-sessions.
             let haystack = js_to_lower(&format!(
-                "{} {} {} {} {} {} {}",
+                "{} {} {} {} {} {}",
                 session_path_title_by(session, |id| first_by_id.get(id).copied()),
                 session.notes.as_deref().unwrap_or(""),
-                session.shared_notes.as_ref().map_or("", |shared| shared.text.as_str()),
                 session.program,
                 session
                     .worktree
@@ -923,20 +922,25 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn search_finds_worktree_notes_and_handoffs_carry_the_sessions_own_note() {
-        let shared = json!({"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",
-            "text": "Rollout checklist\n- [ ] flip the flag"});
+    fn search_finds_the_sessions_note_and_the_line_it_is_on() {
         let sessions = vec![
-            session(json!({"id": "a", "title": "one", "sharedNotes": shared})),
-            session(json!({"id": "b", "title": "two", "notes": "flag elsewhere"})),
+            session(json!({"id": "a", "title": "one", "notes": "Rollout checklist\n- [ ] flip the flag"})),
+            session(json!({"id": "b", "title": "two"})),
             session(json!({"id": "c", "title": "three"})),
         ];
         assert_eq!(listed_ids(&sessions, SessionFilter::Active, "rollout"), ["a"]);
-        assert_eq!(listed_ids(&sessions, SessionFilter::Active, "flag"), ["a", "b"]);
-        // A shared note is not the session's: since line notes, a handoff carries only the session's own.
-        let markdown = handoff_markdown(&sessions[0], false, None, None);
-        assert!(markdown.contains("## Session notes\n\n(No session notes recorded.)"));
-        assert!(!markdown.contains("Rollout checklist"));
-        assert!(handoff_markdown(&sessions[1], false, None, None).contains("## Session notes\n\nflag elsewhere"));
+        // The line a session is on (`task_title`, from the list) finds it too.
+        let list = crate::task_list::TaskList::parse(
+            "- [ ] Token storage <!-- dh:t=tok s=b -->\n  - [ ] encryption <!-- dh:t=enc -->\n",
+        );
+        let title = |session: &SessionRecord| crate::session_lines::line_title(&list, &session.id);
+        let found: Vec<&str> = filter_session_list(&sessions, SessionFilter::Active, "token", Some(&title))
+            .into_iter()
+            .map(|session| session.id.as_str())
+            .collect();
+        assert_eq!(found, ["b"]);
+        // Its steps are not its title.
+        assert!(filter_session_list(&sessions, SessionFilter::Active, "encryption", Some(&title)).is_empty());
+        assert!(handoff_markdown(&sessions[0], false, None, None).contains("## Session notes\n\nRollout checklist"));
     }
 }

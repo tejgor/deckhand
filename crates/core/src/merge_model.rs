@@ -114,13 +114,16 @@ pub fn overlapping_files(preview: &MergePreview, commit_first: bool) -> Vec<Stri
         .collect()
 }
 
-/// TS: mergeModel.ts MergeConfirmInput `openItems`.
+/// The open steps under the lines a merge ticks (`session_lines::merge_lines`): they move up out of them, unless
+/// kept (`keepOpenSteps`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OpenItemsToggle {
-    pub titles: Vec<String>,
-    /// A missing flag is off (JS falsy).
+pub struct OpenStepsToggle {
+    pub count: usize,
+    /// Where they move up to: the line above (its title), `the backlog` or `the lines above them`.
+    pub to: String,
+    /// Kept under the ticked line (space). A missing flag is off.
     #[serde(default)]
-    pub send: bool,
+    pub keep: bool,
 }
 
 /// Not in the TS: a worktree stacked on the one being merged, with what is stacked under it folded in.
@@ -176,10 +179,10 @@ pub struct MergeConfirmInput {
     /// A merge attempt that failed; nothing was merged.
     pub error: Option<String>,
     pub notes: Vec<MergeNoteEntry>,
-    /// The worktree's open task: merging ticks it.
-    pub tasks: Option<Vec<String>>,
-    /// Open checklist items of the worktree's note, sent to the backlog with the merge unless `send` is off.
-    pub open_items: Option<OpenItemsToggle>,
+    /// The titles of the open lines the worktree's sessions are on: merging ticks them.
+    pub lines: Option<Vec<String>>,
+    /// The open steps under those lines, which move up out of them unless kept.
+    pub open_steps: Option<OpenStepsToggle>,
     /// Content columns (inside the border and padding).
     pub width: usize,
     /// The pane's rows, border included.
@@ -198,7 +201,7 @@ pub struct MergeConfirmLayout {
     pub title: String,
     /// Target, warnings, summary, commits and the uncommitted toggle.
     pub details: Vec<MergeLine>,
-    /// The open-items row (selectable; space switches it), when there are any.
+    /// The open-steps row (selectable; space switches it), when there are any.
     pub toggles: Vec<String>,
     pub options: Vec<String>,
     pub hint: String,
@@ -301,19 +304,12 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
                 let color = if input.commit_first { THEME.active } else { THEME.muted };
                 tail.push(line(fit(&toggle(&quoted)), Some(color)));
             }
-            let tasks = input.tasks.as_deref().unwrap_or_default();
-            if let [task] = tasks {
+            let lines = input.lines.as_deref().unwrap_or_default();
+            if let [title] = lines {
+                tail.push(line(fit(&format!("◆ {title} will be ticked")), Some(THEME.accent_soft)));
+            } else if lines.len() > 1 {
                 tail.push(line(
-                    fit(&format!("◆ Task \"{task}\" will be marked done")),
-                    Some(THEME.accent_soft),
-                ));
-            } else if tasks.len() > 1 {
-                tail.push(line(
-                    fit(&format!(
-                        "◆ {} tasks will be marked done: {}",
-                        tasks.len(),
-                        tasks.join(", ")
-                    )),
+                    fit(&format!("◆ {} lines will be ticked: {}", lines.len(), lines.join(", "))),
                     Some(THEME.accent_soft),
                 ));
             }
@@ -373,20 +369,18 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             }
         }
     }
-    // The note's open items (the task's unfinished steps): a selectable row space switches.
-    let items = preview.and(input.open_items.as_ref());
-    let toggles: Vec<String> = match items {
-        Some(items) if !items.titles.is_empty() => vec![fit(&format!(
-            "{} {} {}: {}",
-            if items.send { "☑" } else { "☐" },
-            plural(to_js(items.titles.len()), "open note item"),
-            if items.send {
-                "→ backlog"
+    // The open steps under the lines it ticks: a selectable row space switches.
+    let steps = preview.and(input.open_steps.as_ref());
+    let toggles: Vec<String> = match steps {
+        Some(steps) if steps.count > 0 => {
+            let count = plural(to_js(steps.count), "open step");
+            vec![fit(&if steps.keep {
+                format!("☑ keep {count} under the line")
             } else {
-                "· stay in the note"
-            },
-            items.titles.join(", "),
-        ))],
+                let verb = if steps.count == 1 { "moves" } else { "move" };
+                format!("↑ {count} {verb} up to {} · space keeps them under the line", steps.to)
+            })]
+        }
         _ => Vec::new(),
     };
     // Space switches the selected row, else commit-first: one hint for both.
@@ -753,8 +747,8 @@ mod tests {
             commit_message: "auth refactor".into(),
             error: None,
             notes: Vec::new(),
-            tasks: None,
-            open_items: None,
+            lines: None,
+            open_steps: None,
             width: 60,
             height: 40,
             now: None,
@@ -1154,40 +1148,46 @@ mod tests {
         );
     }
 
+    fn steps(count: usize, to: &str, keep: bool) -> Option<OpenStepsToggle> {
+        Some(OpenStepsToggle {
+            count,
+            to: to.into(),
+            keep,
+        })
+    }
+
     #[test]
-    fn confirmation_names_task_and_offers_open_items() {
+    fn confirmation_names_the_lines_it_ticks_and_offers_their_open_steps() {
         let layout = merge_confirm_layout(&MergeConfirmInput {
-            tasks: Some(strings(&["Add OAuth"])),
-            open_items: Some(OpenItemsToggle {
-                titles: strings(&["Add tests", "Remove debug logging"]),
-                send: true,
-            }),
+            lines: Some(strings(&["Token storage"])),
+            open_steps: steps(2, "Rework auth", false),
             height: 30,
             width: 100,
             ..input()
         });
-        assert_eq!(
-            texts(&layout.details).last(),
-            Some(&"◆ Task \"Add OAuth\" will be marked done")
-        );
+        assert_eq!(texts(&layout.details).last(), Some(&"◆ Token storage will be ticked"));
         assert_eq!(
             layout.toggles,
-            ["☑ 2 open note items → backlog: Add tests, Remove debug logging"]
+            ["↑ 2 open steps move up to Rework auth · space keeps them under the line"]
         );
         assert_eq!(layout.hint, "enter choose • space toggle • esc cancel");
-        let without_items = merge_confirm_layout(&MergeConfirmInput {
-            tasks: Some(strings(&["Add OAuth"])),
+        // Two sessions in the worktree: both their lines tick.
+        let two = merge_confirm_layout(&MergeConfirmInput {
+            lines: Some(strings(&["Token storage", "refresh tokens"])),
             width: 100,
             ..input()
         });
-        assert_eq!(without_items.hint, "enter choose • space commit first • esc cancel");
+        assert_eq!(
+            texts(&two.details).last(),
+            Some(&"◆ 2 lines will be ticked: Token storage, refresh tokens")
+        );
+        // Without open steps space is commit-first's again.
+        assert_eq!(two.hint, "enter choose • space commit first • esc cancel");
+        assert!(two.toggles.is_empty());
         assert!(merge_confirm_rows(&layout) <= 30);
         for height in 16..=30 {
             let layout = merge_confirm_layout(&MergeConfirmInput {
-                open_items: Some(OpenItemsToggle {
-                    titles: strings(&["a"]),
-                    send: false,
-                }),
+                open_steps: steps(1, "the backlog", false),
                 height,
                 ..input()
             });
@@ -1196,17 +1196,14 @@ mod tests {
         // Until the preview arrives nothing is offered (the merge cannot be chosen yet either).
         let loading = merge_confirm_layout(&MergeConfirmInput {
             preview: None,
-            open_items: Some(OpenItemsToggle {
-                titles: strings(&["a"]),
-                send: true,
-            }),
+            open_steps: steps(1, "the backlog", false),
             ..input()
         });
         assert!(loading.toggles.is_empty());
     }
 
     #[test]
-    fn confirmation_open_items_row_switches() {
+    fn confirmation_open_steps_row_switches() {
         let base = || MergeConfirmInput {
             title: "auth".into(),
             preview: Some(preview(json!({"commitCount": 1, "commits": ["feat"],
@@ -1216,39 +1213,26 @@ mod tests {
             height: 30,
             ..input()
         };
-        let send = merge_confirm_layout(&MergeConfirmInput {
-            open_items: Some(OpenItemsToggle {
-                titles: strings(&["Write the parser", "Handle tabs"]),
-                send: true,
-            }),
+        let lift = merge_confirm_layout(&MergeConfirmInput {
+            open_steps: steps(1, "the backlog", false),
             ..base()
         });
         assert_eq!(
-            send.toggles,
-            ["☑ 2 open note items → backlog: Write the parser, Handle tabs"]
+            lift.toggles,
+            ["↑ 1 open step moves up to the backlog · space keeps them under the line"]
         );
-        assert_eq!(send.hint, "enter choose • space toggle • esc cancel");
+        assert_eq!(lift.hint, "enter choose • space toggle • esc cancel");
         let keep = merge_confirm_layout(&MergeConfirmInput {
-            open_items: Some(OpenItemsToggle {
-                titles: strings(&["Write the parser"]),
-                send: false,
-            }),
+            open_steps: steps(3, "the backlog", true),
             ..base()
         });
-        assert_eq!(
-            keep.toggles,
-            ["☐ 1 open note item · stay in the note: Write the parser"]
-        );
-        // Nothing before the preview arrives.
-        let loading = merge_confirm_layout(&MergeConfirmInput {
-            preview: None,
-            open_items: Some(OpenItemsToggle {
-                titles: strings(&["x"]),
-                send: true,
-            }),
+        assert_eq!(keep.toggles, ["☑ keep 3 open steps under the line"]);
+        // None open: no row.
+        let none = merge_confirm_layout(&MergeConfirmInput {
+            open_steps: steps(0, "the backlog", false),
             ..base()
         });
-        assert!(loading.toggles.is_empty());
+        assert!(none.toggles.is_empty());
     }
 
     /// A merge of a worktree stacked on `feature-a` (whose own path goes on to main), into that target.
@@ -1513,6 +1497,19 @@ mod tests {
         }
         if let Some(preview) = object.get_mut("preview").filter(|preview| preview.is_object()) {
             *preview = preview_value(preview);
+        }
+        // Recorded before the work-items model: the worktree's open tasks are the lines its merge ticks, and the open
+        // items of its note (`send`: to the backlog) the open steps that move up out of them (to the backlog).
+        if let Some(tasks) = object.remove("tasks") {
+            object.insert("lines".to_owned(), tasks);
+        }
+        if let Some(items) = object.remove("openItems") {
+            let count = items.get("titles").and_then(Value::as_array).map_or(0, Vec::len);
+            let keep = !items.get("send").and_then(Value::as_bool).unwrap_or(false);
+            object.insert(
+                "openSteps".to_owned(),
+                json!({"count": count, "to": "the backlog", "keep": keep}),
+            );
         }
         serde_json::from_value(value).map_err(|error| error.to_string())
     }
