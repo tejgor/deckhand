@@ -480,6 +480,8 @@ impl Daemon {
                     link: None,
                     id: Some(task_id.clone()),
                     from: None,
+                    parent: None,
+                    at: None,
                 };
                 match self.change_tasks(&key, op).await {
                     Ok(_) => outcome.tasks.push(PlanCreatedTask {

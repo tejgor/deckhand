@@ -203,7 +203,12 @@ string_union!(ChangeGroup {
 });
 string_union!(CleanupFileState { Changed = "changed", Untracked = "untracked", Ignored = "ignored" });
 string_union!(PrChecks { Passing = "passing", Pending = "pending", Failing = "failing", Unknown = "unknown" });
-string_union!(TaskAuto { Merge = "merge", Done = "done" });
+string_union!(TaskAuto {
+    Merge = "merge",
+    Done = "done",
+    /// Ticked because every line under it was ticked (roll-up); reopening one of those lines reopens it.
+    Lines = "lines",
+});
 
 // ---------------------------------------------------------------------------------------------------------------
 // Sessions (types.ts)
@@ -1319,7 +1324,10 @@ pub struct Task {
     pub meta: TaskMeta,
 }
 
-/// tasks.ts TaskOp: one change to a task list (internally tagged on `type`).
+/// One change to a repository's list (internally tagged on `type`). The list nests: any line can have lines under
+/// it, and at most one session is on a line. `deckhand_core::tasks::apply_task_op` documents what each op does; `id`,
+/// `target` and `parent` are line IDs (`t=`), `at` a position among the new parent's lines (0-based; past the end, or
+/// absent: at the end).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -1331,25 +1339,60 @@ pub enum TaskOp {
         link: Option<TaskLink>,
         id: Option<String>,
         from: Option<String>,
+        /// Under this line (absent: top-level).
+        parent: Option<String>,
+        at: Option<usize>,
     },
     #[serde(rename = "edit")]
     Edit { id: String, title: String, body: String },
+    /// The title only (the line's details stay as written).
+    #[serde(rename = "retitle")]
+    Retitle { id: String, title: String },
     #[serde(rename = "toggle")]
     Toggle { id: String },
+    /// Tick by hand (nothing changes when it is ticked already).
+    #[serde(rename = "tick")]
+    Tick { id: String },
+    /// Reopen (nothing changes when it is open already).
+    #[serde(rename = "reopen")]
+    Reopen { id: String },
     #[serde(rename = "remove")]
     Remove { id: String },
+    /// Next to `target` (before it, or after it with `after`), as its sibling, with every line under it.
     #[serde(rename = "move")]
     Move {
         id: String,
         target: String,
         after: Option<bool>,
     },
+    /// Under `parent` (absent: top-level), with every line under it.
+    #[serde(rename = "move-to")]
+    MoveTo {
+        id: String,
+        parent: Option<String>,
+        at: Option<usize>,
+    },
+    /// One place up or down among its siblings (`J` / `K`).
+    #[serde(rename = "reorder")]
+    Reorder { id: String, down: bool },
     #[serde(rename = "link")]
     Link { id: String, link: TaskLink },
     #[serde(rename = "assign")]
     Assign { id: String, link: Option<TaskLink> },
+    /// Session `s` takes the line on (leaving any other line it was on).
+    #[serde(rename = "session-on")]
+    SessionOn { id: String, s: String },
+    /// Session `s` leaves its line (nobody is on it then).
+    #[serde(rename = "session-off")]
+    SessionOff { s: String },
+    /// `lift`: the open lines directly under each line ticked move up beside it, marked `from` (the branch).
     #[serde(rename = "tick-linked")]
-    TickLinked { link: TaskLink, auto: TaskAuto },
+    TickLinked {
+        link: TaskLink,
+        auto: TaskAuto,
+        lift: Option<bool>,
+        from: Option<String>,
+    },
     #[serde(rename = "reopen-linked")]
     ReopenLinked { link: TaskLink, auto: TaskAuto },
     #[serde(rename = "abandon-linked")]

@@ -908,6 +908,8 @@ impl TasksFlow {
                     link,
                     id: None,
                     from: None,
+                    parent: None,
+                    at: None,
                 };
                 let then: ApplyThen = Box::new(move |flow, next, cx| {
                     flow.editor = None;

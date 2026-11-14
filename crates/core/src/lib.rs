@@ -26,6 +26,7 @@ pub mod session_scope;
 pub mod session_sections;
 pub mod settings_model;
 pub mod sidebar_model;
+pub mod task_list;
 pub mod tasks;
 pub mod tasks_board;
 pub mod terminal_keys;

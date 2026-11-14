@@ -1,6 +1,6 @@
 # Work items and notes
 
-**Status:** designed 2026-11-14 with the user; nothing built. Replaces how tasks, steps and notes work today (`docs/features.md`, *Tasks* and *Notes*). The orchestrator's rework to one orchestrator per idea (`orchestrator.md`, *Part 3, reworked*) builds on it and comes after.
+**Status:** designed 2026-11-14 with the user. Build order step 1 (the list model and file format) is built: `crates/core/src/task_list.rs`, with the ops documented on `tasks::apply_task_op`; nothing else yet. Replaces how tasks, steps and notes work today (`docs/features.md`, *Tasks* and *Notes*). The orchestrator's rework to one orchestrator per idea (`orchestrator.md`, *Part 3, reworked*) builds on it and comes after.
 
 ## Why
 

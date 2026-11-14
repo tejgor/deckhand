@@ -297,6 +297,8 @@ impl Cx {
             link: None,
             id: None,
             from: None,
+            parent: None,
+            at: None,
         };
         let after = self.apply(&repo_root, op).await?;
         let added = after

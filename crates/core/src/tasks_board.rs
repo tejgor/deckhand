@@ -777,7 +777,7 @@ pub fn task_state<S: SessionLike>(
         let text = match meta.auto {
             Some(TaskAuto::Merge) => "merged",
             Some(TaskAuto::Done) => "done (D)",
-            None => "done",
+            Some(TaskAuto::Lines) | None => "done",
         };
         return TaskState {
             glyph: "✓".to_owned(),
@@ -2412,6 +2412,8 @@ mod tests {
                 link: None,
                 id: Some("id0".to_owned()),
                 from: Some("feat/auth".to_owned()),
+                parent: None,
+                at: None,
             },
             now(),
         )?;
@@ -2431,6 +2433,8 @@ mod tests {
                 link: Some(TaskLink::Worktree { wt: "w1".to_owned() }),
                 id: None,
                 from: Some("feat/auth".to_owned()),
+                parent: None,
+                at: None,
             },
             now(),
         )?;

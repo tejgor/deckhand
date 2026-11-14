@@ -1,13 +1,14 @@
-//! Tasks as pure data: one Markdown file per repository, parsed into tasks and changed only through TaskOps, which
-//! edit the task blocks in place and keep every other line as written. A task is a top-level checklist item; the
-//! indented lines under it are its body; Deckhand's bookkeeping rides at the end of the item line in a hidden
-//! comment (`<!-- dh:t=3fa9c1d2 wt=<record id> added=2026-10-09 -->`).
+//! Tasks as pure data: one Markdown file per repository, parsed into lines and changed only through TaskOps, which
+//! edit the list in place and keep every other line as written. The list nests (`task_list` has the file's rules and
+//! the tree): a checklist item is a line, the indented checklist items under it are its lines, and the other indented
+//! text under it its details. Deckhand's bookkeeping rides at the end of the item line in a hidden comment
+//! (`<!-- dh:t=3fa9c1d2 s=<session id> added=2026-10-09 -->`).
 //!
-//! t: the task's ID (given on Deckhand's first write of the file); wt / s: the work the task is for (◆), a worktree
-//! incarnation or (main checkout) session; done: when it was ticked; auto: ticked by a merge or by D, so undoing that
-//! reopens it; tried: the branch of work dropped unmerged; from: the branch an item was left open in when its work
-//! ended; added: when it was added. Before steps, a task could also be assigned to work as a follow-up (`assigned=`,
-//! `was=`): migrate_follow_ups moves those into their work's note once.
+//! t: the line's ID (given on Deckhand's first write of the file); s: the session on it; wt: (legacy) the worktree
+//! incarnation it was for; done: when it was ticked; auto: ticked by a merge, by D, or because every line under it
+//! was (`lines`), so undoing that reopens it; tried: the branch of work dropped unmerged; from: the branch it was left
+//! open in when its work ended; added: when it was added. Before steps, a task could also be assigned to work as a
+//! follow-up (`assigned=`, `was=`): migrate_follow_ups moves those into their work's note once.
 //!
 //! Times are milliseconds since the epoch (TS `Date` arguments, `new Date()` by default: callers pass
 //! `jsstr::date::now_ms()`).
@@ -24,6 +25,7 @@ use sha2::{Digest, Sha256};
 use crate::error::{DhError, Result};
 use crate::jsstr::{self, is_js_whitespace};
 use crate::notes::parse_checklist_line;
+use crate::task_list::{self, Part, Render};
 use deckhand_protocol::data::{Task, TaskAuto, TaskLink, TaskMeta, TaskOp};
 
 /// TS: tasks.ts MAX_TASK_TITLE (UTF-16 units).
@@ -38,7 +40,7 @@ pub const RECENT_DONE_DAYS: i64 = 7;
 /// TS: tasks.ts META_KEYS (the bookkeeping keys, in the order they are written).
 pub const META_KEYS: [&str; 8] = ["t", "wt", "s", "done", "auto", "tried", "from", "added"];
 
-static META: LazyLock<Regex> =
+pub(crate) static META: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[ \t]*<!--[ \t]*dh:([^>]*?)[ \t]*-->[ \t]*$").expect("META is a valid regex"));
 static COMMENT_MARKER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<!--|-->").expect("COMMENT_MARKER is a valid regex"));
@@ -53,7 +55,7 @@ static TASK_META: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[ \t]*<!--[ \t]*dh:[^>]*?-->").expect("TASK_META is a valid regex"));
 
 /// `/(?:^|[ \t])(?:<one of keys>)=\S/.test(text)` (JS `\S`: not JS whitespace).
-fn has_bare_key(text: &str, keys: &[&str]) -> bool {
+pub(crate) fn has_bare_key(text: &str, keys: &[&str]) -> bool {
     keys.iter().any(|key| {
         let needle = format!("{key}=");
         text.match_indices(&needle).any(|(at, _)| {
@@ -91,6 +93,7 @@ pub fn parse_meta(raw: &str) -> TaskMeta {
             "auto" => match value.as_str() {
                 "merge" => meta.auto = Some(TaskAuto::Merge),
                 "done" => meta.auto = Some(TaskAuto::Done),
+                "lines" => meta.auto = Some(TaskAuto::Lines),
                 _ => {}
             },
             "tried" => meta.tried = Some(value),
@@ -155,7 +158,7 @@ pub fn clean_task_title(title: &str) -> String {
 }
 
 /// TS: tasks.ts cleanBody (the body's lines, without control characters, trailing spaces and blank ends).
-fn clean_body(body: &str) -> Vec<String> {
+pub(crate) fn clean_body(body: &str) -> Vec<String> {
     let normalized = body.replace("\r\n", "\n").replace('\r', "\n");
     let stripped: String = normalized
         .chars()
@@ -181,7 +184,7 @@ fn indent_len(line: &str) -> usize {
 }
 
 /// TS: tasks.ts dedent (the lines with their common indent removed).
-fn dedent(lines: &[String]) -> String {
+pub(crate) fn dedent(lines: &[String]) -> String {
     let cut = lines
         .iter()
         .filter(|line| !jsstr::js_trim(line).is_empty())
@@ -195,106 +198,9 @@ fn dedent(lines: &[String]) -> String {
         .join("\n")
 }
 
-#[derive(Clone, Debug)]
-struct TaskBlock {
-    bullet: String,
-    done: bool,
-    title: String,
-    body: Vec<String>,
-    meta: TaskMeta,
-    legacy_follow_up: bool,
-    /// Its position among the file's tasks (as parsed; a new task gets the next one).
-    serial: usize,
-}
-
-#[derive(Clone, Debug)]
-enum Block {
-    Raw(Vec<String>),
-    Task(Box<TaskBlock>),
-}
-
 /// `text` with `\r\n` and lone `\r` as `\n`.
-fn normalize_newlines(text: &str) -> String {
+pub(crate) fn normalize_newlines(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
-}
-
-fn parse_blocks(text: &str) -> Vec<Block> {
-    let normalized = normalize_newlines(text);
-    let mut lines: Vec<&str> = normalized.split('\n').collect();
-    if lines.last() == Some(&"") {
-        lines.pop();
-    }
-    let mut blocks: Vec<Block> = Vec::new();
-    let mut serial = 0;
-    let mut index = 0;
-    while index < lines.len() {
-        let line = lines[index];
-        let item = parse_checklist_line(line).filter(|item| item.indent.is_empty());
-        let Some(item) = item else {
-            if let Some(Block::Raw(raw)) = blocks.last_mut() {
-                raw.push(line.to_owned());
-            } else {
-                blocks.push(Block::Raw(vec![line.to_owned()]));
-            }
-            index += 1;
-            continue;
-        };
-        let captures = META.captures(&item.text);
-        let (title, meta, legacy_follow_up) = match &captures {
-            Some(captures) => {
-                let whole = captures.get(0).map_or(item.text.len(), |found| found.start());
-                let raw = captures.get(1).map_or("", |found| found.as_str());
-                (&item.text[..whole], parse_meta(raw), has_bare_key(raw, &["assigned"]))
-            }
-            None => (item.text.as_str(), TaskMeta::default(), false),
-        };
-        let mut body = Vec::new();
-        // The body: the indented lines right under the item (an indented blank line keeps it going).
-        while index + 1 < lines.len() && lines[index + 1].starts_with([' ', '\t']) {
-            index += 1;
-            body.push(lines[index].to_owned());
-        }
-        blocks.push(Block::Task(Box::new(TaskBlock {
-            bullet: item.bullet.clone(),
-            done: item.checked,
-            title: jsstr::js_trim(title).to_owned(),
-            body,
-            meta,
-            legacy_follow_up,
-            serial,
-        })));
-        serial += 1;
-        index += 1;
-    }
-    blocks
-}
-
-fn serialize_blocks<'a>(blocks: impl IntoIterator<Item = &'a Block>) -> String {
-    let mut out: Vec<String> = Vec::new();
-    for block in blocks {
-        match block {
-            Block::Raw(lines) => out.extend(lines.iter().cloned()),
-            Block::Task(task) => {
-                out.push(format!(
-                    "{} [{}] {}{}",
-                    task.bullet,
-                    if task.done { 'x' } else { ' ' },
-                    task.title,
-                    format_meta(&task.meta)
-                ));
-                out.extend(
-                    task.body
-                        .iter()
-                        .map(|line| if line.is_empty() { "  ".to_owned() } else { line.clone() }),
-                );
-            }
-        }
-    }
-    if out.is_empty() {
-        String::new()
-    } else {
-        format!("{}\n", out.join("\n"))
-    }
 }
 
 fn short_hash(text: &str) -> String {
@@ -302,7 +208,7 @@ fn short_hash(text: &str) -> String {
     digest.iter().take(4).map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn provisional_id(index: usize, title: &str) -> String {
+pub(crate) fn provisional_id(index: usize, title: &str) -> String {
     format!("~{index}:{}", short_hash(title))
 }
 
@@ -317,31 +223,11 @@ pub fn new_task_id() -> String {
         .collect()
 }
 
-fn task_of(block: &TaskBlock, index: usize) -> Task {
-    Task {
-        id: block
-            .meta
-            .t
-            .clone()
-            .unwrap_or_else(|| provisional_id(index, &block.title)),
-        title: block.title.clone(),
-        done: block.done,
-        body: dedent(&block.body),
-        meta: block.meta.clone(),
-    }
-}
-
-/// TS: tasks.ts parseTasks (the file's tasks, in file order).
+/// The file's top-level lines, in file order, each with its details as `body` (the lines under them are left out:
+/// `task_list::TaskList` reads the whole tree). A line without an ID yet gets a provisional one,
+/// `~<position among all the file's lines>:<hash of its title>`, which ops accept until the next write gives it one.
 pub fn parse_tasks(text: &str) -> Vec<Task> {
-    parse_blocks(text)
-        .iter()
-        .filter_map(|block| match block {
-            Block::Task(task) => Some(task),
-            Block::Raw(_) => None,
-        })
-        .enumerate()
-        .map(|(index, task)| task_of(task, index))
-        .collect()
+    task_list::top_level_tasks(text)
 }
 
 /// TS: tasks.ts linkMatches.
@@ -352,7 +238,7 @@ pub fn link_matches(meta: &TaskMeta, link: &TaskLink) -> bool {
     }
 }
 
-fn meta_linked(meta: &TaskMeta) -> bool {
+pub(crate) fn meta_linked(meta: &TaskMeta) -> bool {
     meta.wt.as_deref().is_some_and(|wt| !wt.is_empty()) || meta.s.as_deref().is_some_and(|s| !s.is_empty())
 }
 
@@ -389,7 +275,7 @@ pub fn link_of_key(key: &str) -> Option<TaskLink> {
     None
 }
 
-fn clear_link(meta: &mut TaskMeta) {
+pub(crate) fn clear_link(meta: &mut TaskMeta) {
     meta.wt = None;
     meta.s = None;
     meta.tried = None;
@@ -397,7 +283,7 @@ fn clear_link(meta: &mut TaskMeta) {
 }
 
 /// `Object.assign(meta, link)`.
-fn set_link(meta: &mut TaskMeta, link: &TaskLink) {
+pub(crate) fn set_link(meta: &mut TaskMeta, link: &TaskLink) {
     match link {
         TaskLink::Worktree { wt } => meta.wt = Some(wt.clone()),
         TaskLink::Session { s } => meta.s = Some(s.clone()),
@@ -405,7 +291,7 @@ fn set_link(meta: &mut TaskMeta, link: &TaskLink) {
 }
 
 /// `now.toISOString().slice(0, 10)`; an invalid date throws as JS does.
-fn today(now_ms: i64) -> Result<String> {
+pub(crate) fn today(now_ms: i64) -> Result<String> {
     let iso = jsstr::date::to_iso_string(now_ms).ok_or_else(|| DhError::msg("Invalid time value"))?;
     Ok(iso.chars().take(10).collect())
 }
@@ -424,227 +310,66 @@ pub struct TaskOpResult {
     pub changed: usize,
 }
 
-fn task_blocks_mut(blocks: &mut [Block]) -> impl Iterator<Item = &mut TaskBlock> {
-    blocks.iter_mut().filter_map(|block| match block {
-        Block::Task(task) => Some(task.as_mut()),
-        Block::Raw(_) => None,
-    })
-}
+pub(crate) const NO_LONGER_LISTED: &str =
+    "That task is no longer in the list (it changed outside Deckhand?); try again";
 
-fn position_of(blocks: &[Block], serial: usize) -> Option<usize> {
-    blocks
-        .iter()
-        .position(|block| matches!(block, Block::Task(task) if task.serial == serial))
-}
-
-fn task_mut(blocks: &mut [Block], serial: usize) -> Result<&mut TaskBlock> {
-    task_blocks_mut(blocks)
-        .find(|task| task.serial == serial)
-        .ok_or_else(|| DhError::msg(NO_LONGER_LISTED))
-}
-
-const NO_LONGER_LISTED: &str = "That task is no longer in the list (it changed outside Deckhand?); try again";
-
-/// TS: tasks.ts applyTaskOp. Errors: `That task is no longer in the list (it changed outside Deckhand?); try
-/// again`, `A task needs a title`, `A task with that ID already exists`, `That task is done; space reopens it`.
+/// One change to the list, applied to `text` as it is (lines the op doesn't concern keep their place, and every line
+/// that isn't a list line keeps its bytes). Every line without an ID gets one first (so every line Deckhand has
+/// written can be addressed); an unknown ID throws (the file changed meanwhile). `changed` counts the lines changed;
+/// `task` is the line added or changed (none for a removal or the linked-work ops).
 ///
-/// Tasks without an ID get one first (so every task Deckhand has written can be addressed); an unknown ID throws
-/// (the file changed meanwhile).
+/// Errors: `That task is no longer in the list (it changed outside Deckhand?); try again`, `A task needs a title`,
+/// `A task with that ID already exists`, `That task is done; space reopens it`, `That line is done; reopen it first`,
+/// `Another session is on that line`, `A line can't move under itself`.
+///
+/// - **add**: a new open line, `added=` today: under `parent` (absent: top-level), before its `at`-th line, else
+///   last (at the top level without `at`: after the last open top-level line, the backlog's end, else at the end of
+///   the file). `link` puts that work on it, else `from` marks where it was left open. A parent ticked by roll-up
+///   reopens.
+/// - **edit**: title and details (the lines under it stay). **retitle**: the title only.
+/// - **toggle** ticks by hand (`done=` today, no `auto`) or reopens (forgetting when and why it was ticked);
+///   **tick** / **reopen** do one of them, changing nothing when it is so already. Then the roll-up (below).
+/// - **remove**: the line and everything under it (its lines and details): a line's lines are part of it, as its
+///   details are. Then the roll-up of its parent.
+/// - **move**: beside `target` (before it, or after it and its lines with `after`), as its sibling, so into
+///   `target`'s parent; **move-to**: under `parent` (absent: top-level), placed as **add** places a line. Either way
+///   with everything under it, re-indented to its new siblings' indent; into its own subtree is refused. **reorder**:
+///   one place up or down among its siblings (`J` / `K`), nothing at either end. The roll-up runs on the old and the
+///   new parent.
+/// - **link**: that work is on it (a new start: `tried` and `from` go). **assign** (`w`): that work, or nobody, is on
+///   it; refused for a done line. **session-on**: session `s` takes the line on (`tried`, `from` go); refused for a
+///   done line or one someone else is on. **session-off**: session `s` leaves its line; nothing else changes.
+/// - **tick-linked**: every open line that work is on ticks with `auto` (a merge or done). With `lift`, the open lines
+///   directly under each (with everything under them) move up beside it, after it, marked `from` (the branch they
+///   were left open in): into its parent line, or the top level. Then the roll-up.
+/// - **reopen-linked**: every line that work is on, ticked with that `auto`, reopens (lines lifted out stay where
+///   they went). Then the roll-up, which reopens the lines above it ticked by roll-up.
+/// - **abandon-linked**: every open line that work is on is unhooked (nobody is on it, `from` goes) and marked
+///   `tried` (the branch); it stays where it is.
+///
+/// **One line per session**: whatever puts session `s` on a line (add, link or assign with `{s}`, session-on) takes
+/// it off any other line first, ticked or not, so a session is on at most one line. (A hand edit can still put it on
+/// two: `TaskList::line_of_session` answers the first, and tick-linked ticks both.)
+///
+/// **Roll-up**: a line whose direct lines are all ticked ticks itself (`auto=lines`); a line ticked that way reopens
+/// when one of its lines is open again (reopened, added, moved in). Ticked by hand, by a merge or by done, it stays
+/// ticked. It runs up from the parent of what changed and stops at the first line it leaves as it was.
+///
+/// **Worktree links** (`wt=`) are read, kept and matched (tick-linked, reopen-linked and abandon-linked accept
+/// `{wt}`). No list op adds one, except the old ones today's daemon still sends with `{wt}` (add, link, assign) until
+/// stage 3 moves it to sessions; session-on clears it.
 pub fn apply_task_op(text: &str, op: &TaskOp, now_ms: i64) -> Result<TaskOpResult> {
-    let mut blocks = parse_blocks(text);
-    let mut ids: Vec<String> = Vec::new();
-    for task in task_blocks_mut(&mut blocks) {
-        ids.push(
-            task.meta
-                .t
-                .clone()
-                .unwrap_or_else(|| provisional_id(task.serial, &task.title)),
-        );
-    }
-    for task in task_blocks_mut(&mut blocks) {
-        if task.meta.t.is_none() {
-            task.meta.t = Some(new_task_id());
-        }
-    }
-    // The serial of the first task with that ID.
-    let find = |id: &str| -> Result<usize> {
-        ids.iter()
-            .position(|known| known == id)
-            .ok_or_else(|| DhError::msg(NO_LONGER_LISTED))
-    };
-    let date = today(now_ms)?;
-    let mut target: Option<usize> = None;
-    let mut changed = 0;
-    match op {
-        TaskOp::Add {
-            title,
-            body,
-            link,
-            id,
-            from,
-        } => {
-            let title = clean_task_title(title);
-            if title.is_empty() {
-                return Err(DhError::msg("A task needs a title"));
-            }
-            if let Some(id) = id.as_deref()
-                && !id.is_empty()
-                && ids.iter().any(|known| known == id)
-            {
-                return Err(DhError::msg("A task with that ID already exists"));
-            }
-            let mut meta = TaskMeta {
-                t: Some(id.clone().unwrap_or_else(new_task_id)),
-                ..TaskMeta::default()
-            };
-            match link {
-                Some(link) => set_link(&mut meta, link),
-                None => meta.from = from.clone().filter(|from| !from.is_empty()),
-            }
-            meta.added = Some(date.clone());
-            let serial = ids.len();
-            let block = Block::Task(Box::new(TaskBlock {
-                bullet: "-".to_owned(),
-                done: false,
-                title,
-                body: clean_body(body.as_deref().unwrap_or(""))
-                    .into_iter()
-                    .map(|line| format!("  {line}"))
-                    .collect(),
-                meta,
-                legacy_follow_up: false,
-                serial,
-            }));
-            // New tasks go after the last open task (the backlog's end), else at the end of the file.
-            let last_open = blocks
-                .iter()
-                .rposition(|block| matches!(block, Block::Task(task) if !task.done));
-            let at = last_open.map_or(blocks.len(), |at| at + 1);
-            blocks.insert(at, block);
-            target = Some(serial);
-            changed = 1;
-        }
-        TaskOp::Edit { id, title, body } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            let title = clean_task_title(title);
-            if title.is_empty() {
-                return Err(DhError::msg("A task needs a title"));
-            }
-            let task = task_mut(&mut blocks, serial)?;
-            task.title = title;
-            task.body = clean_body(body).into_iter().map(|line| format!("  {line}")).collect();
-            changed = 1;
-        }
-        TaskOp::Toggle { id } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            let task = task_mut(&mut blocks, serial)?;
-            task.done = !task.done;
-            task.meta.done = task.done.then(|| date.clone());
-            task.meta.auto = None;
-            changed = 1;
-        }
-        TaskOp::Remove { id } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            if let Some(at) = position_of(&blocks, serial) {
-                blocks.remove(at);
-            }
-            changed = 1;
-        }
-        TaskOp::Move {
-            id,
-            target: anchor_id,
-            after,
-        } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            let anchor = find(anchor_id)?;
-            if anchor != serial
-                && let Some(from) = position_of(&blocks, serial)
-            {
-                let block = blocks.remove(from);
-                let to = position_of(&blocks, anchor).unwrap_or(blocks.len()) + usize::from(*after == Some(true));
-                blocks.insert(to.min(blocks.len()), block);
-                changed = 1;
-            }
-        }
-        TaskOp::Link { id, link } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            let task = task_mut(&mut blocks, serial)?;
-            clear_link(&mut task.meta);
-            set_link(&mut task.meta, link);
-            changed = 1;
-        }
-        TaskOp::Assign { id, link } => {
-            let serial = find(id)?;
-            target = Some(serial);
-            let task = task_mut(&mut blocks, serial)?;
-            if task.done {
-                return Err(DhError::msg("That task is done; space reopens it"));
-            }
-            // Already there: nothing to change.
-            let there = match link {
-                Some(link) => link_matches(&task.meta, link),
-                None => !meta_linked(&task.meta),
-            };
-            if !there {
-                clear_link(&mut task.meta);
-                if let Some(link) = link {
-                    set_link(&mut task.meta, link);
-                }
-                changed = 1;
-            }
-        }
-        TaskOp::TickLinked { link, auto } => {
-            for task in task_blocks_mut(&mut blocks) {
-                if task.done || !link_matches(&task.meta, link) {
-                    continue;
-                }
-                task.done = true;
-                task.meta.done = Some(date.clone());
-                task.meta.auto = Some(*auto);
-                changed += 1;
-            }
-        }
-        TaskOp::ReopenLinked { link, auto } => {
-            for task in task_blocks_mut(&mut blocks) {
-                if !task.done || task.meta.auto != Some(*auto) || !link_matches(&task.meta, link) {
-                    continue;
-                }
-                task.done = false;
-                task.meta.done = None;
-                task.meta.auto = None;
-                changed += 1;
-            }
-        }
-        TaskOp::AbandonLinked { link, tried } => {
-            for task in task_blocks_mut(&mut blocks) {
-                if task.done || !link_matches(&task.meta, link) {
-                    continue;
-                }
-                clear_link(&mut task.meta);
-                if let Some(tried) = tried.as_deref().filter(|tried| !tried.is_empty()) {
-                    task.meta.tried = Some(tried.to_owned());
-                }
-                changed += 1;
-            }
-        }
-    }
-    let task = match (target, op) {
-        (_, TaskOp::Remove { .. }) | (None, _) => None,
-        (Some(serial), _) => blocks.iter().find_map(|block| match block {
-            Block::Task(task) if task.serial == serial => Some(task_of(task, 0)),
-            _ => None,
-        }),
-    };
-    Ok(TaskOpResult {
-        text: serialize_blocks(&blocks),
-        task,
-        changed,
-    })
+    apply_task_op_with(text, op, now_ms, &mut new_task_id)
+}
+
+/// `apply_task_op`, taking each new ID from `new_id` (a fixed sequence in tests).
+pub fn apply_task_op_with(
+    text: &str,
+    op: &TaskOp,
+    now_ms: i64,
+    new_id: &mut dyn FnMut() -> String,
+) -> Result<TaskOpResult> {
+    task_list::apply(text, op, now_ms, new_id)
 }
 
 /// A JS value as `typeof x === 'object' && x` sees it: the object's fields (an array has none of the named ones).
@@ -685,6 +410,8 @@ pub fn client_task_op(raw: &Value) -> Result<TaskOp> {
                 link: link()?,
                 id: None,
                 from: None,
+                parent: None,
+                at: None,
             })
         }
         Some("assign") => {
@@ -946,8 +673,8 @@ pub fn migrate_follow_ups(text: &str, has_note: &dyn Fn(&TaskLink) -> bool) -> O
     }
     let mut moved = Vec::new();
     let mut kept = Vec::new();
-    for mut block in parse_blocks(text) {
-        if let Block::Task(task) = &mut block
+    for mut part in task_list::parse_parts(text) {
+        if let Part::Line(task) = &mut part
             && task.legacy_follow_up
             && !task.done
         {
@@ -961,18 +688,20 @@ pub fn migrate_follow_ups(text: &str, has_note: &dyn Fn(&TaskLink) -> bool) -> O
                     moved.push(LegacyFollowUp {
                         link,
                         title: task.title.clone(),
-                        body: dedent(&task.body),
+                        // Everything under it, as it was written: the note gets the item as it read before lines nested.
+                        body: task.block_text(Render::TopLevel),
                     });
                     continue;
                 }
                 clear_link(&mut task.meta);
             }
         }
-        kept.push(block);
+        kept.push(part);
     }
-    // Serializing writes only the current keys, so the rest lose `assigned=` / `was=` too.
+    // Serializing writes only the current keys, so the rest lose `assigned=` / `was=` too (top-level lines are the
+    // only ones that had them; the lines under them are written back as they were).
     Some(FollowUpMigration {
-        text: serialize_blocks(&kept),
+        text: task_list::serialize(&kept, Render::TopLevel),
         moved,
     })
 }
@@ -1055,17 +784,18 @@ mod tests {
 
     #[test]
     fn parses_tasks_and_keeps_other_lines() {
-        let text = "# Tasks\n\nSome prose.\n- [ ] First <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n  detail one\n    deeper\n- [x] Second\n  - [ ] a sub-item stays body\nTrailing prose\n";
+        let text = "# Tasks\n\nSome prose.\n- [ ] First <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n  detail one\n    deeper\n- [x] Second\n  - [ ] a line under it\nTrailing prose\n";
         let tasks = parse_tasks(text);
         let shape: Vec<(String, bool, String)> = tasks
             .iter()
             .map(|task| (task.title.clone(), task.done, task.body.clone()))
             .collect();
+        // The top-level lines; a checklist item under one is a line of its own, not part of its details.
         assert_eq!(
             shape,
             vec![
                 ("First".to_owned(), false, "detail one\n  deeper".to_owned()),
-                ("Second".to_owned(), true, "- [ ] a sub-item stays body".to_owned()),
+                ("Second".to_owned(), true, String::new()),
             ]
         );
         assert_eq!(
@@ -1074,10 +804,10 @@ mod tests {
         );
         assert_eq!(tasks[0].id, "aaaa1111");
         assert!(matches(r"^~1:[0-9a-f]{8}$", &tasks[1].id));
-        // A no-op round trip through an op keeps the prose and gives every task an ID.
+        // A no-op round trip through an op keeps the prose and gives every line an ID.
         let next = apply(text, op(json!({"type": "toggle", "id": "aaaa1111"}))).text;
         assert!(matches(
-            r"^# Tasks\n\nSome prose\.\n- \[x\] First <!-- dh:t=aaaa1111 wt=w1 done=2026-10-09 added=2026-10-01 -->\n  detail one\n    deeper\n- \[x\] Second <!-- dh:t=[0-9a-f]{8} -->\n  - \[ \] a sub-item stays body\nTrailing prose\n$",
+            r"^# Tasks\n\nSome prose\.\n- \[x\] First <!-- dh:t=aaaa1111 wt=w1 done=2026-10-09 added=2026-10-01 -->\n  detail one\n    deeper\n- \[x\] Second <!-- dh:t=[0-9a-f]{8} -->\n  - \[ \] a line under it <!-- dh:t=[0-9a-f]{8} -->\nTrailing prose\n$",
             &next
         ));
     }
@@ -1463,7 +1193,13 @@ mod tests {
             } else {
                 date_arg(case, 2)?
             };
-            apply_task_op(case.arg_str(0)?, &op, now).map_err(message)
+            // Lines under a line get IDs too now; a fixed sequence keeps the recorded results stable.
+            let mut n = 0;
+            let mut next = || {
+                n += 1;
+                format!("{n:08x}")
+            };
+            apply_task_op_with(case.arg_str(0)?, &op, now, &mut next).map_err(message)
         });
     }
 

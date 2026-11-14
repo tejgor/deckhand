@@ -144,11 +144,18 @@ fn op_type(op: &TaskOp) -> &'static str {
     match op {
         TaskOp::Add { .. } => "add",
         TaskOp::Edit { .. } => "edit",
+        TaskOp::Retitle { .. } => "retitle",
         TaskOp::Toggle { .. } => "toggle",
+        TaskOp::Tick { .. } => "tick",
+        TaskOp::Reopen { .. } => "reopen",
         TaskOp::Remove { .. } => "remove",
         TaskOp::Move { .. } => "move",
+        TaskOp::MoveTo { .. } => "move-to",
+        TaskOp::Reorder { .. } => "reorder",
         TaskOp::Link { .. } => "link",
         TaskOp::Assign { .. } => "assign",
+        TaskOp::SessionOn { .. } => "session-on",
+        TaskOp::SessionOff { .. } => "session-off",
         TaskOp::TickLinked { .. } => "tick-linked",
         TaskOp::ReopenLinked { .. } => "reopen-linked",
         TaskOp::AbandonLinked { .. } => "abandon-linked",
@@ -163,6 +170,8 @@ fn add_op(title: &str, id: Option<&str>, link: Option<TaskLink>, from: Option<&s
         link,
         id: id.map(str::to_owned),
         from: from.filter(|from| !from.is_empty()).map(str::to_owned),
+        parent: None,
+        at: None,
     }
 }
 
@@ -558,6 +567,8 @@ impl Daemon {
             self.change_linked_tasks(TaskOp::TickLinked {
                 link: link.clone(),
                 auto: TaskAuto::Merge,
+                lift: None,
+                from: None,
             })
             .await;
         } else if was_merged && !merged {
@@ -606,6 +617,8 @@ impl Daemon {
             self.change_linked_tasks(TaskOp::TickLinked {
                 link,
                 auto: TaskAuto::Done,
+                lift: None,
+                from: None,
             })
             .await;
         }
@@ -1979,6 +1992,8 @@ mod tests {
                     link: None,
                     id: None,
                     from: None,
+                    parent: None,
+                    at: None,
                 };
                 daemon.change_tasks(&key, op).await.unwrap();
             }
