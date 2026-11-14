@@ -394,16 +394,27 @@ pub fn session_title_from_task(title: &str) -> String {
 pub struct BaseOption {
     pub label: String,
     pub value: Option<String>,
+    /// Not in the TS: the sub-session stacks on its parent's branch (`stacked` left to the daemon).
+    pub stacked: bool,
 }
 
 /// TS: app.tsx baseOptions: where a new worktree's branch can start (the setting first, then local branches).
-pub fn base_options(list: Option<&BranchList>) -> Vec<BaseOption> {
+///
+/// Not in the TS: with `stack_branch` (a sub-session whose parent's worktree it can stack on,
+/// `deckhand_core::worktree_records::stack_branch`), stacking on that branch comes first, even before the list has
+/// loaded, and the branch is not listed again.
+pub fn base_options(list: Option<&BranchList>, stack_branch: Option<&str>) -> Vec<BaseOption> {
     let label = |text: String| BaseOption {
         label: text,
-        value: None,
+        ..BaseOption::default()
     };
+    let stacked = stack_branch.map(|branch| BaseOption {
+        label: format!("{branch} · stacked"),
+        value: None,
+        stacked: true,
+    });
     let Some(list) = list else {
-        return vec![label("loading branches…".to_owned())];
+        return vec![stacked.unwrap_or_else(|| label("loading branches…".to_owned()))];
     };
     let setting = match list.branch_from {
         BranchFrom::Default => format!(
@@ -419,11 +430,18 @@ pub fn base_options(list: Option<&BranchList>) -> Vec<BaseOption> {
             _ => "current checkout".to_owned(),
         },
     };
-    let mut options = vec![label(setting)];
-    options.extend(list.branches.iter().map(|name| BaseOption {
-        label: name.clone(),
-        value: Some(name.clone()),
-    }));
+    let mut options: Vec<BaseOption> = stacked.into_iter().collect();
+    options.push(label(setting));
+    options.extend(
+        list.branches
+            .iter()
+            .filter(|name| Some(name.as_str()) != stack_branch)
+            .map(|name| BaseOption {
+                label: name.clone(),
+                value: Some(name.clone()),
+                stacked: false,
+            }),
+    );
     options
 }
 
@@ -1956,12 +1974,12 @@ mod tests {
 
     #[test]
     fn base_options_follow_the_branch_setting() {
-        assert_eq!(base_options(None)[0].label, "loading branches…");
+        assert_eq!(base_options(None, None)[0].label, "loading branches…");
         let list: BranchList = serde_json::from_value(serde_json::json!({
             "branches": ["main", "feature"], "current": "feature", "defaultBranch": "main", "branchFrom": "current"
         }))
         .unwrap_or_else(|error| panic!("{error}"));
-        let options = base_options(Some(&list));
+        let options = base_options(Some(&list), None);
         assert_eq!(options[0].label, "current checkout (feature)");
         assert_eq!(options[0].value, None);
         assert_eq!(options[2].value.as_deref(), Some("feature"));
@@ -1970,16 +1988,43 @@ mod tests {
             default_branch: None,
             ..list.clone()
         };
-        assert_eq!(base_options(Some(&origin))[0].label, "origin/main (fetched first)");
+        assert_eq!(
+            base_options(Some(&origin), None)[0].label,
+            "origin/main (fetched first)"
+        );
         let default = BranchList {
             branch_from: BranchFrom::Default,
             default_branch: None,
             ..list.clone()
         };
         assert_eq!(
-            base_options(Some(&default))[0].label,
+            base_options(Some(&default), None)[0].label,
             "the default branch (default branch)"
         );
+    }
+
+    #[test]
+    fn a_stacked_sub_session_s_bases_start_with_its_parent_s_branch() {
+        let list: BranchList = serde_json::from_value(serde_json::json!({
+            "branches": ["main", "feature", "other"], "current": "feature", "branchFrom": "current"
+        }))
+        .unwrap_or_else(|error| panic!("{error}"));
+        let stacked = BaseOption {
+            label: "feature · stacked".to_owned(),
+            value: None,
+            stacked: true,
+        };
+        // Stacking is offered before the branches are listed.
+        assert_eq!(base_options(None, Some("feature")), std::slice::from_ref(&stacked));
+        let options = base_options(Some(&list), Some("feature"));
+        let labels: Vec<&str> = options.iter().map(|option| option.label.as_str()).collect();
+        // The parent's branch is the stacked choice, not listed again.
+        assert_eq!(
+            labels,
+            ["feature · stacked", "current checkout (feature)", "main", "other"]
+        );
+        assert_eq!(options[0], stacked);
+        assert!(options[1..].iter().all(|option| !option.stacked));
     }
 
     #[test]

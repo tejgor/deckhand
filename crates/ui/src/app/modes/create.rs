@@ -10,14 +10,15 @@ use ratatui::layout::Rect;
 use deckhand_core::display::{HINT_SEPARATOR, HintPart, MenuItem, compact_path, fit_hint, truncate};
 use deckhand_core::jsstr::{js_len, js_slice, js_split_whitespace, js_to_lower, js_trim};
 use deckhand_core::key::Input;
+use deckhand_core::worktree_records::stack_branch;
 use deckhand_protocol::data::{
     CreateSessionInput, ProgramKey, ProjectInfo, SessionRecord, SubSessionKind, Task, WorktreeInfoRecord, WorktreeMode,
 };
 
 use crate::app::state::{App, CreateState, Mode, ReviewLabels, ReviewSkip, TaskStart};
 use crate::app::{
-    PROGRAMS, ReviewOptions, WORKTREE_MODES, base_options, fork_stays_in_parent, hint_short, sanitize_name_input,
-    session_title_from_task, supports_forked_sub_session, truthy,
+    BaseOption, PROGRAMS, ReviewOptions, WORKTREE_MODES, base_options, fork_stays_in_parent, hint_short,
+    sanitize_name_input, session_title_from_task, supports_forked_sub_session, truthy,
 };
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::menu::{MenuListProps, SelectableRowProps, menu_list, selectable_row};
@@ -148,6 +149,20 @@ pub fn fork_option_shown(
 /// Not in the TS: where the new session starts from: its parent, or the session a top-level fork copies.
 fn create_origin(app: &App) -> Option<SessionRecord> {
     create_parent(app).or_else(|| session_with_id(app, app.create.fork_from_id.as_ref()?))
+}
+
+/// Not in the TS: the parent's branch a sub-session in a new worktree would stack on (a fork too), or None: flat (a
+/// top-level session, a task's, or a parent with no live linked worktree branch to stack on).
+pub fn create_stack_branch(create: &CreateState, sessions: &[SessionRecord]) -> Option<String> {
+    let parent_id = create.parent_id.as_deref().filter(|id| !id.is_empty())?;
+    let parent = sessions.iter().find(|session| session.id == parent_id)?;
+    stack_branch(sessions, parent)
+}
+
+/// A new worktree's bases ([`base_options`]): a sub-session that can stack has stacking first.
+pub fn create_base_options(create: &CreateState, sessions: &[SessionRecord]) -> Vec<BaseOption> {
+    let stacked_on = create_stack_branch(create, sessions);
+    base_options(create.branch_list.as_ref(), stacked_on.as_deref())
 }
 
 /// TS `Math.max(0, PROGRAMS.findIndex(program => program.key === key))`.
@@ -350,7 +365,7 @@ pub fn handle_enter_name(app: &mut App, input: &Input) {
     // here).
     let (up, down) = crate::app::modes::typing_moves(input);
     if (up || down) && app.create.worktree_mode == WorktreeMode::New && !stays_in_parent {
-        let count = base_options(app.create.branch_list.as_ref()).len();
+        let count = create_base_options(&app.create, &app.sessions()).len();
         if count > 1 {
             let step = if down { 1 } else { count - 1 };
             app.create.base_index = (app.create.base_index + step) % count;
@@ -544,17 +559,27 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
     };
     let origin = create_origin(app);
     let layout = app.layout();
+    let sessions = app.sessions();
     let create = &app.create;
     let has_parent = truthy(create.parent_id.as_ref());
     let fork_from_id = create.fork_from_id.clone().filter(|_| !has_parent);
-    let base_branch = if create.worktree_mode == WorktreeMode::New {
-        base_options(create.branch_list.as_ref())
-            .get(create.base_index)
-            .and_then(|option| option.value.clone())
-            .filter(|value| !value.is_empty())
-    } else {
-        None
-    };
+    // The option the form shows (its index kept in range, as the form does).
+    let base = (create.worktree_mode == WorktreeMode::New)
+        .then(|| {
+            let options = create_base_options(create, &sessions);
+            options
+                .get(create.base_index.min(options.len().saturating_sub(1)))
+                .cloned()
+        })
+        .flatten();
+    let base_branch = base
+        .as_ref()
+        .and_then(|option| option.value.clone())
+        .filter(|value| !value.is_empty());
+    // A sub-session's new worktree is stacked only when the form offered it and it was chosen: any other base (or a
+    // parent the form saw nothing to stack on) asks the daemon for a flat one, so what was shown is what happens.
+    let stacked = (has_parent && create.worktree_mode == WorktreeMode::New && !base.is_some_and(|base| base.stacked))
+        .then_some(false);
     let input = CreateSessionInput {
         title,
         program,
@@ -585,8 +610,7 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
         fork_from_session_id: fork_from_id,
         prompt: None,
         submit: None,
-        // The daemon decides (stacked on a parent's worktree where it can be).
-        stacked: None,
+        stacked,
     };
     let reply = client.create_session(input);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {
@@ -677,6 +701,8 @@ pub struct BaseShown {
     pub label: String,
     pub index: usize,
     pub count: usize,
+    /// Not in the TS: the parent's branch the shown option stacks on (the new worktree merges back into it).
+    pub stacked_on: Option<String>,
 }
 
 /// TS: app.tsx CreatePane props (width is the area's).
@@ -849,6 +875,13 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
                 ));
             }
             rows.push(truncated(segs, TextStyle::default(), content_width));
+            if let Some(branch) = base.stacked_on.as_deref() {
+                rows.extend(wrapped(
+                    vec![Seg::plain(format!("Merges back into {branch}, the parent's branch"))],
+                    muted,
+                    content_width,
+                ));
+            }
         }
         if task_title.is_some() {
             rows.push(truncated(
@@ -1433,6 +1466,7 @@ mod tests {
             label: "main".to_owned(),
             index: 0,
             count: 3,
+            stacked_on: None,
         };
         let props = CreatePaneProps {
             mode: CreateStep::EnterName,
@@ -1518,6 +1552,167 @@ mod tests {
         assert_eq!(app.create.worktree_mode, WorktreeMode::None);
         handle_enter_name(&mut app, &escape());
         assert_eq!(app.mode, Mode::PickProgram);
+    }
+
+    /// `beta` (p1), in its own worktree (record `w1`) on `feature`.
+    fn parent_in_feature() -> SessionRecord {
+        let mut parent = session("p1", "beta", SessionStatus::Running);
+        parent.cwd = "/repo/wt".to_owned();
+        parent.worktree = Some(
+            serde_json::from_value(
+                json!({"mode": "managed", "path": "/repo/wt", "branch": "feature", "isMain": false, "id": "w1"}),
+            )
+            .unwrap_or_else(|error| panic!("{error}")),
+        );
+        parent
+    }
+
+    /// The form naming `tests` in a new worktree (under `parent_id` when given), with `main`, `feature` and `dev`
+    /// listed.
+    fn new_worktree_form(app: &mut App, parent_id: Option<&str>) {
+        app.create.parent_id = parent_id.map(str::to_owned);
+        app.create.sub_session_kind = parent_id.map(|_| SubSessionKind::Clean);
+        app.create.draft_name = "tests".to_owned();
+        app.create.worktree_mode = WorktreeMode::New;
+        app.create.branch_list = Some(branches(&["main", "feature", "dev"]));
+        app.create.base_index = 0;
+        app.set_mode(Mode::EnterName);
+    }
+
+    fn base_labels(app: &App) -> Vec<String> {
+        create_base_options(&app.create, &app.sessions())
+            .into_iter()
+            .map(|option| option.label)
+            .collect()
+    }
+
+    /// The create input sent with the base at `index` (refused, so the form stays as it is).
+    async fn sent_with_base(app: &mut App, rx: &mut Updates, daemon: &mut Daemon, index: usize) -> Value {
+        app.create.base_index = index;
+        submit_create(app, None, None);
+        let request = daemon.next().await;
+        assert_eq!(request["type"], "create");
+        daemon.respond(&request, false, json!("refused")).await;
+        apply(app, rx).await;
+        request["input"].clone()
+    }
+
+    #[test]
+    fn a_sub_session_stacks_on_its_parent_s_branch_unless_another_base_is_picked() {
+        run(async {
+            let (mut app, mut rx, mut daemon) = connected();
+            app.data.repo_sessions = vec![parent_in_feature()];
+            new_worktree_form(&mut app, Some("p1"));
+            // Stacking first; the parent's branch is that choice, so it is not listed again.
+            assert_eq!(
+                base_labels(&app),
+                ["feature · stacked", "current checkout (main)", "main", "dev"]
+            );
+            handle_enter_name(&mut app, &up());
+            assert_eq!(app.create.base_index, 3);
+            // Stacked (the first choice): left to the daemon, which branches from the parent's branch.
+            let input = sent_with_base(&mut app, &mut rx, &mut daemon, 0).await;
+            assert_eq!(input["parentSessionId"], "p1");
+            assert_eq!(input["worktreeMode"], "new");
+            assert!(input.get("stacked").is_none(), "{input}");
+            assert!(input.get("baseBranch").is_none(), "{input}");
+            // The branchFrom setting, or another branch: flat.
+            let input = sent_with_base(&mut app, &mut rx, &mut daemon, 1).await;
+            assert_eq!(input["stacked"], false);
+            assert!(input.get("baseBranch").is_none(), "{input}");
+            let input = sent_with_base(&mut app, &mut rx, &mut daemon, 2).await;
+            assert_eq!(
+                (&input["stacked"], &input["baseBranch"]),
+                (&json!(false), &json!("main"))
+            );
+            // A fork of the parent into a new worktree stacks too.
+            app.create.sub_session_kind = Some(SubSessionKind::Forked);
+            let input = sent_with_base(&mut app, &mut rx, &mut daemon, 0).await;
+            assert_eq!(input["subSessionKind"], "forked");
+            assert!(input.get("stacked").is_none(), "{input}");
+            // Without a new worktree there is nothing to stack.
+            app.create.worktree_mode = WorktreeMode::None;
+            let input = sent_with_base(&mut app, &mut rx, &mut daemon, 0).await;
+            assert!(input.get("stacked").is_none(), "{input}");
+        });
+    }
+
+    #[test]
+    fn with_nothing_to_stack_on_the_bases_are_as_for_a_top_level_session() {
+        run(async {
+            let (mut app, mut rx, mut daemon) = connected();
+            // A parent in the main checkout, and one whose worktree is merged.
+            let in_main = session("p1", "beta", SessionStatus::Running);
+            let mut merged = parent_in_feature();
+            merged.id = "p2".to_owned();
+            if let Some(worktree) = merged.worktree.as_mut() {
+                worktree.merged_at = Some("2026-01-02T00:00:00.000Z".to_owned());
+            }
+            app.data.repo_sessions = vec![in_main, merged];
+            let unstacked = ["current checkout (main)", "main", "feature", "dev"];
+            for parent in [Some("p1"), Some("p2"), None] {
+                new_worktree_form(&mut app, parent);
+                assert_eq!(base_labels(&app), unstacked, "{parent:?}");
+                let input = sent_with_base(&mut app, &mut rx, &mut daemon, 0).await;
+                assert!(input.get("baseBranch").is_none(), "{input}");
+                // A sub-session asks for what the form showed: flat. A top-level session has no parent to stack on.
+                let stacked = input.get("stacked").cloned();
+                assert_eq!(stacked, parent.map(|_| json!(false)), "{parent:?}");
+            }
+        });
+    }
+
+    #[test]
+    fn the_stacked_base_says_where_the_worktree_merges() {
+        let stacked = BaseShown {
+            label: "feature · stacked".to_owned(),
+            index: 0,
+            count: 4,
+            stacked_on: Some("feature".to_owned()),
+        };
+        let props = CreatePaneProps {
+            mode: CreateStep::EnterName,
+            program_index: 0,
+            draft_name: "tests",
+            worktree_mode: WorktreeMode::New,
+            parent_title: Some("beta"),
+            parent_workspace_label: Some("same as parent (wt)"),
+            sub_session_kind: Some(SubSessionKind::Clean),
+            show_fork_option: false,
+            fork_source_title: None,
+            show_handoff_option: false,
+            from_handoff: false,
+            task_title: None,
+            base: Some(&stacked),
+        };
+        assert_eq!(
+            texts(&create_pane_rows(&props, 60)),
+            [
+                "New Claude clean sub-session",
+                "",
+                "Name: tests",
+                "Workspace: new worktree",
+                "Base: feature · stacked  ↑↓ 1/4",
+                "Merges back into feature, the parent's branch",
+                "Parent: beta",
+                "",
+                "tab worktree • ↑↓ base • enter create • esc back"
+            ]
+        );
+        let flat = BaseShown {
+            label: "current checkout (main)".to_owned(),
+            index: 1,
+            stacked_on: None,
+            ..stacked.clone()
+        };
+        let rows = texts(&create_pane_rows(
+            &CreatePaneProps {
+                base: Some(&flat),
+                ..props
+            },
+            60,
+        ));
+        assert_eq!(rows[4..6], ["Base: current checkout (main)  ↑↓ 2/4", "Parent: beta"]);
     }
 
     #[test]
@@ -1857,6 +2052,7 @@ mod tests {
             label: "main (default branch)".to_owned(),
             index: 0,
             count: 1,
+            stacked_on: None,
         };
         let props = CreatePaneProps {
             mode: CreateStep::EnterName,
@@ -2079,6 +2275,25 @@ mod tests {
             app.create.parent_id = Some("s2".to_owned());
             app.create.sub_session_kind = Some(SubSessionKind::Clean);
             app.set_mode(Mode::PickProgram);
+        });
+        assert_right_pane("31-create-subsession-stacked", |app| {
+            let mut beta = session("s2", "beta", SessionStatus::Running);
+            beta.cwd = "<TMP>/demo-wt/beta".to_owned();
+            beta.repo_root = "<TMP>/demo".to_owned();
+            beta.worktree = Some(
+                serde_json::from_value(json!({
+                    "mode": "managed", "path": "<TMP>/demo-wt/beta", "branch": "auth-rework", "isMain": false, "id": "w1"
+                }))
+                .unwrap_or_else(|error| panic!("{error}")),
+            );
+            app.data.repo_sessions = vec![beta];
+            app.browse.selected_id = Some("s2".to_owned());
+            app.create.parent_id = Some("s2".to_owned());
+            app.create.sub_session_kind = Some(SubSessionKind::Clean);
+            app.create.draft_name = "tests".to_owned();
+            app.create.worktree_mode = WorktreeMode::New;
+            app.create.branch_list = Some(branches(&["main", "auth-rework"]));
+            app.set_mode(Mode::EnterName);
         });
     }
 }
