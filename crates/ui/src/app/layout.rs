@@ -908,6 +908,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 .flow
                 .as_ref()
                 .filter(|flow| selected.is_some_and(|session| session.id == flow.session_id));
+            let launch_branch = crate::app::modes::confirm::launch_branch(app);
             let props = MergeConfirmPaneProps {
                 session: selected,
                 sessions: &session_refs,
@@ -915,6 +916,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 selected_index: app.merge.confirm_index,
                 tasks: &app.data.tasks,
                 now: Some(deckhand_core::jsstr::date::now_ms()),
+                launch_branch: launch_branch.as_deref(),
             };
             app.dialog.last = render_merge_pane(&props, buf, right, app.dialog.scroll);
         }

@@ -1359,7 +1359,9 @@ pub fn mark_selected_merged(app: &mut App) {
     let was_merged = confirm::has_merged_marker(Some(&session));
     app.set_busy(true);
     app.set_error(None);
-    let reply = client.mark_session_merged(&session.id, &app.props.cwd);
+    // A stacked worktree is marked merged into its target's branch, as `m` would merge it.
+    let target_cwd = confirm::default_merge_target(&app.data.repo_sessions, &session, &app.props.cwd);
+    let reply = client.mark_session_merged(&session.id, &target_cwd);
     drop(app.dispatch().spawn(reply, move |app: &mut App, result| {
         match result {
             Ok(updated) => {

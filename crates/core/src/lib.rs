@@ -14,6 +14,7 @@ pub mod help;
 pub mod jsstr;
 pub mod key;
 pub mod merge_model;
+pub mod merge_stack;
 pub mod notes;
 pub mod project_config;
 pub mod project_config_document;

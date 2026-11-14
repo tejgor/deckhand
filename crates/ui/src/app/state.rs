@@ -509,6 +509,12 @@ pub struct MergeFlow {
     pub on_items: bool,
     /// The note's open items stay in the note.
     pub keep_open_items: bool,
+    /// Not in the TS: the checkout the merge goes into (what the preview describes): the stacked target's worktree
+    /// by default, else the launch checkout. Empty: not chosen, the default applies.
+    pub target_cwd: String,
+    /// Not in the TS: the stacked target's worktree, when the worktree has one that resolves; `t` switches
+    /// `target_cwd` between it and the launch checkout.
+    pub stacked_cwd: Option<String>,
 }
 
 /// TS: app.tsx `mergeConflict`: a conflicted merge's result, until it is kept or aborted.
@@ -516,6 +522,8 @@ pub struct MergeFlow {
 pub struct MergeConflict {
     pub session_id: String,
     pub result: WorktreeMergeResult,
+    /// Not in the TS: the checkout the merge went into, where it is in progress (kept or aborted there).
+    pub target_cwd: String,
 }
 
 /// confirm-merge and merge-conflicts modes (m).
@@ -526,6 +534,9 @@ pub struct MergeState {
     /// TS `mergeRequestRef`.
     pub request: u64,
     pub conflict: Option<MergeConflict>,
+    /// Not in the TS: the launch checkout's branch, as the last preview of a merge into it said (the end of a stacked
+    /// merge's path).
+    pub launch_branch: Option<String>,
 }
 
 /// confirm-remove mode (Backspace on an archived session).
