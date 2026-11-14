@@ -14,6 +14,7 @@ pub mod plans;
 pub mod server;
 pub mod sessions;
 pub mod stacking;
+pub mod work_items;
 pub mod worker_channel;
 pub mod workspaces;
 pub mod worktrees;

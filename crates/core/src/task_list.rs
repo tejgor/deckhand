@@ -950,6 +950,155 @@ pub(crate) fn apply(text: &str, op: &TaskOp, now_ms: i64, new_id: &mut dyn FnMut
     })
 }
 
+// ── Editing in steps (the work-items migration) ───────────────────────────────────────────────────────────────────
+
+/// The list open for a series of changes that aren't ops: what the work-items migration does to a legacy list. Lines
+/// are addressed by their serial (file order as parsed; a new line gets the next one). Nothing here rolls up.
+pub(crate) struct Editor<'a> {
+    change: Change<'a>,
+}
+
+impl<'a> Editor<'a> {
+    /// The list, every line without an ID given one from `new_id` (in file order).
+    pub(crate) fn open(text: &str, now_ms: i64, new_id: &'a mut dyn FnMut() -> String) -> Result<Self> {
+        let mut parts = parse_parts(text);
+        let count = flatten(&parts).len();
+        for_each_node_mut(&mut parts, &mut |node| {
+            if node.meta.t.is_none() {
+                node.meta.t = Some(new_id());
+            }
+        });
+        Ok(Editor {
+            change: Change {
+                parts,
+                date: today(now_ms)?,
+                next_serial: count,
+                new_id,
+                changed: 0,
+            },
+        })
+    }
+
+    /// The list as written now.
+    pub(crate) fn text(&self) -> String {
+        serialize(&self.change.parts, Render::All)
+    }
+
+    /// Today, as `done=` and `added=` write it.
+    pub(crate) fn today(&self) -> &str {
+        &self.change.date
+    }
+
+    /// Every line in file order: its serial and its parent's.
+    pub(crate) fn lines(&self) -> Vec<(usize, Option<usize>)> {
+        flatten(&self.change.parts)
+            .iter()
+            .map(|flat| (flat.node.serial, self.change.parent_of(flat.node.serial)))
+            .collect()
+    }
+
+    pub(crate) fn node(&self, serial: usize) -> Result<&Node> {
+        self.change.node(serial)
+    }
+
+    pub(crate) fn node_mut(&mut self, serial: usize) -> Result<&mut Node> {
+        self.change.node_mut(serial)
+    }
+
+    pub(crate) fn parent_of(&self, serial: usize) -> Option<usize> {
+        self.change.parent_of(serial)
+    }
+
+    /// The lines directly under it that are open.
+    pub(crate) fn open_lines_under(&self, serial: usize) -> Result<Vec<usize>> {
+        Ok(self
+            .change
+            .node(serial)?
+            .lines()
+            .filter(|line| !line.done)
+            .map(|line| line.serial)
+            .collect())
+    }
+
+    /// Takes its details out of the list (its own text lines; the lines under it stay) and answers them, common indent
+    /// removed (`Node::body`).
+    pub(crate) fn take_details(&mut self, serial: usize) -> Result<String> {
+        let node = self.change.node_mut(serial)?;
+        let body = node.body();
+        node.content.retain(|part| matches!(part, Part::Line(_)));
+        normalise(&mut node.content);
+        Ok(body)
+    }
+
+    /// A new line (no roll-up, no `added=`): last under `parent`, or at the top level at the backlog's end (as `add`
+    /// places one); with `beside`, right after that line and its lines instead. Answers its serial.
+    pub(crate) fn add_line(
+        &mut self,
+        title: String,
+        done: bool,
+        meta: TaskMeta,
+        parent: Option<usize>,
+        beside: Option<usize>,
+    ) -> Result<usize> {
+        let serial = self.change.next_serial;
+        self.change.next_serial += 1;
+        let node = Node {
+            indent: String::new(),
+            bullet: "-".to_owned(),
+            done,
+            title,
+            meta,
+            legacy_follow_up: false,
+            raw: String::new(),
+            serial,
+            content: Vec::new(),
+        };
+        let spot = match beside {
+            Some(target) => Spot::Beside { target, after: true },
+            None => Spot::Under { parent, at: None },
+        };
+        self.change.place(node, spot)?;
+        Ok(serial)
+    }
+
+    /// Moves the line (with everything under it) right after `target` and its lines, as `target`'s sibling.
+    pub(crate) fn move_after(&mut self, serial: usize, target: usize) -> Result<()> {
+        let (node, _) = self.change.take(serial)?;
+        self.change.place(node, Spot::Beside { target, after: true })
+    }
+
+    /// Moves the line (with everything under it) to be the last line under `parent`.
+    pub(crate) fn move_last_under(&mut self, serial: usize, parent: usize) -> Result<()> {
+        let (node, _) = self.change.take(serial)?;
+        self.change.place(
+            node,
+            Spot::Under {
+                parent: Some(parent),
+                at: None,
+            },
+        )
+    }
+
+    /// Removes the line and everything under it (no roll-up).
+    pub(crate) fn remove_line(&mut self, serial: usize) -> Result<()> {
+        self.change.take(serial).map(|_| ())
+    }
+
+    /// Whether anything is under it: lines, or details.
+    pub(crate) fn is_bare(&self, serial: usize) -> Result<bool> {
+        let node = self.change.node(serial)?;
+        Ok(node.content.iter().all(|part| match part {
+            Part::Line(_) => false,
+            Part::Text(text) => is_blank(text),
+        }))
+    }
+
+    /// A new ID from the generator the list was opened with.
+    pub(crate) fn new_id(&mut self) -> String {
+        (self.change.new_id)()
+    }
+}
+
 /// The top-level lines, as tasks (`tasks::parse_tasks`).
 pub(crate) fn top_level_tasks(text: &str) -> Vec<Task> {
     parse_parts(text)

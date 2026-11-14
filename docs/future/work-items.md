@@ -1,6 +1,6 @@
 # Work items and notes
 
-**Status:** designed 2026-11-14 with the user. Build order step 1 (the list model and file format) is built: `crates/core/src/task_list.rs`, with the ops documented on `tasks::apply_task_op`; nothing else yet. Replaces how tasks, steps and notes work today (`docs/features.md`, *Tasks* and *Notes*). The orchestrator's rework to one orchestrator per idea (`orchestrator.md`, *Part 3, reworked*) builds on it and comes after.
+**Status:** designed 2026-11-14 with the user. Build order step 1 (the list model and file format) is built: `crates/core/src/task_list.rs`, with the ops documented on `tasks::apply_task_op`. Step 2 (the migration) is built but not run yet: `crates/core/src/work_items_migration.rs` (the rules) and `crates/daemon/src/work_items.rs` (the run: backup, marker, report); step 3 calls it at start. Replaces how tasks, steps and notes work today (`docs/features.md`, *Tasks* and *Notes*). The orchestrator's rework to one orchestrator per idea (`orchestrator.md`, *Part 3, reworked*) builds on it and comes after.
 
 ## Why
 
@@ -116,6 +116,7 @@ Decided with the user on 2026-11-14, against their real data (2 task files, 16 t
 - **Open steps of merged work**: lines under a line whose worktree was merged that are still open move to the backlog marked `from=<branch>` (as merging does from now on), so nothing is hidden under a ticked line.
 - **One session on two lines** (a hand-edited legacy file): it stays on the first; the others are unhooked.
 - A frozen fixture of today's layout (like `fixtures/state/home-v45`) keeps migrating; the migration is pure (texts and records in, texts out) and tested on copies of real layouts.
+- **As built**: the marker is `notes/work-items-migrated.json` (it travels with `notes/`, unlike a field in state.json that an older version would drop); the backup gets `migration-report.txt`, what the run did line by line, and daemon.log a one-line summary. A run reads its inputs from the backup and seeds its new IDs from the backup's name, so an interrupted run (its backup still holds `in-progress`) runs again to the same result.
 - **Checked before it runs for real**: copy the real `notes/` and `state.json` into the dev namespace (`~/.deckhand-dev`) and open the dev build; the real `~/.deckhand` is untouched until the new version is installed.
 - Every Deckhand of the repository needs updating together: an older one reading the new list would show it wrongly. The protocol bump makes an old UI refuse the new daemon, but two installs (say a stable and a dev build) could share one repository's files; say so in the upgrade note.
 
