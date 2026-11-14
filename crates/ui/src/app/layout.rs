@@ -31,13 +31,13 @@ use crate::app::modes::confirm::{
     kill_loading, render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
 };
 use crate::app::modes::create::{
-    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, fork_option_shown,
-    render_create_dialog, render_worktree_picker, top_level_fork_source,
+    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, create_base_options, create_stack_branch,
+    filtered_worktrees, fork_option_shown, render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
-    Derived, base_options, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
+    Derived, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
     parent_workspace_label, truthy, with_props, workspace_label_of,
 };
 use crate::flow::Flow;
@@ -930,15 +930,16 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 .as_ref()
                 .and_then(|id| derived.sessions.iter().find(|session| &session.id == id));
             let has_parent = create.parent_id.is_some();
-            let options = base_options(create.branch_list.as_ref());
+            let options = create_base_options(create, &derived.sessions);
             let index = create.base_index.min(options.len().saturating_sub(1));
+            let shown = options.get(index);
             let base = BaseShown {
-                label: options
-                    .get(index)
-                    .map(|option| option.label.clone())
-                    .unwrap_or_default(),
+                label: shown.map(|option| option.label.clone()).unwrap_or_default(),
                 index,
                 count: options.len(),
+                stacked_on: shown
+                    .filter(|option| option.stacked)
+                    .and_then(|_| create_stack_branch(create, &derived.sessions)),
             };
             // Not in the TS: with n, ⑂ forks the selected session into a new top-level one, which starts where it is.
             let fork_source = top_level_fork_source(create, &derived.sessions, derived.selected.as_ref());

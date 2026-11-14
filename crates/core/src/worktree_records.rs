@@ -333,6 +333,40 @@ where
     launched_in
 }
 
+/// Not in the TS: the branch a sub-session of `parent` in a new worktree would stack on, from the sessions a client
+/// holds, or None when it would be flat. Mirrors the daemon's rule (`Daemon::stack_target`): the parent runs in a
+/// linked worktree (not the main checkout) that has a record (`worktree.id`) still live (not merged, not deleted),
+/// on a known branch: the parent's own, or, for a parent sharing a worktree it does not own, the branch of the
+/// session that has that worktree of its own.
+///
+/// The daemon reads the branch checked out there now; this is the branch the sessions recorded when they made or
+/// picked the worktree.
+pub fn stack_branch<'a, I>(sessions: I, parent: &SessionRecord) -> Option<String>
+where
+    I: IntoIterator<Item = &'a SessionRecord>,
+{
+    let worktree = parent.worktree.as_ref()?;
+    let id = worktree_id(parent)?;
+    if worktree.is_main == Some(true) || truthy(worktree.merged_at.as_deref()) || truthy(worktree.deleted_at.as_deref())
+    {
+        return None;
+    }
+    let branch_of = |session: &SessionRecord| {
+        own_worktree_path(session.worktree.as_ref())?;
+        session
+            .worktree
+            .as_ref()
+            .and_then(|worktree| worktree.branch.clone())
+            .filter(|branch| !branch.is_empty())
+    };
+    branch_of(parent).or_else(|| {
+        sessions
+            .into_iter()
+            .filter(|session| worktree_id(session) == Some(id))
+            .find_map(branch_of)
+    })
+}
+
 /// TS: worktreeRecords.ts time (`Date.parse`, 0 for a missing or invalid date).
 fn time(value: Option<&str>) -> i64 {
     date::parse(value.unwrap_or("")).unwrap_or(0)
@@ -1153,6 +1187,49 @@ mod tests {
         assert_eq!(target_worktree_path([&*helper], &worktree).as_deref(), Some("/wt/a"));
         assert_eq!(target_worktree_path([&*child], &worktree), None);
         assert_eq!(target_worktree_path([&*lead], &lead.worktree.clone().unwrap()), None);
+    }
+
+    #[test]
+    fn a_sub_session_stacks_on_its_parent_s_live_linked_worktree_branch() {
+        let lead = session("a", 1, managed(json!({"id": "w1"})), json!({}));
+        // A parent sharing the lead's worktree (`same`) stacks on the branch of the session that owns it.
+        let helper = session("b", 2, json!({"mode": "none", "id": "w1"}), json!({}));
+        let other = session("c", 3, managed(json!({"id": "w2", "branch": "other"})), json!({}));
+        let all = [&*other, &*helper, &*lead];
+        assert_eq!(stack_branch(all, &lead).as_deref(), Some("feature"));
+        assert_eq!(stack_branch(all, &helper).as_deref(), Some("feature"));
+        let picked = session("d", 4, attached(json!({"id": "w3", "branch": "picked"})), json!({}));
+        assert_eq!(stack_branch([], &picked).as_deref(), Some("picked"));
+    }
+
+    #[test]
+    fn a_sub_session_is_flat_when_its_parent_has_nothing_to_stack_on() {
+        let flat = |parent: &Ordered<SessionRecord>, sessions: &[&SessionRecord]| {
+            stack_branch(sessions.iter().copied(), parent)
+        };
+        // The main checkout, attached or launched there.
+        let main = session("m", 1, attached(json!({"id": "w0", "isMain": true})), json!({}));
+        assert_eq!(flat(&main, &[]), None);
+        let launched = session("l", 1, json!({"mode": "none"}), json!({}));
+        assert_eq!(flat(&launched, &[]), None);
+        // No worktree record, or one that is merged or deleted.
+        let unrecorded = session("u", 1, managed(json!({})), json!({}));
+        assert_eq!(flat(&unrecorded, &[]), None);
+        for marker in ["mergedAt", "deletedAt"] {
+            let mut done = managed(json!({"id": "w1"}));
+            done[marker] = json!(at(5));
+            assert_eq!(flat(&session("d", 1, done, json!({})), &[]), None, "{marker}");
+        }
+        // No known branch: detached, or a shared worktree no session owns.
+        let detached = session("x", 1, managed(json!({"id": "w1", "branch": ""})), json!({}));
+        assert_eq!(flat(&detached, &[]), None);
+        let helper = session(
+            "b",
+            2,
+            json!({"mode": "none", "id": "w1", "branch": "feature"}),
+            json!({}),
+        );
+        assert_eq!(flat(&helper, &[&*helper]), None);
     }
 
     /// fixtures/state/home-v45: the legacy records and markers a v45 daemon migrates on start (MIGRATIONS.md rows 4-12)

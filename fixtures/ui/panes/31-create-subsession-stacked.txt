@@ -1,0 +1,32 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
+│                                                                                                │
+│ <TMP>/demo-wt/beta                                                             worktree · idle │
+│ Waiting for agent output…                                                                      │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                  ╭──────────────────────────────────────────────────────────╮                  │
+│                  │                                                          │                  │
+│                  │ New Claude clean sub-session                             │                  │
+│                  │                                                          │                  │
+│                  │ Name: tests                                              │                  │
+│                  │ Workspace: new worktree                                  │                  │
+│                  │ Base: auth-rework · stacked  ↑↓ 1/3                      │                  │
+│                  │ Merges back into auth-rework, the parent's branch        │                  │
+│                  │ Parent: beta                                             │                  │
+│                  │                                                          │                  │
+│                  │ tab worktree • ↑↓ base • enter create • esc back         │                  │
+│                  │                                                          │                  │
+│                  ╰──────────────────────────────────────────────────────────╯                  │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯
