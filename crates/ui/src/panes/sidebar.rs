@@ -197,7 +197,7 @@ fn parent_line_row(parent: &SessionRecord, all_sessions: &[&SessionRecord], numb
 fn section_header_row(section: SessionSection, count: usize, folded: bool, width: usize) -> Row {
     let tone = match section {
         SessionSection::NeedsYou => THEME.warn,
-        SessionSection::Unread => THEME.accent,
+        SessionSection::Orchestrator | SessionSection::Unread => THEME.accent,
         SessionSection::Working => THEME.success,
         SessionSection::Idle | SessionSection::Exited => THEME.muted,
     };

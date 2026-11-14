@@ -1,5 +1,5 @@
-//! Not in the TS: the sidebar's default view, sessions in sections by state (needs you, unread, working, idle,
-//! exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
+//! Not in the TS: the sidebar's default view, sessions in sections by state (the orchestrator, needs you, unread,
+//! working, idle, exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
 //! parent by the latest of it and the sub-sessions under it); Working and Exited keep your order (`sidebarOrder`,
 //! `J`/`K`). The time order is only how the view lists them: your order stays as it is. A sub-session sits under its
 //! parent (in your order) when both are in the same section, and is listed at the section's top level otherwise.
@@ -9,13 +9,16 @@ use std::collections::{HashMap, HashSet};
 use crate::display::still_starting;
 use crate::session_features::session_has_unread_reply;
 use crate::session_order::{SessionLike, parent_of, visit};
-use deckhand_protocol::data::{AgentActivityStatus, AttentionState, SessionRecord, SessionStatus};
+use deckhand_protocol::data::{AgentActivityStatus, AttentionState, SessionRecord, SessionRole, SessionStatus};
 /// Persisted in ui-state.json, so defined by deckhand-protocol.
 pub use deckhand_protocol::records::SessionView;
 
 /// A section of the sidebar's state view, in the order they are listed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SessionSection {
+    /// The repository's orchestrator while it runs, whatever its state: it plans and dispatches sessions rather than
+    /// being one piece of the work, so it stays in one place at the top instead of moving between the sections below.
+    Orchestrator,
     /// Running and blocked on you: a question or permission, a failure or a usage limit.
     NeedsYou,
     /// Running, its turn over and the reply unread.
@@ -29,7 +32,8 @@ pub enum SessionSection {
 }
 
 impl SessionSection {
-    pub const ALL: [SessionSection; 5] = [
+    pub const ALL: [SessionSection; 6] = [
+        SessionSection::Orchestrator,
         SessionSection::NeedsYou,
         SessionSection::Unread,
         SessionSection::Working,
@@ -42,13 +46,14 @@ impl SessionSection {
         match self {
             SessionSection::NeedsYou | SessionSection::Unread => Some(TimeOrder::OldestFirst),
             SessionSection::Idle => Some(TimeOrder::NewestFirst),
-            SessionSection::Working | SessionSection::Exited => None,
+            SessionSection::Orchestrator | SessionSection::Working | SessionSection::Exited => None,
         }
     }
 
     /// The section header's name.
     pub fn label(self) -> &'static str {
         match self {
+            SessionSection::Orchestrator => "Orchestrator",
             SessionSection::NeedsYou => "Needs you",
             SessionSection::Unread => "Unread",
             SessionSection::Working => "Working",
@@ -78,13 +83,16 @@ pub fn arrived_at(session: &SessionRecord, section: SessionSection) -> Option<&s
             .reply_read_at
             .as_deref()
             .max(session.agent_status_updated_at.as_deref()),
-        SessionSection::Working | SessionSection::Exited => None,
+        SessionSection::Orchestrator | SessionSection::Working | SessionSection::Exited => None,
     }
 }
 
 /// The section a session is listed in. A busy agent is working even with an earlier reply unread.
 pub fn session_section(session: &SessionRecord) -> SessionSection {
     let running = session.status == SessionStatus::Running;
+    if session.role == Some(SessionRole::Orchestrator) && (running || session.status == SessionStatus::Starting) {
+        return SessionSection::Orchestrator;
+    }
     let attention = session
         .attention
         .as_ref()
@@ -361,5 +369,34 @@ mod tests {
             .collect();
         // Working: c1 (its parent is idle), then w. Idle: p with c2 under it, then g (its parent works).
         assert_eq!(ids, ["c1", "w", "p", "c2", "g", "x"]);
+    }
+
+    #[test]
+    fn the_running_orchestrator_has_its_own_section_first_whatever_its_state() {
+        let asks = json!({"state": "needs-input", "event": "Notification", "at": "2026-10-02T00:00:00.000Z"});
+        for fields in [
+            json!({}),
+            json!({"agentStatus": "active"}),
+            json!({"attention": asks}),
+            json!({"status": "starting"}),
+        ] {
+            let mut fields = fields;
+            fields["role"] = json!("orchestrator");
+            assert_eq!(session_section(&session("o", fields)), SessionSection::Orchestrator);
+        }
+        // Exited, it is listed with the other exited sessions; the sessions it started keep their own sections.
+        let exited = session("o", json!({"role": "orchestrator", "status": "exited"}));
+        assert_eq!(session_section(&exited), SessionSection::Exited);
+        let list = vec![
+            session("w", json!({"agentStatus": "active", "spawnedBySessionId": "o"})),
+            session("i", json!({})),
+            session("o", json!({"role": "orchestrator"})),
+        ];
+        let ids: Vec<&str> = order_by_section(&list)
+            .into_iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(ids, ["o", "w", "i"]);
+        assert_eq!(SessionSection::ALL[0].label(), "Orchestrator");
     }
 }
