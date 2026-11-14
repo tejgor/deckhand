@@ -57,7 +57,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
 | `i` | Show the worktree's Git summary and PR lookups ([inspecting](features.md#organizing-and-inspecting-sessions)) |
-| `b` | Open the repository's task list ([Tasks](#tasks)) |
+| `b` | Open the repository's list ([Tasks](#tasks)) |
 | `W` | Open the Worktrees screen ([Worktrees](#worktrees)) |
 | `C` | Open Settings ([Settings](features.md#settings-c)) |
 | `G` | Open the Agents screen ([versions and updates](features.md#agent-versions-and-updates)) |
@@ -101,7 +101,7 @@ The list starts on your default agent (Claude unless [`defaultAgent`](features.m
 
 The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches (while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` move), `enter` creates the session there and `esc` goes back.
 
-The agent starts with no task: attach (`o`) and type it, or start the session from a task (`n` in the [task list](#tasks)) to have the task typed for you.
+The agent starts with no task: attach (`o`) and type it, or start the session on a line (`n` in [Tasks](#tasks)) to have the line typed for you.
 
 ## Sidebar
 
@@ -260,7 +260,7 @@ The restart checklist (also shown on connecting after the daemon stopped with se
 
 ## Tasks
 
-`b` opens the repository's task list; [Tasks](features.md#tasks) explains groups, steps and what ticks a task.
+`b` opens the repository's list. Lines nest: a session is on at most one line, and the lines under it are its steps; the backlog is the top-level lines nobody is on ([the model](future/work-items.md)). The board shows the open lines as a tree in list order, who is on each (the session's name and state), `ticked/total` for a line with lines under it and `✎` for one with a brief, then **Done · this week** and the older finished lines folded into one row.
 
 | Key | Action |
 | --- | --- |
@@ -268,38 +268,35 @@ The restart checklist (also shown on connecting after the daemon stopped with se
 | `k`, `↑` | Select the previous row |
 | `g`, `home` | Select the first row |
 | `G`, `end` | Select the last row |
-| `a` | Add here: in a worktree's group a step in its note, else a task |
-| `A` | Add a backlog task, wherever the selection is |
-| `enter` | Edit the selected task (title, then `tab` for its details) |
-| `enter` *(on a step)* | Open its note |
-| `enter`, `space` *(on the older-done row)* | Show or hide the older done tasks |
-| `space` | Tick the task done, or reopen it |
-| `space` *(on a step)* | Tick or untick it in its note |
-| `x` | Delete the task (press twice) |
-| `J` | Move the task down within its group (not done tasks) |
-| `K` | Move the task up within its group (not done tasks) |
-| `n` | Start a session for a backlog task, in a new worktree |
-| `w` | Move the task to the backlog, its note, a worktree or a session ([moving tasks](features.md#tasks)) |
-| `o` | Select the session doing it |
-| `v` | Show only the selected session's worktree, or everything again |
+| `a` | Add a line under the selected one (on an empty row, or a finished line: at the top level) |
+| `A` | Add a top-level line (the backlog), wherever the selection is |
+| `enter` | Edit the selected line: its title, then `tab` for its note |
+| `enter`, `space` *(on the older-done row)* | Show or hide the older finished lines |
+| `space` | Tick the line, or reopen it |
+| `x` | Remove the line and every line under it (press twice; the status line says how many) |
+| `J` | Move the line down among its siblings (not finished lines) |
+| `K` | Move the line up among its siblings (not finished lines) |
+| `n` | Start a session on a line nobody is on: the usual form in a new worktree, or, under a session's line, a sub-session of that session (stacked on its branch) |
+| `w` | Move the line: to the backlog, under another line (**Lines**), or onto a session (**Sessions**: its line, or a step of it when it has one); `tab` switches, `/` searches |
+| `o` | Select the session on the line |
+| `c` | Hide or show the line's lines (on a line without any: its parent's) |
+| `v` | Show only the selected session's line (or its nearest ancestor's), or everything again |
 | `tab` | Switch to the Notes view, and back |
-| `E` | Open the task list file in Cursor or VS Code |
+| `E` | Open the line's note in Cursor or VS Code (on an empty row: the list's file) |
 | `pgdn` / `pgup`, `ctrl+d` / `ctrl+u` | Half a list down / up |
 | `esc`, `h`, `←` | Back |
 
-While editing a task, `enter` saves the title, `ctrl+s` saves from the details, and `esc` saves too (as in the notes editor); with an empty title it just closes.
+While editing, `enter` saves from the title and `ctrl+s` from the note; `esc` saves too (as in the notes editor), and with an empty title it just closes. A note is saved only if nobody changed it meanwhile; if somebody did, the editor keeps your text and `ctrl+s` saves it over theirs. `ctrl+p` in a note makes the open checkbox under the cursor a line (under the note's line; from the scratchpad, in the backlog).
 
-**In the Notes view** (`tab`):
+**In the Notes view** (`tab`): the scratchpad, the line notes under their lines' titles (list order: every line with a note or a brief, and the open lines, so one can be written), and the sessions' notes.
 
 | Key | Action |
 | --- | --- |
-| `a` | Send the selected open item to the backlog as a task |
-| `A` | Send every open item of the selected note |
-| `enter` | Open the note in its session's Notes tab |
-| `f` | Show only open items, or every line again |
-| `v` | Show only this worktree's notes, or all of them |
-
-`E` does nothing in the Notes view.
+| `enter` | Open the note where it is edited: the scratchpad or a line's note in the board's editor, a session's note in its Notes tab |
+| `f` | Show only notes with text, or every note again |
+| `v` | Show only the selected session's line and notes, or all of them |
+| `E` | Open the note in Cursor or VS Code |
+| `tab`, `esc`, `h`, `←` | Back to the list |
 
 ## Worktrees
 
