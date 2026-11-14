@@ -36,11 +36,11 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `→`, `l` | Step into the pane: [type to the agent or a shell](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
 | `←`, `h`, `esc` | Step back out to the session list (typing to the agent: `ctrl+]`; the notes editor: `esc`) |
 | `enter`, `o` | Open full screen what the tab shows: the agent, the shell or action, lazygit or Dev |
-| `enter` *(on Notes)* | Edit the note here |
-| `o` *(on Notes)* | Edit the note in your terminal editor ([in vim](features.md#notes)) |
+| `enter` *(on Notes)* | Step into the tab: edit the note you last worked on (this session's at first), or the steps |
+| `o` *(on Notes)* | Edit that note in your terminal editor ([in vim](features.md#notes)) |
 | `v` *(on Terminal)* | Show the next of the worktree's [shells](features.md#several-shells), then its last action |
 | `v` *(on Dev)* | Select the next [Dev process](features.md#several-dev-processes); `enter` opens the selected one |
-| `E` | Open the session's directory in Cursor or VS Code (on Notes: the note) |
+| `E` | Open the session's directory in Cursor or VS Code (on Notes: the note you last worked on) |
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
 | `O` | The repository's orchestrator (`◎`): attach to it when it runs; otherwise start it and select it (`enter` or `O` attaches once it runs). See [Plan confirmation](#plan-confirmation) |
@@ -194,7 +194,27 @@ No other key acts while it shows, and keys typed on as it opens are ignored unti
 
 ## Notes editor
 
-Press `enter` (or `→`) on the Notes tab to edit the note; [Notes](features.md#notes) explains which note you see and where it is stored.
+The Notes tab shows, top to bottom: the session's line (`◆ title · 1/3 steps`) and its steps, the line's brief folded to one row (`▸ Brief · from … · 14 Nov`), the line's note (shared with whoever works on that line), this session's own note, and for a sub-session its parent's line note, folded and read-only here. [Notes](features.md#notes) explains where each is stored.
+
+Press `enter` (or `→`) on the Notes tab to step in: you edit the note you last worked on (this session's at first). `tab` moves on to the next part: the steps, the brief while it is open, the line's note, this session's note; `shift+tab` goes back. A note saves itself as you type, and `esc` saves and steps out. A save never replaces a note somebody changed meanwhile: your text stays in the editor, and your next edit saves it over theirs.
+
+A session on no line gets one, named after it, as soon as you add a step or write its line's note.
+
+**On the steps:**
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous step |
+| `space` | Tick the step, or reopen it |
+| `a` | Add a step under the session's line (`enter` saves it, `esc` cancels) |
+| `enter` | Rename the step |
+| `b` | Open or fold the line's brief |
+| `p` | Open or fold the parent session's line note (a sub-session) |
+| `E`, `ctrl+o` | Open the line's note in Cursor or VS Code |
+| `tab` / `shift+tab` | Next / previous part |
+| `esc` | Step out |
+
+**In a note:**
 
 | Key | Action |
 | --- | --- |
@@ -212,12 +232,13 @@ Press `enter` (or `→`) on the Notes tab to edit the note; [Notes](features.md#
 | `alt+delete` | Delete the word after the cursor |
 | `pgup` / `pgdn` | Move a screen |
 | `ctrl+home` / `ctrl+end` | Go to the start / end of the note |
-| `tab` | In the main checkout: switch between this session's note and the main checkout's |
+| `tab` / `shift+tab` | Next / previous part (the steps, the brief while open, the line's note, this session's) |
+| `ctrl+b` | Open or fold the line's brief (open, `tab` reaches it and it can be edited) |
 | `ctrl+x` | Check or uncheck the line's item, or make the line a `- [ ]` item |
 | `ctrl+t` | Add a checklist item below |
 | `ctrl+o` | Open the note in Cursor or VS Code |
-| `ctrl+p` | Send the line's open item to [Tasks](#tasks), leaving a `↗` link in the note |
-| `esc` | Stop editing |
+| `ctrl+p` | Make the open checkbox under the cursor a step of the session's line (in the line's note or this session's; a brief's checkboxes stay in it) |
+| `esc` | Stop editing (saves) |
 
 An editor's integrated terminal (Cursor, VS Code) may keep some `ctrl` keys for itself. Every line and word key has a non-`ctrl` alternative.
 
