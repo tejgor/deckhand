@@ -17,10 +17,10 @@ use regex::Regex;
 use deckhand_core::agent_versions::{installed_versions, update_hint};
 use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, session_path_title, truncate};
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
+use deckhand_core::session_lines::{detail_line, line_title};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
 use deckhand_core::tasks_board::{
-    linked_task, linked_tasks, note_steps, other_open_tasks, step_count, task_count_label, work_key_of, work_note,
-    worktree_open_items,
+    linked_task, note_steps, other_open_tasks, step_count, task_count_label, work_key_of, work_note,
 };
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
@@ -28,7 +28,8 @@ use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
 use crate::app::modes::action_picker::{ActionPickerPaneProps, DevRow, render_action_picker_pane};
 use crate::app::modes::confirm::{
     KillConfirmPaneProps, KillOptionKind, MergeConfirmPaneProps, RemoveConfirmPaneProps, current_kill_options,
-    kill_loading, render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
+    kill_loading, kill_tried_lines, merge_lines_of, render_conflict_pane, render_kill_dialog, render_merge_pane,
+    render_remove_dialog,
 };
 use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, create_base_options, create_stack_branch,
@@ -340,6 +341,9 @@ fn footer_messages_for(app: &App, selected: Option<&SessionRecord>) -> Vec<Foote
             THEME.active,
         ));
     }
+    if let Some(notice) = app.messages.daemon_notice.as_ref() {
+        messages.push(message(notice.clone(), THEME.warn));
+    }
     if let Some(status) = app.messages.status_message.as_ref().filter(|status| !status.is_empty()) {
         // A notice is a heads-up, not a success.
         let color = if app.messages.notice.as_ref() == Some(status) {
@@ -391,6 +395,7 @@ fn flow_hint(app: &App, derived: &Derived, width: usize) -> Option<String> {
                 client: app.connection.client.as_ref(),
                 cwd: &app.props.repo_root,
                 sessions: &repo_refs,
+                list: app.data.tasks_doc.as_ref().map_or("", |doc| doc.text.as_str()),
                 spinner_frame: app.spinner_frame(),
             };
             Some(app.flows.worktrees.hint(&props, width))
@@ -591,25 +596,13 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
     let collapsed: HashSet<String> = app.browse.collapsed_session_ids.iter().cloned().collect();
     let hidden: HashSet<String> = app.browse.hidden_exited_session_ids.iter().cloned().collect();
     let versions = installed_versions(app.data.agent_versions.as_ref());
-    let tasks = &app.data.tasks;
-    let task_of: &dyn Fn(&SessionRecord) -> Option<DetailTask> = &|session: &SessionRecord| {
-        linked_task(tasks, Some(session)).map(|task| DetailTask {
-            title: task.title.clone(),
-            done: task.done,
-            more: Some(other_open_tasks(tasks, Some(session))),
-        })
-    };
+    // The selected session's `◆` line: the line it is on, with its steps ticked.
+    let list = app.task_list();
+    let task_of: &dyn Fn(&SessionRecord) -> Option<DetailTask> =
+        &|session: &SessionRecord| detail_line(&list, &session.id);
     // Only while the filter menu is open: how many rows each filter would list.
     let filter_menu = (app.mode == Mode::PickFilter).then(|| {
-        let title = |session: &SessionRecord| {
-            Some(
-                linked_tasks(tasks, Some(session))
-                    .iter()
-                    .map(|task| task.title.as_str())
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            )
-        };
+        let title = |session: &SessionRecord| line_title(&list, &session.id);
         let title: TaskTitleOf<'_> = &title;
         FilterMenu {
             selected: app.browse.session_filter,
@@ -829,7 +822,8 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
             let props = RemoveConfirmPaneProps {
                 session: selected,
                 sessions: &session_refs,
-                items: &app.remove.items,
+                open_note: &app.remove.open_note,
+                line: app.remove.line.as_deref(),
             };
             app.dialog.last = render_remove_dialog(&props, buf, right, view);
         }
@@ -914,10 +908,9 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 .get(index)
                 .is_some_and(|option| option.kind == KillOptionKind::DeleteBranch);
             let inspection = app.cleanup_inspection_for(delete_branch);
-            let worktree_id = selected
-                .and_then(|session| session.worktree.as_ref())
-                .and_then(|worktree| worktree.id.as_deref());
-            let open_items = worktree_open_items(worktree_id, &app.data.repo_sessions);
+            let tried = selected
+                .map(|session| kill_tried_lines(app, session))
+                .unwrap_or_default();
             let props = KillConfirmPaneProps {
                 session: selected,
                 sessions: &session_refs,
@@ -925,8 +918,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 selected_index: index,
                 force: app.kill.force,
                 inspection,
-                open_items: &open_items,
-                keep_open_items: app.kill.keep_open_items,
+                tried: &tried,
                 loading: kill_loading(app),
                 other_inspection: app.cleanup_inspection_for(!delete_branch),
             };
@@ -939,12 +931,13 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 .as_ref()
                 .filter(|flow| selected.is_some_and(|session| session.id == flow.session_id));
             let launch_branch = crate::app::modes::confirm::launch_branch(app);
+            let lines = selected.map(|session| merge_lines_of(app, session));
             let props = MergeConfirmPaneProps {
                 session: selected,
                 sessions: &session_refs,
                 flow,
                 selected_index: app.merge.confirm_index,
-                tasks: &app.data.tasks,
+                lines: lines.as_ref(),
                 now: Some(deckhand_core::jsstr::date::now_ms()),
                 launch_branch: launch_branch.as_deref(),
             };
@@ -1271,6 +1264,49 @@ mod tests {
             // Scrolled back: the agent's cursor is not on screen.
             app.preview_focus.scroll_offset = 2;
             assert_eq!(agent_cursor(&app), None);
+        });
+    }
+
+    #[test]
+    fn the_sidebar_details_and_search_use_the_line_the_session_is_on() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, async {
+            let (mut app, _rx) = app(AppProps::default());
+            app.data.repo_sessions = vec![
+                crate::app::test_support::session("a", "auth", SessionStatus::Running),
+                crate::app::test_support::session("b", "other", SessionStatus::Running),
+            ];
+            app.data.sessions_loaded = true;
+            app.set_selected_id(Some("a".to_owned()));
+            app.set_tasks_doc(Some(deckhand_protocol::data::TasksDoc {
+                key: "k".to_owned(),
+                path: "/n/tasks/k.md".to_owned(),
+                text: "- [ ] Token storage <!-- dh:t=t s=a -->\n  - [x] schema <!-- dh:t=s -->\n  - [ ] encryption <!-- dh:t=e -->\n".to_owned(),
+                revision: "r".to_owned(),
+                too_large: None,
+                notes: None,
+            }));
+            let mut terminal = Terminal::new(TestBackend::new(130, 36)).unwrap_or_else(|error| panic!("{error}"));
+            terminal
+                .draw(|frame| render_app(&mut app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let buffer = terminal.backend().buffer();
+            let screen: Vec<String> = (0..buffer.area.height)
+                .map(|y| (0..buffer.area.width).map(|x| buffer[(x, y)].symbol()).collect())
+                .collect();
+            assert!(
+                screen.iter().any(|row| row.contains("◆ Token storage 1/2")),
+                "{screen:#?}"
+            );
+            // `/` finds the session by its line's title, not by its steps'.
+            app.browse.session_query = "token".to_owned();
+            let found: Vec<String> = app.visible_sessions().into_iter().map(|session| session.id).collect();
+            assert_eq!(found, ["a"]);
+            app.browse.session_query = "encryption".to_owned();
+            assert!(app.visible_sessions().is_empty());
         });
     }
 
@@ -1616,6 +1652,32 @@ mod tests {
             app.set_status(Some("copied".to_owned()));
             app.handle_input(&deckhand_core::key::Input::key("j", deckhand_core::key::Key::NONE));
             assert_eq!(app.messages.status_message.as_deref(), Some("copied"));
+        });
+    }
+
+    #[test]
+    fn the_pings_notice_stays_until_a_key_or_a_ping_without_it() {
+        paused_local(async {
+            const FAILED: &str = "The work-items migration failed (see daemon.log); it runs again at the next start";
+            let (mut app, mut rx) = app(AppProps::default());
+            app.set_daemon_notice(Some(FAILED.to_owned()));
+            crate::app::effects::run_effects(&mut app);
+            let [_, messages] = footer_rows(&app);
+            assert_eq!(row_text(&messages), FAILED);
+            assert_eq!(footer_messages(&app)[0].color, THEME.warn);
+            // No timer hides it.
+            assert!(rx.try_recv().is_err());
+            // A later ping without it clears it; one with it shows it again.
+            app.set_daemon_notice(None);
+            assert!(footer_messages(&app).is_empty());
+            app.set_daemon_notice(Some(FAILED.to_owned()));
+            // The next key dismisses it and still acts.
+            app.handle_input(&deckhand_core::key::Input::key("?", deckhand_core::key::Key::NONE));
+            assert_eq!(app.messages.daemon_notice, None);
+            assert_eq!(app.mode, Mode::Help);
+            // An empty notice is none.
+            app.set_daemon_notice(Some(String::new()));
+            assert_eq!(app.messages.daemon_notice, None);
         });
     }
 

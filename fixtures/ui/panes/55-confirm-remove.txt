@@ -8,16 +8,16 @@
 
 
 
-                ╭───────────────────────────────────────────────────────────────╮
-                │                                                               │
-                │ Remove “alpha” for good?                                      │
-                │                                                               │
-                │ It cannot be resumed afterwards; its notes go to notes/trash. │
-                │                                                               │
-                │                                                               │
-                │ enter remove • esc keep it                                    │
-                │                                                               │
-                ╰───────────────────────────────────────────────────────────────╯
+                ╭────────────────────────────────────────────────────────────────╮
+                │                                                                │
+                │ Remove “alpha” for good?                                       │
+                │                                                                │
+                │ It cannot be resumed afterwards; its note goes to notes/trash. │
+                │                                                                │
+                │                                                                │
+                │ enter remove • esc keep it                                     │
+                │                                                                │
+                ╰────────────────────────────────────────────────────────────────╯
 
 
 

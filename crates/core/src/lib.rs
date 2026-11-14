@@ -21,6 +21,7 @@ pub mod plan;
 pub mod project_config;
 pub mod project_config_document;
 pub mod session_features;
+pub mod session_lines;
 pub mod session_order;
 pub mod session_scope;
 pub mod session_sections;

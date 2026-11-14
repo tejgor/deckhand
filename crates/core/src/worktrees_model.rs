@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::jsstr::{date, path};
 use crate::session_order::SessionLike;
 use crate::sidebar_model::format_age;
-use crate::tasks_board::worktree_open_items;
 use deckhand_protocol::data::{
     MergeDetected, WorktreeInUse, WorktreeMergeMode, WorktreeMissing, WorktreeOverview, WorktreeOverviewEntry,
 };
@@ -330,11 +329,6 @@ pub fn worktree_tags<S: SessionLike>(entry: &WorktreeOverviewEntry, sessions: &[
     }
     if let Some(ahead) = entry.ahead_of_default.filter(|ahead| *ahead != 0) {
         tags.push(format!("{ahead} commit{}", if ahead == 1 { "" } else { "s" }));
-    }
-    // Open checklist items of its note: deleting it offers to send them to the backlog.
-    let open = worktree_open_items(entry.record_id.as_deref(), sessions).len();
-    if open != 0 {
-        tags.push(format!("☐{open}"));
     }
     let running = entry.running_ids.len();
     let session_count = entry.session_ids.len();

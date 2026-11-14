@@ -345,6 +345,9 @@ pub struct Messages {
     pub status_message: Option<String>,
     /// The status message when it is a notice ([`crate::app::App::show_notice`]): the next key hides it too.
     pub notice: Option<String>,
+    /// What the daemon's `ping` says the user must know (its work-items migration failed, say): shown until the next
+    /// key, or until a later ping no longer carries it ([`crate::app::App::set_daemon_notice`]).
+    pub daemon_notice: Option<String>,
     /// While set, keys other than Ctrl+C are ignored.
     pub busy: bool,
     pub error_timer: Option<Timer>,
@@ -495,8 +498,6 @@ pub struct KillState {
     pub cleanup_request: u64,
     pub confirm_index: usize,
     pub force: bool,
-    /// The worktree note's open items stay in it (space) instead of going to the backlog.
-    pub keep_open_items: bool,
     /// confirm-loss: what was typed (DELETE).
     pub confirmation_draft: String,
     pub pending_delete_branch: bool,
@@ -512,10 +513,10 @@ pub struct MergeFlow {
     pub preview_error: Option<String>,
     pub commit_first: bool,
     pub error: Option<String>,
-    /// The selection is on the note's open items row (else on the options).
-    pub on_items: bool,
-    /// The note's open items stay in the note.
-    pub keep_open_items: bool,
+    /// The selection is on the open-steps row (else on the options).
+    pub on_steps: bool,
+    /// The open steps of the lines the merge ticks stay under them (`keepOpenSteps`).
+    pub keep_open_steps: bool,
     /// Not in the TS: the checkout the merge goes into (what the preview describes): the stacked target's worktree
     /// by default, else the launch checkout. Empty: not chosen, the default applies.
     pub target_cwd: String,
@@ -549,8 +550,10 @@ pub struct MergeState {
 /// confirm-remove mode (Backspace on an archived session).
 #[derive(Debug, Default)]
 pub struct RemoveState {
-    /// Open checklist items of the notes removing it deletes.
-    pub items: Vec<String>,
+    /// What is still open in its note (empty: nothing), which can go into its line's note first.
+    pub open_note: String,
+    /// The title of the line it is on, when it is on one.
+    pub line: Option<String>,
 }
 
 /// TS: app.tsx `taskStart`: the task a new session starts from (n on the board).

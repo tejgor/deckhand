@@ -1158,7 +1158,7 @@ mod tests {
             (entry.id == "s21").then(|| DetailTask {
                 title: "Fix the footer".to_owned(),
                 done: false,
-                more: None,
+                steps: None,
             })
         };
         let render_with = |selected: &str| {

@@ -6,7 +6,7 @@
 │ ☑ commit them first ("beta")                                                                   │
 │                                                                                                │
 │ Notes                                                                                          │
-│ Worktree notes · beta                                                                          │
+│ beta                                                                                           │
 │   Remember the tests                                                                           │
 │                                                                                                │
 │ ❯ Merge into main without committing                                                           │

@@ -1,6 +1,6 @@
 //! Confirmations: stopping a session (x: kill, with the worktree's deletion choices and their cleanup inspections;
-//! confirm-loss: typing DELETE), merging its worktree (m: the preview, commit-first and the note's open items;
-//! merge-conflicts: keep or abort) and removing an archived session for good (confirm-remove), with their panes
+//! confirm-loss: typing DELETE), merging its worktree (m: the preview, commit-first and the open steps of the lines it
+//! ticks; merge-conflicts: keep or abort) and removing an archived session for good (confirm-remove), with their panes
 //! (KillConfirmPane, MergeConfirmPane, MergeConflictPane, RemoveConfirmPane).
 
 use std::time::Duration;
@@ -15,16 +15,17 @@ use deckhand_core::display::{
 use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim};
 use deckhand_core::key::Input;
 use deckhand_core::merge_model::{
-    MergeChild, MergeConfirmInput, MergeLine, MergeNoteEntry, MergeStack, OpenItemsToggle, conflict_view,
+    MergeChild, MergeConfirmInput, MergeLine, MergeNoteEntry, MergeStack, OpenStepsToggle, conflict_view,
     merge_confirm_layout,
 };
 use deckhand_core::merge_stack::{later_hops, launch_branch_from_sessions, stacked_children, working_in};
+use deckhand_core::session_lines::{MergeLines, merge_lines, open_lines, tried_text, worktree_session_ids};
 use deckhand_core::session_order::session_descendants;
-use deckhand_core::tasks_board::{open_items_removed_with, worktree_open_items};
+use deckhand_core::work_notes::open_note_text;
 use deckhand_core::worktree_records::target_worktree_path;
 use deckhand_protocol::data::{
     CleanupInspection, ResolveMergeAction, SessionCleanupInspection, SessionRecord, SessionStatus, SessionWorktreeMode,
-    Task, WorktreeMergeMode, WorktreeMergeResult,
+    WorktreeMergeMode, WorktreeMergeResult,
 };
 
 use crate::app::sanitize_name_input;
@@ -55,11 +56,6 @@ pub static KILL_KEYMAP: Keymap = &[
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
     Binding {
-        keys: &[KeySpec::Char(" ")],
-        action: "keep the note's open items in the note",
-        help: HelpRef::Hidden("the confirmation shows its own hint line"),
-    },
-    Binding {
         keys: &[KeySpec::Named(NamedKey::Return)],
         action: "choose",
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
@@ -85,7 +81,7 @@ pub static MERGE_KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char(" ")],
-        action: "commit first / keep the note's open items",
+        action: "commit first / keep the open steps under the line",
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
     Binding {
@@ -114,7 +110,7 @@ pub static MERGE_KEYMAP: Keymap = &[
 pub static REMOVE_KEYMAP: Keymap = &[
     Binding {
         keys: &[KeySpec::Named(NamedKey::Return)],
-        action: "remove (moving the note's open items to Tasks first)",
+        action: "remove (moving what is open in its note into its line's note first)",
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
     Binding {
@@ -281,7 +277,6 @@ pub fn open_force_kill_confirm(app: &mut App) {
     }
     app.kill.confirm_index = 0;
     app.kill.force = true;
-    app.kill.keep_open_items = false;
     app.kill.cleanup_check = None;
     app.set_mode(Mode::ConfirmKill);
 }
@@ -294,7 +289,6 @@ pub fn open_kill_confirm(app: &mut App) {
     let session_id = session.id.clone();
     app.kill.confirm_index = 0;
     app.kill.force = false;
-    app.kill.keep_open_items = false;
     app.set_mode(Mode::ConfirmKill);
     let in_worktree = session
         .worktree
@@ -379,10 +373,6 @@ pub fn handle_confirm_kill(app: &mut App, input: &Input) {
     }
     if key.down_arrow || input.input == "j" {
         app.kill.confirm_index = (selected_index + 1) % count;
-        return;
-    }
-    if input.input == " " {
-        app.kill.keep_open_items = !app.kill.keep_open_items;
         return;
     }
     if !key.return_ {
@@ -657,21 +647,16 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         }
         return;
     }
-    // The note's open items row (listed once the preview is in) comes before the options in one j/k cycle; space or
-    // enter on it switches it, space elsewhere toggles commit-first.
-    let has_open_items = {
-        let sessions = app.sessions();
-        let worktree_id = app
-            .selected_session()
-            .and_then(|session| session.worktree)
-            .and_then(|worktree| worktree.id);
-        !worktree_open_items(worktree_id.as_deref(), &sessions).is_empty()
-    };
-    let items_row = usize::from(app.merge.flow.as_ref().is_some_and(|flow| flow.preview.is_some()) && has_open_items);
-    let on_items = items_row == 1 && app.merge.flow.as_ref().is_some_and(|flow| flow.on_items);
+    // The open-steps row (listed once the preview is in) comes before the options in one j/k cycle; space or enter
+    // on it switches it, space elsewhere toggles commit-first.
+    let has_open_steps = app
+        .selected_session()
+        .is_some_and(|session| merge_lines_of(app, &session).open_steps > 0);
+    let items_row = usize::from(app.merge.flow.as_ref().is_some_and(|flow| flow.preview.is_some()) && has_open_steps);
+    let on_items = items_row == 1 && app.merge.flow.as_ref().is_some_and(|flow| flow.on_steps);
     if (input.input == " " || key.return_) && on_items {
         if let Some(flow) = app.merge.flow.as_mut() {
-            flow.keep_open_items = !flow.keep_open_items;
+            flow.keep_open_steps = !flow.keep_open_steps;
         }
         return;
     }
@@ -700,7 +685,7 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         // ((current + step + count) % count) on non-negative numbers.
         let at = (current + count).saturating_add_signed(step) % count;
         if let Some(flow) = app.merge.flow.as_mut() {
-            flow.on_items = at < items_row;
+            flow.on_steps = at < items_row;
         }
         if at >= items_row {
             app.merge.confirm_index = at - items_row;
@@ -722,6 +707,32 @@ pub fn merge_loading(flow: Option<&MergeFlow>) -> bool {
     flow.is_none_or(|flow| flow.preview.is_none() && !truthy(flow.preview_error.as_ref()))
 }
 
+/// What merging `session`'s worktree does to the list: the lines of every session in it tick, and their open steps
+/// move up out of them unless kept.
+pub fn merge_lines_of(app: &App, session: &SessionRecord) -> MergeLines {
+    merge_lines(
+        &app.task_list(),
+        &worktree_session_ids(session, &app.data.repo_sessions),
+    )
+}
+
+/// The open lines of the sessions in `session`'s worktree, which deleting it unmerged leaves on the list (nobody on
+/// them) marked tried; none once it was merged (the merge ticked them).
+pub fn kill_tried_lines(app: &App, session: &SessionRecord) -> Vec<String> {
+    let merged = session
+        .worktree
+        .as_ref()
+        .is_some_and(|worktree| truthy(worktree.merged_at.as_ref()));
+    if merged {
+        return Vec::new();
+    }
+    let list = app.task_list();
+    open_lines(&list, &worktree_session_ids(session, &app.data.repo_sessions))
+        .iter()
+        .map(|line| line.title.clone())
+        .collect()
+}
+
 /// TS `mergeSelected`.
 pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     let Some(client) = app.client() else {
@@ -730,13 +741,13 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     let Some(session) = app.selected_session() else {
         return;
     };
-    let Some(worktree) = session
+    let in_worktree = session
         .worktree
         .as_ref()
-        .filter(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None)
-    else {
+        .is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None);
+    if !in_worktree {
         return;
-    };
+    }
     let session_id = session.id.clone();
     let flow = app.merge.flow.clone().filter(|flow| flow.session_id == session_id);
     // The checkout the confirmation showed (and previewed); without one, where it would have gone.
@@ -751,9 +762,8 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
         .and_then(|flow| flow.preview.as_ref())
         .is_some_and(|preview| preview.uncommitted != 0)
         && flow.as_ref().is_none_or(|flow| flow.commit_first);
-    // The note's open items go to the backlog with a clean merge unless the confirmation kept them in the note.
-    let send_open_items = !worktree_open_items(worktree.id.as_deref(), &app.data.repo_sessions).is_empty()
-        && !flow.as_ref().is_some_and(|flow| flow.keep_open_items);
+    // The open steps of the lines it ticks move up out of them unless the confirmation kept them there.
+    let keep_open_steps = flow.as_ref().is_some_and(|flow| flow.keep_open_steps);
     app.set_busy(true);
     app.set_error(None);
     if let Some(flow) = app.merge.flow.as_mut().filter(|flow| flow.session_id == session_id) {
@@ -765,7 +775,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
         &target_cwd,
         MergeOptions {
             commit_first,
-            keep_open_steps: !send_open_items,
+            keep_open_steps,
         },
     );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
@@ -786,7 +796,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
 /// TS mergeSelected after the merge answered: the conflicts screen, or the outcome in the footer.
 fn merged(app: &mut App, session_id: String, mode: WorktreeMergeMode, result: WorktreeMergeResult, target_cwd: String) {
     let sent = match result.lifted_steps {
-        Some(count) if count != 0 => format!(" · {} moved up out of its line", counted(count, "open step")),
+        Some(count) if count != 0 => format!(" · {} moved up", counted(count, "open step")),
         _ => String::new(),
     };
     let committed = result
@@ -893,15 +903,19 @@ pub fn resolve_conflicted_merge(app: &mut App, action: ResolveMergeAction) {
     drop(task);
 }
 
-/// TS `requestRemove` (Backspace on an archived session): always asks, listing open note items.
+/// TS `requestRemove` (Backspace on an archived session): always asks, showing what is still open in its note.
 ///
-/// Removing it deletes its note (and its worktree's, when it is the last there), so it always asks; open items are
-/// listed and can go to Tasks first.
+/// Removing it moves its note to the trash, so it always asks; what is still open in the note (all but its ticked
+/// checkboxes) is shown and can go into its line's note first (`moveNote`).
 pub fn request_remove(app: &mut App) {
     let Some(session) = app.selected_session().filter(|s| s.status == SessionStatus::Exited) else {
         return;
     };
-    app.remove.items = open_items_removed_with(&session, &app.data.repo_sessions);
+    app.remove.open_note = open_note_text(session.notes.as_deref().unwrap_or(""));
+    app.remove.line = app
+        .task_list()
+        .line_of_session(&session.id)
+        .map(|line| line.title.clone());
     app.set_mode(Mode::ConfirmRemove);
 }
 
@@ -911,22 +925,22 @@ pub fn handle_confirm_remove(app: &mut App, input: &Input) {
         app.set_mode(Mode::Browse);
         return;
     }
-    // Enter removes it, keeping open items as tasks (the safe choice when there are any); x removes them with the
-    // notes.
+    // Enter removes it, keeping what is open in its note in its line's note (the safe choice when there is any); x
+    // removes it with the note.
     if input.key.return_ {
         app.set_mode(Mode::Browse);
-        let move_open_items = !app.remove.items.is_empty();
-        remove_selected(app, move_open_items);
+        let move_note = !app.remove.open_note.is_empty();
+        remove_selected(app, move_note);
         return;
     }
-    if input.input == "x" && !app.remove.items.is_empty() {
+    if input.input == "x" && !app.remove.open_note.is_empty() {
         app.set_mode(Mode::Browse);
         remove_selected(app, false);
     }
 }
 
-/// TS `removeSelected` (`move_open_items`: send the notes' open items to Tasks first).
-pub fn remove_selected(app: &mut App, move_open_items: bool) {
+/// TS `removeSelected` (`move_note`: what is still open in its note goes into its line's note first).
+pub fn remove_selected(app: &mut App, move_note: bool) {
     let Some(client) = app.client() else {
         return;
     };
@@ -935,12 +949,14 @@ pub fn remove_selected(app: &mut App, move_open_items: bool) {
     };
     app.set_busy(true);
     app.set_error(None);
-    let reply = client.remove_session(&session.id, Some(move_open_items));
+    let reply = client.remove_session(&session.id, Some(move_note));
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         match result {
             Ok(()) => {
-                if move_open_items {
-                    app.set_status(Some("Moved its open note items to Tasks (b)".to_owned()));
+                if move_note {
+                    app.set_status(Some(
+                        "Moved what was open in its note to its line's note (b)".to_owned(),
+                    ));
                 }
                 app.reset_panes();
             }
@@ -951,7 +967,7 @@ pub fn remove_selected(app: &mut App, move_open_items: bool) {
     drop(task);
 }
 
-/// TS: app.tsx mergeNoteEntries: the worktree's shared note first, then the session's and its sub-sessions'.
+/// TS: app.tsx mergeNoteEntries: the session's note, then its sub-sessions'.
 pub fn merge_note_entries(session: Option<&SessionRecord>, sessions: &[&SessionRecord]) -> Vec<MergeNoteEntry> {
     let lines_of = |text: &str| -> Vec<String> {
         js_trim(text)
@@ -965,7 +981,7 @@ pub fn merge_note_entries(session: Option<&SessionRecord>, sessions: &[&SessionR
         note_sessions.push(session);
         note_sessions.extend(session_descendants(&session.id, sessions).into_iter().copied());
     }
-    let mut entries: Vec<MergeNoteEntry> = note_sessions
+    note_sessions
         .into_iter()
         .map(|note_session| MergeNoteEntry {
             key: note_session.id.clone(),
@@ -973,40 +989,6 @@ pub fn merge_note_entries(session: Option<&SessionRecord>, sessions: &[&SessionR
             lines: lines_of(note_session.notes.as_deref().unwrap_or("")),
         })
         .filter(|entry| !entry.lines.is_empty())
-        .collect();
-    // The worktree's shared note comes first: it describes the worktree being merged.
-    if let Some(session) = session {
-        let worktree_lines = lines_of(session.shared_notes.as_ref().map_or("", |note| note.text.as_str()));
-        if !worktree_lines.is_empty() {
-            let branch = session
-                .worktree
-                .as_ref()
-                .and_then(|worktree| worktree.branch.as_deref())
-                .filter(|branch| !branch.is_empty());
-            entries.insert(
-                0,
-                MergeNoteEntry {
-                    key: "worktree".to_owned(),
-                    title: format!(
-                        "Worktree notes{}",
-                        branch.map_or_else(String::new, |branch| format!(" · {branch}"))
-                    ),
-                    lines: worktree_lines,
-                },
-            );
-        }
-    }
-    entries
-}
-
-/// TS: app.tsx mergeTasks: the worktree's open tasks (the merge ticks them).
-pub fn merge_tasks<'a>(tasks: &'a [Task], session: Option<&SessionRecord>) -> Vec<&'a Task> {
-    let worktree_id = session
-        .and_then(|session| session.worktree.as_ref())
-        .and_then(|worktree| worktree.id.as_deref());
-    tasks
-        .iter()
-        .filter(|task| !task.done && truthy(task.meta.wt.as_ref()) && task.meta.wt.as_deref() == worktree_id)
         .collect()
 }
 
@@ -1045,9 +1027,8 @@ pub struct KillConfirmPaneProps<'a> {
     pub selected_index: usize,
     pub force: bool,
     pub inspection: Option<&'a SessionCleanupInspection>,
-    /// Open items of its worktree's note: sent to the backlog when it is deleted, unless kept (space).
-    pub open_items: &'a [String],
-    pub keep_open_items: bool,
+    /// The open lines of its worktree's sessions, which deleting it unmerged leaves on the list marked tried.
+    pub tried: &'a [String],
     /// Not in the TS: the cleanup checks are not all in yet, so no choices are shown (see [`kill_loading`]).
     pub loading: bool,
     /// Not in the TS: the other deletion's check (with or without the branch), which the selection can switch to:
@@ -1140,34 +1121,15 @@ pub fn kill_dialog_rows(props: &KillConfirmPaneProps<'_>, width: u16) -> DialogR
         .options
         .iter()
         .any(|option| matches!(option.kind, KillOptionKind::Delete | KillOptionKind::DeleteBranch));
-    if !props.open_items.is_empty() && deletes {
-        let keep = props.keep_open_items;
-        let count = i64::try_from(props.open_items.len()).unwrap_or(i64::MAX);
+    if let Some(tried) = tried_text(props.tried).filter(|_| deletes) {
         footer.extend(fit_row(
-            &text(
-                format!(
-                    "{} If deleted: {} {}: {}",
-                    if keep { "☐" } else { "☑" },
-                    counted(count, "open note item"),
-                    if keep {
-                        "stay in its (read-only) note"
-                    } else {
-                        "→ backlog"
-                    },
-                    props.open_items.join(", ")
-                ),
-                TextStyle::fg(if keep { THEME.muted } else { THEME.active }),
-            ),
+            &text(format!("If deleted: {tried}"), TextStyle::fg(THEME.muted)),
             content_width,
             Wrap::Wrap,
         ));
     }
     footer.push(Vec::new());
-    let mut hint: Vec<HintPart> = vec!["enter choose".into()];
-    if !props.open_items.is_empty() {
-        hint.push("space note items".into());
-    }
-    hint.push("esc cancel".into());
+    let hint: Vec<HintPart> = vec!["enter choose".into(), "esc cancel".into()];
     footer.extend(fit_row(
         &text(fit_hint(&hint, content_width, " • "), TextStyle::fg(THEME.muted)),
         content_width,
@@ -1211,7 +1173,8 @@ pub struct MergeConfirmPaneProps<'a> {
     pub sessions: &'a [&'a SessionRecord],
     pub flow: Option<&'a MergeFlow>,
     pub selected_index: usize,
-    pub tasks: &'a [Task],
+    /// What the merge does to the list ([`merge_lines_of`]); `None`: nothing.
+    pub lines: Option<&'a MergeLines>,
     /// The time now (epoch milliseconds), for the commits' ages; `None` leaves them out.
     pub now: Option<i64>,
     /// Not in the TS: the launch checkout's branch when known, where a stacked merge's path ends.
@@ -1300,13 +1263,13 @@ fn merge_stack(props: &MergeConfirmPaneProps<'_>) -> Option<MergeStack> {
 const MERGE_LAYOUT_ROWS: usize = 100_000;
 
 /// TS: app.tsx MergeConfirmPane, laid out `width` wide: the question, target, summary and what decides the merge
-/// on top; the commits, a failed attempt's output and the notes in the body (scrolling); the open-items toggle, the
+/// on top; the commits, a failed attempt's output and the notes in the body (scrolling); the open-steps toggle, the
 /// choices and the hint at the bottom.
 pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogRows {
     let content_width = usize::from(width).saturating_sub(4).max(1);
     let session = props.session;
     let flow = props.flow;
-    let started = merge_tasks(props.tasks, session);
+    let lines = props.lines;
     let layout = merge_confirm_layout(&MergeConfirmInput {
         title: session.map_or_else(
             || "worktree".to_owned(),
@@ -1320,22 +1283,18 @@ pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogR
         }),
         error: flow.and_then(|flow| flow.error.clone()),
         notes: merge_note_entries(session, props.sessions),
-        tasks: Some(started.iter().map(|task| task.title.clone()).collect()),
-        open_items: Some(OpenItemsToggle {
-            titles: worktree_open_items(
-                session
-                    .and_then(|session| session.worktree.as_ref())
-                    .and_then(|worktree| worktree.id.as_deref()),
-                props.sessions,
-            ),
-            send: !flow.is_some_and(|flow| flow.keep_open_items),
+        lines: lines.map(|lines| lines.ticks.clone()),
+        open_steps: lines.map(|lines| OpenStepsToggle {
+            count: lines.open_steps,
+            to: lines.to.phrase().to_owned(),
+            keep: flow.is_some_and(|flow| flow.keep_open_steps),
         }),
         width: content_width,
         height: MERGE_LAYOUT_ROWS,
         now: props.now,
         stack: merge_stack(props),
     });
-    let on_task = flow.is_some_and(|flow| flow.on_items);
+    let on_task = flow.is_some_and(|flow| flow.on_steps);
     let mut rows = DialogRows::default();
     rows.header.extend(fit_row(
         &text(layout.title.clone(), TextStyle::fg(THEME.accent).bold(true)),
@@ -1478,7 +1437,10 @@ pub struct RemoveConfirmPaneProps<'a> {
     pub session: Option<&'a SessionRecord>,
     /// Every session, for the path that names `session` (`parent / child`).
     pub sessions: &'a [&'a SessionRecord],
-    pub items: &'a [String],
+    /// What is still open in its note (empty: nothing).
+    pub open_note: &'a str,
+    /// The title of the line it is on, whose note that goes into (made for it when it has none).
+    pub line: Option<&'a str>,
 }
 
 /// `text` wrapped at `width` after `prefix`, later rows indented to line up under its first.
@@ -1497,10 +1459,11 @@ fn hanging(prefix: &str, text: &str, style: TextStyle, width: usize) -> Vec<Row>
 /// TS: app.tsx RemoveConfirmPane, as a dialog `width` wide.
 ///
 /// Removing a session for good always asks (Backspace on an archived one): it cannot be resumed afterwards and its
-/// notes go to notes/trash. Every open checklist item in them is listed, and Enter sends them to Tasks first.
+/// note goes to notes/trash. What is still open in the note is shown in full, and Enter moves it into the note of the
+/// session's line first (`moveNote`).
 pub fn remove_dialog_rows(props: &RemoveConfirmPaneProps<'_>, width: u16) -> DialogRows {
     let content_width = usize::from(width).saturating_sub(4).max(1);
-    let items = props.items;
+    let open = props.open_note;
     let mut rows = DialogRows::default();
     rows.header.extend(fit_row(
         &text(
@@ -1519,35 +1482,43 @@ pub fn remove_dialog_rows(props: &RemoveConfirmPaneProps<'_>, width: u16) -> Dia
     rows.body.push(Vec::new());
     rows.body.extend(fit_row(
         &text(
-            "It cannot be resumed afterwards; its notes go to notes/trash.",
+            "It cannot be resumed afterwards; its note goes to notes/trash.",
             TextStyle::default(),
         ),
         content_width,
         Wrap::Wrap,
     ));
-    if !items.is_empty() {
-        let count = i64::try_from(items.len()).unwrap_or(i64::MAX);
-        rows.body.push(vec![
-            Seg::plain("Its notes have "),
-            Seg::new(
-                format!("{} unchecked item{}", count, if count == 1 { "" } else { "s" }),
-                TextStyle::fg(THEME.warn),
-            ),
-            Seg::plain(":"),
-        ]);
-    }
-    for item in items {
+    if !open.is_empty() {
         rows.body
-            .extend(hanging("  ☐ ", item, TextStyle::default(), content_width));
+            .push(text("Still open in its note:", TextStyle::fg(THEME.warn)));
+        for line in open.split('\n') {
+            if js_trim(line).is_empty() {
+                rows.body.push(Vec::new());
+            } else {
+                rows.body
+                    .extend(hanging("  ", line, TextStyle::default(), content_width));
+            }
+        }
+        let into = props
+            .line
+            .map_or_else(|| "a new line for it".to_owned(), |line| format!("its line ◆ {line}"));
+        rows.body.extend(fit_row(
+            &text(
+                format!("enter moves it into the note of {into} first."),
+                TextStyle::fg(THEME.muted),
+            ),
+            content_width,
+            Wrap::Wrap,
+        ));
     }
     rows.footer.push(Vec::new());
-    let hint: Vec<HintPart> = if items.is_empty() {
+    let hint: Vec<HintPart> = if open.is_empty() {
         vec!["enter remove".into(), "esc keep it".into()]
     } else {
         vec![
             HintPart {
-                text: "enter move them to Tasks, then remove".to_owned(),
-                short: Some("enter move to Tasks".to_owned()),
+                text: "enter move it to the line's note, then remove".to_owned(),
+                short: Some("enter move to line note".to_owned()),
                 drop: None,
             },
             "x remove anyway".into(),
@@ -1586,7 +1557,7 @@ mod tests {
 
     use deckhand_client::live::{LiveClient, LiveClientHandlers};
     use deckhand_core::key::Key;
-    use deckhand_protocol::data::{MergePreview, SessionWorktreeRecord, SharedNote, SharedNoteKind};
+    use deckhand_protocol::data::{MergePreview, SessionWorktreeRecord, TasksDoc};
 
     use super::*;
     use crate::app::event_loop::Update;
@@ -1630,16 +1601,16 @@ mod tests {
         record
     }
 
-    fn worktree_note(id: &str, text: &str) -> SharedNote {
-        SharedNote {
-            kind: SharedNoteKind::Worktree,
-            id: id.to_owned(),
-            path: "/n".to_owned(),
+    /// The repository's list, as the daemon sent it.
+    fn with_list(app: &mut App, text: &str) {
+        app.set_tasks_doc(Some(TasksDoc {
+            key: "k".to_owned(),
+            path: "/n/tasks/k.md".to_owned(),
             text: text.to_owned(),
             revision: "r".to_owned(),
             too_large: None,
-            read_only: None,
-        }
+            notes: None,
+        }));
     }
 
     fn inspection(safe: bool, reasons: &[&str], blockers: &[&str]) -> SessionCleanupInspection {
@@ -1781,10 +1752,9 @@ mod tests {
     }
 
     #[test]
-    fn merge_note_entries_put_the_worktree_note_first() {
+    fn merge_note_entries_are_the_sessions_and_its_sub_sessions() {
         let mut parent = in_worktree(session("p", "Parent", SessionStatus::Running), "w1", "/wt", "feat");
         parent.notes = Some("  one\n\ntwo \n".to_owned());
-        parent.shared_notes = Some(worktree_note("w1", "shared\n\n"));
         let mut child = session("c", "Child", SessionStatus::Running);
         child.parent_session_id = Some("p".to_owned());
         child.notes = Some("child note".to_owned());
@@ -1805,33 +1775,32 @@ mod tests {
             .collect();
         assert_eq!(
             shape,
-            [
-                ("worktree", "Worktree notes · feat", vec!["shared"]),
-                ("p", "Parent", vec!["one", "two"]),
-                ("c", "Child", vec!["child note"]),
-            ]
+            [("p", "Parent", vec!["one", "two"]), ("c", "Child", vec!["child note"]),]
         );
         assert!(merge_note_entries(None, &all).is_empty());
-        // No branch: no suffix.
-        let mut bare = parent.clone();
-        bare.worktree = None;
-        assert_eq!(merge_note_entries(Some(&bare), &[&bare])[0].title, "Worktree notes");
     }
 
     #[test]
-    fn merge_tasks_are_the_worktrees_open_ones() {
-        let tasks = deckhand_core::tasks::parse_tasks(
-            "- [ ] open here <!-- dh:t=aaaa1111 wt=w1 -->\n- [x] done here <!-- dh:t=aaaa1112 wt=w1 -->\n- [ ] elsewhere <!-- dh:t=aaaa1113 wt=w2 -->\n- [ ] free\n",
+    fn a_merge_ticks_the_lines_of_every_session_in_the_worktree() {
+        let one = in_worktree(session("s1", "auth", SessionStatus::Running), "w1", "/wt", "feat");
+        let two = in_worktree(session("s2", "auth tests", SessionStatus::Running), "w1", "/wt", "feat");
+        let elsewhere = in_worktree(session("s3", "other", SessionStatus::Running), "w2", "/wt2", "other");
+        let (mut app, _rx) = app_with(vec![one.clone(), two, elsewhere]);
+        with_list(
+            &mut app,
+            "- [ ] Rework auth <!-- dh:t=i -->\n  - [ ] Tokens <!-- dh:t=a s=s1 -->\n    - [ ] encrypt <!-- dh:t=e -->\n    - [x] schema <!-- dh:t=c -->\n  - [ ] Tests <!-- dh:t=b s=s2 -->\n- [ ] Other <!-- dh:t=o s=s3 -->\n  - [ ] step <!-- dh:t=x -->\n",
         );
-        let record = in_worktree(session("p", "P", SessionStatus::Running), "w1", "/wt", "feat");
-        let titles: Vec<&str> = merge_tasks(&tasks, Some(&record))
-            .iter()
-            .map(|task| task.title.as_str())
-            .collect();
-        assert_eq!(titles, ["open here"]);
-        assert!(merge_tasks(&tasks, None).is_empty());
-        let loose = session("l", "L", SessionStatus::Running);
-        assert!(merge_tasks(&tasks, Some(&loose)).is_empty());
+        let lines = merge_lines_of(&app, &one);
+        assert_eq!(lines.ticks, ["Tokens", "Tests"]);
+        assert_eq!(lines.open_steps, 1);
+        assert_eq!(lines.to.phrase(), "Rework auth");
+        // Deleting it unmerged leaves both lines on the list, marked tried; merged, nothing (the merge ticked them).
+        assert_eq!(kill_tried_lines(&app, &one), ["Tokens", "Tests"]);
+        let mut merged = one.clone();
+        if let Some(worktree) = merged.worktree.as_mut() {
+            worktree.merged_at = Some("2026-11-14T00:00:00.000Z".to_owned());
+        }
+        assert!(kill_tried_lines(&app, &merged).is_empty());
     }
 
     #[test]
@@ -1881,11 +1850,9 @@ mod tests {
         assert_eq!(app.kill.confirm_index, 3);
         handle_confirm_kill(&mut app, &named(|key| key.up_arrow = true));
         assert_eq!(app.kill.confirm_index, 2);
-        assert!(!app.kill.keep_open_items);
+        // Space switches nothing (deleting sends nothing anywhere).
         handle_confirm_kill(&mut app, &press(" "));
-        assert!(app.kill.keep_open_items);
-        handle_confirm_kill(&mut app, &press(" "));
-        assert!(!app.kill.keep_open_items);
+        assert_eq!((app.mode, app.kill.confirm_index), (Mode::ConfirmKill, 2));
         handle_confirm_kill(&mut app, &press("z"));
         assert_eq!(app.mode, Mode::ConfirmKill);
         // Enter on Cancel closes it.
@@ -1980,7 +1947,7 @@ mod tests {
     fn shift_j_and_k_scroll_a_dialog_that_does_not_fit_but_type_in_a_name() {
         // Macs have no page keys: J/K scroll (PgUp/PgDn too), the border says so.
         let (mut app, _rx) = app_with(vec![session("s1", "beta", SessionStatus::Exited)]);
-        app.remove.items = (1..=60).map(|n| format!("item {n}")).collect();
+        app.remove.open_note = (1..=60).map(|n| format!("item {n}")).collect::<Vec<_>>().join("\n");
         app.set_mode(Mode::ConfirmRemove);
         let draw = |app: &mut App| -> String {
             let size = app.browse.terminal_size;
@@ -2126,10 +2093,11 @@ mod tests {
     #[test]
     fn the_merge_confirmation_cycles_through_its_rows() {
         let record = in_worktree(session("s1", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
-        let mut note_holder = session("n1", "Notes", SessionStatus::Running);
-        note_holder.worktree = record.worktree.clone();
-        note_holder.shared_notes = Some(worktree_note("w1", "- [ ] remember the tests\n"));
-        let (mut app, _rx) = app_with(vec![record, note_holder]);
+        let (mut app, _rx) = app_with(vec![record]);
+        with_list(
+            &mut app,
+            "- [ ] beta <!-- dh:t=b s=s1 -->\n  - [ ] remember the tests <!-- dh:t=r -->\n",
+        );
         app.set_mode(Mode::ConfirmMerge);
         app.merge.flow = Some(MergeFlow {
             session_id: "s1".to_owned(),
@@ -2143,27 +2111,27 @@ mod tests {
         assert_eq!(app.merge.confirm_index, 0);
         handle_confirm_merge(&mut app, &press(" "));
         assert_eq!(app.merge.flow.as_ref().map(|flow| flow.commit_first), Some(true));
-        // With the preview: the items row joins the cycle, before the options.
+        // With the preview: the open-steps row joins the cycle, before the options.
         if let Some(flow) = app.merge.flow.as_mut() {
             flow.preview = serde_json::from_value(preview_json(2)).ok();
         }
         handle_confirm_merge(&mut app, &press(" "));
         assert_eq!(app.merge.flow.as_ref().map(|flow| flow.commit_first), Some(false));
         handle_confirm_merge(&mut app, &press("k"));
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_items), Some(true));
-        // On the items row space and enter switch keeping the items.
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_steps), Some(true));
+        // On the open-steps row space and enter switch keeping them under the line.
         handle_confirm_merge(&mut app, &press(" "));
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.keep_open_items), Some(true));
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.keep_open_steps), Some(true));
         handle_confirm_merge(&mut app, &enter());
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.keep_open_items), Some(false));
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.keep_open_steps), Some(false));
         // j leaves the row for the first option; k from there comes back to it.
         handle_confirm_merge(&mut app, &press("j"));
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_items), Some(false));
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_steps), Some(false));
         assert_eq!(app.merge.confirm_index, 0);
         handle_confirm_merge(&mut app, &press("k"));
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_items), Some(true));
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_steps), Some(true));
         handle_confirm_merge(&mut app, &press("k"));
-        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_items), Some(false));
+        assert_eq!(app.merge.flow.as_ref().map(|flow| flow.on_steps), Some(false));
         assert_eq!(app.merge.confirm_index, 2);
         // Enter on Cancel; Esc anywhere.
         handle_confirm_merge(&mut app, &enter());
@@ -2220,7 +2188,7 @@ mod tests {
         assert!(!app.messages.busy);
         app.set_mode(Mode::ConfirmRemove);
         handle_confirm_remove(&mut app, &press("x"));
-        // x only removes when there are open items.
+        // x only removes when its note has something open.
         assert_eq!(app.mode, Mode::ConfirmRemove);
         handle_confirm_remove(&mut app, &press("z"));
         assert_eq!(app.mode, Mode::ConfirmRemove);
@@ -2229,13 +2197,16 @@ mod tests {
     }
 
     #[test]
-    fn requesting_removal_lists_the_open_items_it_deletes() {
+    fn requesting_removal_shows_what_is_open_in_its_note_and_its_line() {
         let mut record = session("s1", "alpha", SessionStatus::Exited);
-        record.notes = Some("- [ ] first\n- [x] done\n- [ ] second\n".to_owned());
+        record.notes = Some("Check the diff\n- [ ] first\n- [x] done\n  under done\n- [ ] second\n".to_owned());
         let (mut app, _rx) = app_with(vec![record]);
+        with_list(&mut app, "- [ ] Alpha work <!-- dh:t=a s=s1 -->\n");
         request_remove(&mut app);
         assert_eq!(app.mode, Mode::ConfirmRemove);
-        assert_eq!(app.remove.items, ["first", "second"]);
+        // All but the ticked checkboxes (with what is under them).
+        assert_eq!(app.remove.open_note, "Check the diff\n- [ ] first\n- [ ] second");
+        assert_eq!(app.remove.line.as_deref(), Some("Alpha work"));
         // Only an exited session asks.
         let (mut running, _rx) = app_with(vec![session("s2", "beta", SessionStatus::Running)]);
         request_remove(&mut running);
@@ -2264,13 +2235,9 @@ mod tests {
             app.connection.client = Some(client);
             app.kill.confirm_index = 2;
             app.kill.force = true;
-            app.kill.keep_open_items = true;
             open_kill_confirm(&mut app);
             assert_eq!(app.mode, Mode::ConfirmKill);
-            assert_eq!(
-                (app.kill.confirm_index, app.kill.force, app.kill.keep_open_items),
-                (0, false, false)
-            );
+            assert_eq!((app.kill.confirm_index, app.kill.force), (0, false));
             assert_eq!(
                 app.kill.cleanup_check.as_ref().map(|check| check.session_id.as_str()),
                 Some("s1")
@@ -2369,13 +2336,12 @@ mod tests {
     #[test]
     fn killing_sends_the_choices_and_checks_it_stopped() {
         run(async {
-            let mut record = in_worktree(session("s1", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
-            record.shared_notes = Some(worktree_note("w1", "- [ ] keep me\n"));
+            let record = in_worktree(session("s1", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
             let (mut app, mut rx) = app_with(vec![record]);
             let (client, requests) = fake_daemon(|_| json!({"ok": true}));
             app.connection.client = Some(client);
             app.set_mode(Mode::ConfirmKill);
-            // The open items go to the backlog with a deletion unless kept...
+            // The choices go to the daemon as chosen...
             kill_selected(
                 &mut app,
                 KillOptions {
@@ -2405,9 +2371,8 @@ mod tests {
                 app.messages.error.as_deref(),
                 Some("session still running; press X to force kill")
             );
-            // Kept items, or no deletion: nothing is sent to the backlog; a force kill does not check.
+            // A force kill does not check.
             app.set_error(None);
-            app.kill.keep_open_items = true;
             kill_selected(
                 &mut app,
                 KillOptions {
@@ -2579,7 +2544,7 @@ mod tests {
             sessions: &session_refs,
             flow: app.merge.flow.as_ref(),
             selected_index: app.merge.confirm_index,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: launch.as_deref(),
         };
@@ -2813,8 +2778,8 @@ mod tests {
             assert_eq!(request["type"], "merge-worktree");
             assert_eq!(request["mode"], "merge");
             assert_eq!(request["commitFirst"], json!(true));
-            // No open note items to send: the merge keeps the open steps under the merged lines.
-            assert_eq!(request["keepOpenSteps"], json!(true));
+            // Nothing kept: the open steps of the merged lines move up out of them (the daemon's default).
+            assert!(request.get("keepOpenSteps").is_none());
             assert_eq!(app.mode, Mode::Browse);
             assert_eq!(
                 app.messages.status_message.as_deref(),
@@ -2830,10 +2795,22 @@ mod tests {
             assert_eq!(requests.borrow()[1]["mode"], "squash");
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some(
-                    "Committed 1 file, then squash applied from beta into main · 2 open steps moved up out of its line"
-                )
+                Some("Committed 1 file, then squash applied from beta into main · 2 open steps moved up")
             );
+            // Kept under the line (the toggle on the open-steps row).
+            with_list(
+                &mut app,
+                "- [ ] beta <!-- dh:t=b s=s1 -->\n  - [ ] remember the tests <!-- dh:t=r -->\n",
+            );
+            *reply.borrow_mut() = merge_result(json!({}));
+            app.set_mode(Mode::ConfirmMerge);
+            app.merge.confirm_index = 0;
+            if let Some(flow) = app.merge.flow.as_mut() {
+                flow.keep_open_steps = true;
+            }
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[2]["keepOpenSteps"], json!(true));
             // Nothing to merge.
             *reply.borrow_mut() = merge_result(json!({"skipped": true}));
             app.set_mode(Mode::ConfirmMerge);
@@ -2995,7 +2972,7 @@ mod tests {
     }
 
     #[test]
-    fn removing_an_archived_session_moves_its_open_items_first() {
+    fn removing_an_archived_session_moves_its_open_note_first() {
         run(async {
             let mut record = session("s1", "alpha", SessionStatus::Exited);
             record.notes = Some("- [ ] first\n".to_owned());
@@ -3010,11 +2987,11 @@ mod tests {
             settle(&mut app, &mut rx).await;
             let request = requests.borrow()[0].clone();
             assert_eq!(request["type"], "remove");
-            // `moveNote`: what is open in its note goes to its line's note (the UI's wording is stage 4's).
+            // `moveNote`: what is open in its note goes to its line's note.
             assert_eq!(request["moveNote"], json!(true));
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Moved its open note items to Tasks (b)")
+                Some("Moved what was open in its note to its line's note (b)")
             );
             assert_eq!(app.panes.preview.content, "");
             // x removes them with the notes.
@@ -3105,8 +3082,7 @@ mod tests {
             selected_index: 0,
             force: false,
             inspection: Some(&inspected),
-            open_items: &[],
-            keep_open_items: false,
+            tried: &[],
             loading: false,
             other_inspection: None,
         };
@@ -3133,8 +3109,7 @@ mod tests {
             selected_index: 0,
             force: false,
             inspection: Some(&blocked),
-            open_items: &[],
-            keep_open_items: false,
+            tried: &[],
             loading: false,
             other_inspection: None,
         };
@@ -3144,11 +3119,11 @@ mod tests {
     }
 
     #[test]
-    fn the_kill_confirmation_lists_the_open_items() {
+    fn the_kill_confirmation_says_which_lines_deleting_marks_tried() {
         let beta = in_worktree(session("s2", "beta", SessionStatus::Running), "w2", "/wt/beta", "beta");
         let sessions = [beta];
         let options = kill_options(true, false, None, None);
-        let items = vec!["write docs".to_owned(), "fix bug".to_owned()];
+        let items = vec!["Token storage".to_owned()];
         let mut props = KillConfirmPaneProps {
             session: sessions.first(),
             sessions: &refs(&sessions),
@@ -3156,8 +3131,7 @@ mod tests {
             selected_index: 1,
             force: false,
             inspection: None,
-            open_items: &items,
-            keep_open_items: false,
+            tried: &items,
             loading: false,
             other_inspection: None,
         };
@@ -3181,16 +3155,17 @@ mod tests {
         assert!(text[kill_only + 1].starts_with("❯ Kill and delete worktree (not restartable)"));
         assert_eq!(
             text[kill_only + 3],
-            "☑ If deleted: 2 open note items → backlog: write docs, fix bug"
+            "If deleted: ◆ Token storage goes back to the list marked tried"
         );
         // The hint sits at the dialog's bottom: above the margin row and the border.
-        assert_eq!(text[text.len() - 3], "enter choose • space note items • esc cancel");
-        props.keep_open_items = true;
+        assert_eq!(text[text.len() - 3], "enter choose • esc cancel");
+        let two = vec!["Token storage".to_owned(), "Login UI".to_owned()];
+        props.tried = &two;
         let rows = dialog_rows(&drawn(|buf, area| render_kill_confirm_pane(&props, buf, area)));
         assert!(rows.iter().any(|row| {
-            row.contains("☐ If deleted: 2 open note items stay in its (read-only) note: write docs, fix bug")
+            row.contains("If deleted: ◆ 2 lines go back to the list marked tried: Token storage, Login UI")
         }));
-        // Without a session or a deletion choice: the plain question, no open-items row.
+        // Without a session or a deletion choice: the plain question, no row about lines.
         let only_kill = kill_options(false, false, None, None);
         let bare = KillConfirmPaneProps {
             session: None,
@@ -3199,8 +3174,7 @@ mod tests {
             selected_index: 0,
             force: false,
             inspection: None,
-            open_items: &items,
-            keep_open_items: false,
+            tried: &items,
             loading: false,
             other_inspection: None,
         };
@@ -3227,7 +3201,7 @@ mod tests {
             "<TMP>/home/worktrees/beta",
             "beta",
         );
-        beta.shared_notes = Some(worktree_note("w2", "Remember the tests\n"));
+        beta.notes = Some("Remember the tests\n".to_owned());
         let sessions = [beta];
         let preview: MergePreview = serde_json::from_value(json!({"sourceRef": "beta", "targetRoot": "<TMP>/demo",
             "targetBranch": "main", "targetIsMain": true, "defaultBranch": "main", "commitCount": 0, "commits": [],
@@ -3245,7 +3219,7 @@ mod tests {
             sessions: &refs(&sessions),
             flow: Some(&flow),
             selected_index: 0,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: None,
         };
@@ -3271,7 +3245,7 @@ mod tests {
             sessions: &refs(&sessions),
             flow: Some(&flow),
             selected_index: 0,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: None,
         };
@@ -3289,7 +3263,7 @@ mod tests {
             sessions: &refs(&sessions),
             flow: None,
             selected_index: 2,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: None,
         };
@@ -3361,7 +3335,7 @@ mod tests {
             sessions: &refs(&sessions),
             flow: Some(&flow),
             selected_index: 0,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: Some("main"),
         };
@@ -3441,7 +3415,7 @@ mod tests {
             sessions: &refs(&sessions),
             flow: Some(&flow),
             selected_index: 0,
-            tasks: &[],
+            lines: None,
             now: None,
             launch_branch: Some("main"),
         };
@@ -3489,7 +3463,8 @@ mod tests {
         let props = RemoveConfirmPaneProps {
             session: Some(&alpha),
             sessions: &[],
-            items: &[],
+            open_note: "",
+            line: None,
         };
         assert_pane("55-confirm-remove", |buf, area| {
             render_remove_confirm_pane(&props, buf, area);
@@ -3497,12 +3472,13 @@ mod tests {
     }
 
     #[test]
-    fn the_remove_confirmation_lists_every_open_item() {
-        let items: Vec<String> = (1..=10).map(|n| format!("item {n}")).collect();
+    fn the_remove_confirmation_shows_everything_open_in_its_note() {
+        let open: String = (1..=10).map(|n| format!("- [ ] item {n}\n")).collect::<String>() + "\nA closing thought";
         let props = RemoveConfirmPaneProps {
             session: None,
             sessions: &[],
-            items: &items,
+            open_note: &open,
+            line: Some("Token storage"),
         };
         let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
         let text: Vec<&str> = rows
@@ -3511,24 +3487,36 @@ mod tests {
             .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
             .collect();
         assert_eq!(text[0], "Remove “session” for good?");
-        assert_eq!(text[2], "It cannot be resumed afterwards; its notes go to notes/trash.");
-        assert_eq!(text[3], "Its notes have 10 unchecked items:");
-        assert_eq!(text[4], "☐ item 1");
-        assert_eq!(text[13], "☐ item 10");
-        assert!(!rows.iter().any(|row| row.contains("more")));
+        assert_eq!(
+            text[2],
+            "It cannot be resumed afterwards; its note goes to notes/trash."
+        );
+        assert_eq!(text[3], "Still open in its note:");
+        assert_eq!(text[4], "- [ ] item 1");
+        assert_eq!(text[13], "- [ ] item 10");
+        assert_eq!(text[14], "");
+        assert_eq!(text[15], "A closing thought");
+        assert_eq!(
+            text[16],
+            "enter moves it into the note of its line ◆ Token storage first."
+        );
         // The hint sits at the dialog's bottom: above the margin row and the border.
         assert_eq!(
             text[text.len() - 3],
-            "enter move them to Tasks, then remove • x remove anyway • esc cancel"
+            "enter move it to the line's note, then remove • x remove anyway • esc cancel"
         );
-        let one = [String::from("only")];
+        // Not on a line yet: the daemon makes one for it.
         let props = RemoveConfirmPaneProps {
             session: None,
             sessions: &[],
-            items: &one,
+            open_note: "only",
+            line: None,
         };
         let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
-        assert!(rows[5].contains("1 unchecked item:"));
+        assert!(
+            rows.iter()
+                .any(|row| row.contains("enter moves it into the note of a new line for it first."))
+        );
     }
 
     /// `compactPath` reads `$HOME`: tests that set it hold this lock (TS `withEnv`).
@@ -3589,7 +3577,7 @@ mod tests {
                     sessions: &refs(&sessions),
                     flow: Some(&flow),
                     selected_index: 1,
-                    tasks: &[],
+                    lines: None,
                     now: None,
                     launch_branch: None,
                 };
@@ -3622,19 +3610,13 @@ mod tests {
                     "{height}"
                 );
             }
-            // The worktree's task is ticked by the merge; its note's open items are one row, here selected.
-            let tasks = deckhand_core::tasks::parse_tasks(
-                "- [ ] Add OAuth <!-- dh:t=a wt=w -->\n- [ ] Elsewhere <!-- dh:t=c wt=x -->",
+            // The session's line is ticked by the merge; the open steps under it are one row, here selected.
+            let list = deckhand_core::task_list::TaskList::parse(
+                "- [ ] Add OAuth <!-- dh:t=a s=s -->\n  - [x] Read <!-- dh:t=r -->\n  - [ ] Add tests <!-- dh:t=t -->\n- [ ] Elsewhere <!-- dh:t=c s=x -->",
             );
-            let mut with_note = record.clone();
-            with_note.shared_notes = Some(SharedNote {
-                path: "/n/w.md".to_owned(),
-                revision: "r".to_owned(),
-                ..worktree_note("w", "- [x] Read\n- [ ] Add tests")
-            });
-            let sessions = [with_note];
+            let lines = deckhand_core::session_lines::merge_lines(&list, &["s".to_owned()]);
             let on_items = MergeFlow {
-                on_items: true,
+                on_steps: true,
                 ..flow.clone()
             };
             let props = MergeConfirmPaneProps {
@@ -3642,7 +3624,7 @@ mod tests {
                 sessions: &refs(&sessions),
                 flow: Some(&on_items),
                 selected_index: 0,
-                tasks: &tasks,
+                lines: Some(&lines),
                 now: None,
                 launch_branch: None,
             };
@@ -3652,17 +3634,15 @@ mod tests {
             assert!(
                 with_tasks
                     .iter()
-                    .any(|line| line.contains("◆ Task \"Add OAuth\" will be marked done"))
+                    .any(|line| line.contains("◆ Add OAuth will be ticked"))
             );
-            assert!(
-                with_tasks
-                    .iter()
-                    .any(|line| line.contains("❯ ☑ 1 open note item → backlog: Add tests"))
-            );
+            assert!(with_tasks.iter().any(|line| {
+                line.contains("❯ ↑ 1 open step moves up to the backlog · space keeps them under the line")
+            }));
             assert!(!with_tasks.iter().any(|line| line.contains("Elsewhere")));
             assert!(
                 !with_tasks.iter().any(|line| line.contains("❯ Merge into")),
-                "the options are not selected while the items row is"
+                "the options are not selected while the open-steps row is"
             );
             let result: WorktreeMergeResult = serde_json::from_value(merge_result(
                 json!({"sourceRef": "auth", "conflicted": true, "conflicts": ["src/auth.ts"], "conflictCount": 1}),
@@ -3711,6 +3691,11 @@ mod tests {
         let result: WorktreeMergeResult = serde_json::from_value(merge_result(json!({"conflicted": true}))).unwrap();
         let options = kill_options(true, true, None, None);
         let items = vec!["a".to_owned()];
+        let lines = deckhand_core::session_lines::MergeLines {
+            ticks: items.clone(),
+            open_steps: 3,
+            to: deckhand_core::session_lines::LiftTarget::Backlog,
+        };
         for (width, height) in [(0, 0), (1, 1), (3, 2), (5, 3), (12, 6)] {
             let area = Rect::new(0, 0, width, height);
             let mut buf = Buffer::empty(area);
@@ -3722,8 +3707,7 @@ mod tests {
                     selected_index: 0,
                     force: false,
                     inspection: None,
-                    open_items: &items,
-                    keep_open_items: false,
+                    tried: &items,
                     loading: false,
                     other_inspection: None,
                 },
@@ -3736,7 +3720,7 @@ mod tests {
                     sessions: &refs(&sessions),
                     flow: None,
                     selected_index: 0,
-                    tasks: &[],
+                    lines: Some(&lines),
                     now: None,
                     launch_branch: None,
                 },
@@ -3748,7 +3732,8 @@ mod tests {
                 &RemoveConfirmPaneProps {
                     session: sessions.first(),
                     sessions: &[],
-                    items: &items,
+                    open_note: "- [ ] a",
+                    line: Some("a"),
                 },
                 &mut buf,
                 area,

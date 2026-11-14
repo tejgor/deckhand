@@ -16,8 +16,10 @@ use deckhand_core::display::{
 };
 use deckhand_core::jsstr::{date, js_len, js_pad_end, path};
 use deckhand_core::key::Input;
+use deckhand_core::session_lines::{open_lines, tried_text};
 use deckhand_core::sidebar_model::format_age;
-use deckhand_core::tasks_board::{lead_session, worktree_open_items};
+use deckhand_core::task_list::TaskList;
+use deckhand_core::tasks_board::lead_session;
 use deckhand_core::worktrees_model::{
     WorktreeGroup, WorktreeRow, bulk_targets, delete_refusal, group_title, merged_text, protected_branch,
     selectable_worktree_row, worktree_name, worktree_row_key, worktree_rows, worktree_tags,
@@ -83,8 +85,6 @@ pub struct DeleteConfirm {
     pub index: usize,
     pub checks: ConfirmChecks,
     pub override_: Option<DeleteOverride>,
-    /// Their notes' open checklist items stay there (space); by default they go to the backlog first.
-    pub keep_open_items: bool,
 }
 
 impl DeleteConfirm {
@@ -387,8 +387,8 @@ pub struct ConfirmPaneProps<'a> {
     pub state: &'a DeleteConfirm,
     pub options: &'a [ConfirmOption],
     pub sessions: &'a [&'a SessionRecord],
-    /// Open checklist items of their notes (sent to the backlog first unless kept).
-    pub open_items: &'a [String],
+    /// The open lines of their sessions, which deleting them unmerged leaves on the list marked tried.
+    pub tried: &'a [String],
     pub working: Option<&'a str>,
     /// Not in the TS: the checks are not all in yet, so no choices are shown (see [`WorktreesFlow::confirm_loading`]).
     pub loading: bool,
@@ -525,25 +525,8 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize) -> DialogRows {
             inner,
         ));
     }
-    if !props.open_items.is_empty() {
-        let keep = state.keep_open_items;
-        let items = props.open_items.len();
-        let text = format!(
-            "{} {items} open note item{} {}: {}",
-            if keep { "☐" } else { "☑" },
-            plural(count(items)),
-            if keep {
-                "stay in the (read-only) note"
-            } else {
-                "→ backlog first"
-            },
-            props.open_items.join(", ")
-        );
-        rows.body.extend(wrapped(
-            text,
-            TextStyle::fg(if keep { THEME.muted } else { THEME.active }),
-            inner,
-        ));
+    if let Some(tried) = tried_text(props.tried) {
+        rows.body.extend(wrapped(tried, muted, inner));
     }
     if entry.missing.is_none() {
         rows.body.extend(wrapped(
@@ -600,6 +583,8 @@ pub struct WorktreesFlowProps<'a> {
     pub cwd: &'a str,
     /// Every session of the repository.
     pub sessions: &'a [&'a SessionRecord],
+    /// The repository's list (the tasks doc's text), for what a deletion does to its sessions' lines.
+    pub list: &'a str,
     pub spinner_frame: &'a str,
 }
 
@@ -769,9 +754,27 @@ fn running_of<'a>(entry: &WorktreeOverviewEntry, sessions: &[&'a SessionRecord])
         .collect()
 }
 
-/// TS `openItemsOf(entry)`.
-fn open_items_of(entry: &WorktreeOverviewEntry, sessions: &[&SessionRecord]) -> Vec<String> {
-    worktree_open_items(entry.record_id.as_deref(), sessions)
+/// The open lines of `entries`' sessions that deleting them leaves on the list marked tried: those of the ones not
+/// merged (a merge ticked the others').
+fn tried_lines(entries: &[WorktreeOverviewEntry], list: &str) -> Vec<String> {
+    let session_ids: Vec<String> = entries
+        .iter()
+        .filter(|entry| {
+            entry.missing.is_none()
+                && !entry
+                    .markers
+                    .as_ref()
+                    .is_some_and(|markers| truthy(markers.merged_at.as_deref()))
+        })
+        .flat_map(|entry| entry.session_ids.iter().cloned())
+        .collect();
+    if session_ids.is_empty() {
+        return Vec::new();
+    }
+    open_lines(&TaskList::parse(list), &session_ids)
+        .iter()
+        .map(|line| line.title.clone())
+        .collect()
 }
 
 /// The fallback check when the daemon could not inspect it (TS `satisfies WorktreeCleanupInspection`).
@@ -978,7 +981,6 @@ impl WorktreesFlow {
             index: 0,
             checks: ConfirmChecks::default(),
             override_: None,
-            keep_open_items: false,
         });
         let Some(entry) = entry else {
             return;
@@ -1108,8 +1110,6 @@ impl WorktreesFlow {
         entry: &WorktreeOverviewEntry,
         delete_branch: bool,
         allow_data_loss: bool,
-        // Since protocol 60 a deletion leaves the sessions' lines and their steps where they are.
-        _keep_open_items: bool,
         props: &WorktreesFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
     ) {
@@ -1176,7 +1176,6 @@ impl WorktreesFlow {
         &mut self,
         entries: Vec<WorktreeOverviewEntry>,
         with_branches: bool,
-        _keep_open_items: bool,
         props: &WorktreesFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
     ) {
@@ -1308,7 +1307,7 @@ impl WorktreesFlow {
                 if override_.draft == "DELETE"
                     && let Some(entry) = state.entries.first()
                 {
-                    self.delete_one(entry, override_.delete_branch, true, state.keep_open_items, props, cx);
+                    self.delete_one(entry, override_.delete_branch, true, props, cx);
                 }
                 return;
             }
@@ -1337,17 +1336,6 @@ impl WorktreesFlow {
             self.confirm = Some(state);
             return;
         }
-        if text == " " {
-            if state
-                .entries
-                .iter()
-                .any(|entry| !open_items_of(entry, props.sessions).is_empty())
-            {
-                state.keep_open_items = !state.keep_open_items;
-                self.confirm = Some(state);
-            }
-            return;
-        }
         if !key.return_ {
             return;
         }
@@ -1360,14 +1348,14 @@ impl WorktreesFlow {
         }
         if state.bulk {
             let with_branches = option.kind == ConfirmKind::DeleteBranch;
-            self.delete_all(state.entries, with_branches, state.keep_open_items, props, cx);
+            self.delete_all(state.entries, with_branches, props, cx);
             return;
         }
         let Some(entry) = state.entries.first() else {
             return;
         };
         if matches!(option.kind, ConfirmKind::Prune | ConfirmKind::Forget) {
-            self.delete_one(entry, false, false, state.keep_open_items, props, cx);
+            self.delete_one(entry, false, false, props, cx);
             return;
         }
         let delete_branch = option.kind == ConfirmKind::DeleteBranch;
@@ -1380,7 +1368,7 @@ impl WorktreesFlow {
             return;
         }
         if loss_of(check).safe {
-            self.delete_one(entry, delete_branch, false, state.keep_open_items, props, cx);
+            self.delete_one(entry, delete_branch, false, props, cx);
         } else {
             state.override_ = Some(DeleteOverride {
                 delete_branch,
@@ -1672,16 +1660,12 @@ impl Flow<App> for WorktreesFlow {
         if let Some(state) = self.confirm.as_ref() {
             dim_area(buf, area);
             let options = self.options(state, props);
-            let open_items: Vec<String> = state
-                .entries
-                .iter()
-                .flat_map(|entry| open_items_of(entry, props.sessions))
-                .collect();
+            let tried = tried_lines(&state.entries, props.list);
             let pane = ConfirmPaneProps {
                 state,
                 options: &options,
                 sessions: props.sessions,
-                open_items: &open_items,
+                tried: &tried,
                 working: self.working.as_deref(),
                 loading: self.confirm_loading(state),
             };
@@ -1733,20 +1717,7 @@ impl Flow<App> for WorktreesFlow {
                     HINT_SEPARATOR,
                 );
             }
-            let mut parts = vec![HintPart::from("enter choose")];
-            if confirm
-                .entries
-                .iter()
-                .any(|entry| !open_items_of(entry, props.sessions).is_empty())
-            {
-                let text = if confirm.keep_open_items {
-                    "space send note items"
-                } else {
-                    "space keep note items"
-                };
-                parts.push(part(text, Some("space note items"), None));
-            }
-            parts.push(HintPart::from("esc cancel"));
+            let parts = [HintPart::from("enter choose"), HintPart::from("esc cancel")];
             return fit_hint(&parts, width, HINT_SEPARATOR);
         }
         let on_ready = self.view(props, date::now_ms()).on_ready();
@@ -1802,10 +1773,9 @@ mod tests {
         });
         if let Some(id) = worktree {
             value["worktree"] = json!({"mode": "managed", "id": id});
-            if let Some(text) = note {
-                value["sharedNotes"] =
-                    json!({"kind": "worktree", "id": id, "path": "/notes/w.md", "text": text, "revision": "1"});
-            }
+        }
+        if let Some(text) = note {
+            value["notes"] = json!(text);
         }
         serde_json::from_value(value).unwrap_or_else(|error| panic!("{error}"))
     }
@@ -1852,6 +1822,7 @@ mod tests {
             client: None,
             cwd: "/repo",
             sessions,
+            list: "",
             spinner_frame: "⠋",
         }
     }
@@ -2002,7 +1973,7 @@ mod tests {
         let shipped = worktree_line(&rows[1], false, 50, &refs, Some("main"), 0);
         let text = row_text(&shipped);
         assert!(text.starts_with("  ✓ deckhand/shipped"), "{text}");
-        assert_eq!(text, "  ✓ deckhand/shipped     1 commit · ☐1 · 1 sessio…");
+        assert_eq!(text, "  ✓ deckhand/shipped     1 commit · 1 session · n…");
         assert_eq!(js_len(&text), 50);
         assert_eq!(shipped[1].style.color, Some(THEME.success));
         let selected = worktree_line(&rows[1], true, 50, &refs, Some("main"), 0);
@@ -2059,7 +2030,6 @@ mod tests {
                 index: 0,
                 checks: ConfirmChecks::default(),
                 override_: None,
-                keep_open_items: false,
             }),
             ..WorktreesFlow::default()
         };
@@ -2110,6 +2080,47 @@ mod tests {
     }
 
     #[test]
+    fn deleting_unmerged_says_its_sessions_lines_are_marked_tried() {
+        let mut entries = overview_record().entries;
+        let list =
+            "- [ ] Ship it <!-- dh:t=a s=s1 -->\n- [ ] Other <!-- dh:t=b s=s9 -->\n- [x] Done <!-- dh:t=c s=s2 -->\n";
+        // Merged: the merge ticked its lines.
+        assert!(tried_lines(&entries[1..2], list).is_empty());
+        let mut unmerged = entries[1].clone();
+        unmerged.markers = None;
+        unmerged.session_ids = vec!["s1".to_owned(), "s2".to_owned()];
+        entries[1] = unmerged.clone();
+        // Only open lines are unhooked.
+        assert_eq!(tried_lines(&entries[1..2], list), ["Ship it"]);
+        assert!(tried_lines(&entries[1..2], "").is_empty());
+        let records = sessions();
+        let refs: Vec<&SessionRecord> = records.iter().collect();
+        let tried = tried_lines(&entries[1..2], list);
+        let state = DeleteConfirm {
+            entries: vec![unmerged],
+            bulk: false,
+            index: 0,
+            checks: ConfirmChecks::default(),
+            override_: None,
+        };
+        let pane = ConfirmPaneProps {
+            state: &state,
+            options: &[],
+            sessions: &refs,
+            tried: &tried,
+            working: None,
+            loading: true,
+        };
+        let rows = confirm_pane_rows(&pane, 80);
+        let text: Vec<String> = rows.body.iter().map(|row| row_text(row)).collect();
+        assert!(
+            text.iter()
+                .any(|row| row.trim_end() == "◆ Ship it goes back to the list marked tried"),
+            "{text:#?}"
+        );
+    }
+
+    #[test]
     fn options_offer_the_branch_first_when_merged_and_name_the_stops() {
         let records = sessions();
         let refs: Vec<&SessionRecord> = records.iter().collect();
@@ -2125,7 +2136,6 @@ mod tests {
             index: 0,
             checks: ConfirmChecks::default(),
             override_: None,
-            keep_open_items: false,
         };
         let labels = |state: &DeleteConfirm| -> Vec<String> {
             flow.options(state, &props)
@@ -2236,15 +2246,7 @@ mod tests {
         );
         flow.handle_input(&props, &Input::text("x"), &mut cx);
         assert!(flow.confirm.as_ref().is_some_and(|confirm| confirm.bulk));
-        assert_eq!(
-            flow.hint(&props, 200),
-            "enter choose • space keep note items • esc cancel"
-        );
-        flow.handle_input(&props, &Input::text(" "), &mut cx);
-        assert_eq!(
-            flow.hint(&props, 200),
-            "enter choose • space send note items • esc cancel"
-        );
+        assert_eq!(flow.hint(&props, 200), "enter choose • esc cancel");
         flow.handle_input(&props, &Input::text("k"), &mut cx);
         assert_eq!(flow.confirm.as_ref().map(|confirm| confirm.index), Some(2));
         flow.handle_input(&props, &enter(), &mut cx);
@@ -2313,17 +2315,8 @@ mod tests {
                 screen.contains("Stop 1 session, delete 1 worktree and their branches"),
                 "{screen}"
             );
-            assert!(
-                screen.contains("☑ 1 open note item → backlog first: Follow up on perf"),
-                "{screen}"
-            );
-            press(&mut app, &Input::text(" "));
-            let screen = shown(&mut app, 90, 24);
-            assert!(
-                screen.contains("☐ 1 open note item stay in the (read-only) note"),
-                "{screen}"
-            );
-            press(&mut app, &Input::text(" "));
+            // Merged: its session's line was ticked by the merge, so nothing about lines.
+            assert!(!screen.contains("marked tried"), "{screen}");
 
             press(&mut app, &enter());
             assert_eq!(
@@ -2485,7 +2478,7 @@ mod tests {
             assert!(!app.flows.worktrees.loading);
             app.flows.worktrees.overview = Some(overview_record());
             let entry = overview_record().entries[2].clone();
-            app.worktrees_flow_call(|flow, props, cx| flow.delete_one(&entry, true, false, false, props, cx));
+            app.worktrees_flow_call(|flow, props, cx| flow.delete_one(&entry, true, false, props, cx));
             let request = daemon.next().await;
             daemon
                 .respond(&request, json!({"ok": false, "error": "worktree is dirty"}))

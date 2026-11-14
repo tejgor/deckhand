@@ -36,11 +36,13 @@ use deckhand_core::display::{
 use deckhand_core::jsstr::js_len;
 use deckhand_core::key::{Input, Key};
 use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_reply_read};
+use deckhand_core::session_lines::line_title;
 use deckhand_core::session_order::{filter_collapsed_sessions, sort_sessions_for_sidebar};
 use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::session_sections::{SessionSection, order_by_section, session_section};
+use deckhand_core::task_list::TaskList;
 use deckhand_core::tasks::parse_tasks;
-use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lookup};
+use deckhand_core::tasks_board::{OwnedTaskLinkLookup, task_link_lookup};
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::RightPaneTab;
 use deckhand_protocol::data::{
@@ -585,6 +587,7 @@ macro_rules! with_props {
             client: app.connection.client.as_ref(),
             cwd: &app.props.repo_root,
             sessions: &refs,
+            list: app.data.tasks_doc.as_ref().map_or("", |doc| doc.text.as_str()),
             spinner_frame: frame,
         };
         ($call)(&mut app.flows.worktrees, &props)
@@ -639,20 +642,18 @@ impl App {
         })
     }
 
-    /// The title of the tasks a session works on (TS filterSessionList's `taskTitle`).
-    fn task_titles(&self, session: &SessionRecord) -> Option<String> {
-        Some(
-            linked_tasks(&self.data.tasks, Some(session))
-                .iter()
-                .map(|task| task.title.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
-        )
+    /// The repository's list as it is now (the tasks doc), read for the session views: the line a session is on,
+    /// what a merge ticks and lifts.
+    pub fn task_list(&self) -> TaskList {
+        TaskList::parse(self.data.tasks_doc.as_ref().map_or("", |doc| doc.text.as_str()))
     }
 
     /// TS `visibleSessions` of `sessions`.
     pub fn visible_of(&self, sessions: &[SessionRecord]) -> Vec<SessionRecord> {
-        let title: TaskTitleOf<'_> = &|session: &SessionRecord| self.task_titles(session);
+        // `/` finds a session by the title of the line it is on (the list is read only for a search).
+        let list = std::cell::OnceCell::new();
+        let title: TaskTitleOf<'_> =
+            &|session: &SessionRecord| line_title(list.get_or_init(|| self.task_list()), &session.id);
         let filtered = filter_session_list(
             sessions,
             self.browse.session_filter,
@@ -944,8 +945,15 @@ impl App {
         self.messages.notice = Some(notice);
     }
 
+    /// What the daemon's last `ping` carried for the user (`None`: nothing). It stays in the footer until a key
+    /// dismisses it; a ping without one (after a reconnect) clears it, and one with a different text shows again.
+    pub fn set_daemon_notice(&mut self, notice: Option<String>) {
+        self.messages.daemon_notice = notice.filter(|notice| !notice.is_empty());
+    }
+
     /// The next key hides the notice, if it still shows; the key itself is handled as usual.
     fn dismiss_notice(&mut self) {
+        self.messages.daemon_notice = None;
         if let Some(notice) = self.messages.notice.take()
             && self.messages.status_message.as_deref() == Some(notice.as_str())
         {

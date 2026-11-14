@@ -12,7 +12,7 @@ use crate::display::{
     wrap_words,
 };
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
-use crate::notes::open_checklist_text;
+use crate::notes::{checklist_counts, fit_first};
 use crate::session_features::{
     SESSION_FILTERS, SessionFilter, SessionFilterCounts, filter_session_list, session_blocked, session_filter_key,
     session_has_unread_reply,
@@ -21,6 +21,7 @@ use crate::session_order::{
     SessionLike, count_hidden_session_descendants, count_session_descendants, session_depth, session_has_children,
 };
 use crate::session_sections::{SessionSection, in_section, session_section};
+use crate::task_list::LineCount;
 use crate::workspace::workspace_key;
 use deckhand_protocol::data::{
     AgentActivityStatus, AttentionReasonKind, AttentionState, ExitReason, SessionRecord, SessionRole, SessionStatus,
@@ -1041,19 +1042,20 @@ fn title_lines(title: &str, width: usize, max: usize) -> Vec<String> {
     lines
 }
 
-/// TS: sidebarModel.ts sessionDetails `task` argument (the task it works on, and how many more are open).
+/// TS: sidebarModel.ts sessionDetails `task` argument: the line the session is on (`session_lines::detail_line`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DetailTask {
     pub title: String,
     pub done: bool,
-    pub more: Option<usize>,
+    /// `ticked/total` of the lines under it; `None` without any.
+    pub steps: Option<LineCount>,
 }
 
 /// TS: sidebarModel.ts sessionDetails.
 ///
 /// The selected session's details in the `free_rows` rows the list leaves: a separator, the full title (two lines
 /// with five free rows, else one), `agent · state · age`, why it waits (two lines when the location still fits after
-/// them), where it runs, the task it works on, and open checklist items of its notes. Fewer rows drop the checklist
+/// them), where it runs, the line it is on, and open checklist items of its note. Fewer rows drop the checklist
 /// line first, then the location, and fewer than three hide it.
 pub fn session_details<S: SessionLike>(
     session: Option<&SessionRecord>,
@@ -1162,15 +1164,15 @@ fn details<S: SessionLike>(
     {
         lines.push(target);
     }
-    // The task it works on (b), and how many more are open on its work: kept longer than the checklist line below.
+    // The line it is on (b), and its steps ticked: kept longer than the checklist line below.
     if let Some(task) = task
         && room(&lines) >= 1
     {
         let tail = format!(
             "{}{}",
             if task.done { " ✓" } else { "" },
-            match task.more {
-                Some(more) if more > 0 => format!(" +{more}"),
+            match task.steps {
+                Some(LineCount { ticked, total }) if total > 0 => format!(" {ticked}/{total}"),
                 _ => String::new(),
             }
         );
@@ -1180,8 +1182,8 @@ fn details<S: SessionLike>(
             THEME.accent_soft,
         )]);
     }
-    // Open checklist items of its notes and its worktree's: the first line to go when rows are short.
-    if let Some(checklist) = open_checklist_text(session, width).filter(|text| !text.is_empty())
+    // Open checklist items of its note: the first line to go when rows are short.
+    if let Some(checklist) = own_checklist_text(session, width).filter(|text| !text.is_empty())
         && room(&lines) >= 1
     {
         lines.push(vec![detail(checklist, THEME.muted)]);
@@ -1194,6 +1196,16 @@ fn details<S: SessionLike>(
         lines.push(vec![detail(cut(&text, jnum(width)), THEME.muted)]);
     }
     lines
+}
+
+/// The details' checklist line: open checklist items of the session's own note (`☐ 3 open`), shortened to fit; `None`
+/// without any. Worktrees no longer have a note of their own to count.
+fn own_checklist_text(session: &SessionRecord, width: usize) -> Option<String> {
+    let open = checklist_counts(session.notes.as_deref()).open;
+    if open == 0 || width < 1 {
+        return None;
+    }
+    Some(fit_first(&[format!("☐ {open} open"), format!("☐ {open}")], width))
 }
 
 /// Not in the TS: `→ into <target branch>` for a stacked worktree; after its target was merged or deleted,
@@ -1632,7 +1644,9 @@ mod tests {
                             .to_owned(),
                         // A missing `done` is falsy, as in TS.
                         done: task.get("done").and_then(Value::as_bool).unwrap_or(false),
-                        more: task.get("more").map(width_of).transpose()?,
+                        // Recorded with the count of the worktree's other open tasks (`more`), which went with the
+                        // work-items model: a line shows its steps instead, which these cases don't have.
+                        steps: None,
                     })
                 };
                 Ok(session_details(
@@ -2870,18 +2884,21 @@ mod tests {
     }
 
     #[test]
-    fn details_show_open_checklist_items() {
+    fn details_show_the_line_its_steps_and_the_notes_open_checklist_items() {
         let with_notes = partial_session(&serde_json::json!({
             "id": "s", "title": "task", "program": "claude", "command": "claude", "cwd": "/repo", "repoRoot": "/repo",
             "status": "running", "agentStatus": "idle",
             "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z",
-            "notes": "- [ ] a",
-            "sharedNotes": {"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",
-                "text": "- [ ] b\n- [ ] c\n- [x] d"},
+            "notes": "- [ ] a\n- [ ] b\n- [x] c",
         }))
         .expect("a session literal");
-        let details = |free: usize| -> Vec<String> {
-            session_details(Some(&with_notes), &[&with_notes], 30, free, 0, None, None)
+        let line = DetailTask {
+            title: "Token storage".into(),
+            done: false,
+            steps: Some(LineCount { ticked: 1, total: 3 }),
+        };
+        let details = |free: usize, task: Option<&DetailTask>| -> Vec<String> {
+            session_details(Some(&with_notes), &[&with_notes], 30, free, 0, None, task)
                 .iter()
                 .map(|line| line.iter().map(|part| part.text.as_str()).collect())
                 .collect()
@@ -2892,10 +2909,22 @@ mod tests {
             "task".into(),
             "✶ claude · idle · now".into(),
             "main checkout".into(),
-            "☐ 3 open (2 worktree)".into(),
+            "◆ Token storage 1/3".into(),
+            "☐ 2 open".into(),
         ];
-        assert_eq!(details(5), full);
-        assert_eq!(details(4), full[..4].to_vec());
+        assert_eq!(details(6, Some(&line)), full);
+        // The checklist line goes first, then the line.
+        assert_eq!(details(5, Some(&line)), full[..5].to_vec());
+        assert_eq!(details(4, Some(&line)), full[..4].to_vec());
+        // A ticked line says so; a long title gives way to the count.
+        let ticked = DetailTask {
+            title: "A rather long line title that will not fit".into(),
+            done: true,
+            steps: Some(LineCount { ticked: 3, total: 3 }),
+        };
+        assert_eq!(details(6, Some(&ticked))[4], "◆ A rather long line ti… ✓ 3/3");
+        // No line: no `◆` row.
+        assert_eq!(details(6, None)[4], "☐ 2 open");
     }
 
     /// A managed worktree `w-<name>` at `/wt/<name>` on `feat/<name>`, with `fields` added.
