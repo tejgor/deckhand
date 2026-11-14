@@ -1,6 +1,6 @@
 # Orchestrator, stacked sub-sessions and sidebar depth
 
-**Status:** discussed 2026-11-13; part 2 (sidebar depth) built, parts 1 and 3 not. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
+**Status:** discussed 2026-11-13; parts 1 (stacked sub-sessions, protocol v58) and 2 (sidebar depth) built, part 3 (the orchestrator) not. What parts 1 and 2 do is in `docs/features.md` (*Stacked sub-sessions*, *Merging and done*); what is below for them is the design record. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
 
 ## Why
 
@@ -12,7 +12,7 @@ For a tree of sessions to mean anything in Git, a parent has to be where its chi
 
 ### Today
 
-A sub-session's parent is organisational only. A sub-session in a new worktree branches from `worktree.branchFrom` (by default the launch checkout's HEAD), not from its parent's branch, and `m` merges every worktree into the launch checkout's branch (`docs/features.md`, *Merging and done*). Two sub-sessions of **Auth rework** are siblings of it in Git and each merges straight into main.
+Before stacking, a sub-session's parent was organisational only. A sub-session in a new worktree branched from `worktree.branchFrom` (by default the launch checkout's HEAD — which, as a sub-session is created from its parent's directory, was already the parent's branch; `default` and `origin` were not), and `m` merges every worktree into the launch checkout's branch (`docs/features.md`, *Merging and done*). Two sub-sessions of **Auth rework** are siblings of it in Git and each merges straight into main.
 
 ### The model
 
@@ -104,6 +104,6 @@ It never relies on remembering what it made. Asked to "add a sub-session to the 
 ## Build order
 
 1. ~~Sidebar depth (part 2)~~ built.
-2. Stacked sub-sessions (part 1): the target field, create form, merge dialog, retargeting, merged detection, `N/M in`. **M**, protocol bump.
+2. ~~Stacked sub-sessions (part 1)~~ built (protocol v58). Left out: undoing a retarget when a merge is unmarked; a deeper "working" guard (a session waiting on input does not count as working).
 3. `--parent`, `spawnedBy` and `plan apply`. **M**.
 4. The orchestrator role, entry points and guide. **S–M**.

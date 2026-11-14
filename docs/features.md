@@ -64,7 +64,7 @@ A sub-session's form preselects its parent's agent and directory instead of thes
 | Field | Effect |
 | --- | --- |
 | `location` | Template for a new worktree's path. Default: the state directory's `worktrees/{name}` (normally `~/.deckhand/worktrees/{name}`). An existing worktree at that path, or an existing branch of the new branch's name, is reused. |
-| `branchFrom` | Where a new branch starts. `"current"` (default) is the launch checkout's HEAD. `"default"` is the repository's default branch as a local branch: origin/HEAD's target, else `main`, else `master`, and an error if none exists. `"origin"` runs `git fetch origin <default>` non-interactively with a one-minute timeout, then starts from `origin/<default>`; if the fetch fails, creation fails rather than using a stale ref. The new branch does not track `origin`. The base actually used becomes the session's base, so cleanup and creating a PR (`i`, then `c`, which passes it as `--base`) compare against it. |
+| `branchFrom` | Where a new branch starts. `"current"` (default) is the launch checkout's HEAD. `"default"` is the repository's default branch as a local branch: origin/HEAD's target, else `main`, else `master`, and an error if none exists. `"origin"` runs `git fetch origin <default>` non-interactively with a one-minute timeout, then starts from `origin/<default>`; if the fetch fails, creation fails rather than using a stale ref. The new branch does not track `origin`. The base actually used becomes the session's base, so cleanup and creating a PR (`i`, then `c`, which passes it as `--base`) compare against it. A [stacked sub-session](#stacked-sub-sessions) starts from its parent's branch instead. |
 | `branchName` | Template for the new branch's name. Default `"{name}"`. Placeholders: `{name}` (required; the sanitised worktree name) and `{user}` (your OS username, slugified), for example `"feat/{name}"` or `"{user}/{name}"`. Obviously invalid templates are rejected when the settings are validated. The expanded name is checked with `git check-ref-format --branch` at creation. |
 | `symlink` | Paths relative to the launch checkout's root. Each is linked into the new worktree at the same relative path, pointing at the source's real path (an existing symlink is resolved). Missing sources are skipped. |
 | `files` | Destination (relative, inside the new worktree) → source. Sources may use placeholders, be absolute or be relative to the launch checkout. Linked when the source exists, skipped otherwise. |
@@ -183,7 +183,7 @@ After a deletion, the worktree is marked deleted for every session of it (as wit
 
 ## Merging and done
 
-`m` merges (or squash-merges) the selected session's worktree into the branch of the [launch checkout](#checkouts-and-the-session-list), without committing, so you review and commit the result. The confirmation offers **Merge**, **Squash merge** and **Cancel**, and shows, before anything runs:
+`m` merges (or squash-merges) the selected session's worktree into the branch of the [launch checkout](#checkouts-and-the-session-list), or a [stacked](#stacked-sub-sessions) worktree into its target's branch, in the target's worktree, without committing, so you review and commit the result. The confirmation offers **Merge**, **Squash merge** and **Cancel**, and shows, before anything runs:
 
 - `Into <branch> · <path>`: in yellow when the target is not the repository's main checkout or not on its default branch, so a surprising target stands out.
 - The commits that would be merged (count, then each one's short hash, age and subject, up to 100 before `+N more`) and the diff stat of `<target>...<source>`. A long list scrolls with `J`/`K`.
@@ -192,9 +192,17 @@ After a deletion, the worktree is marked deleted for every session of it (as wit
 - A warning when the target has uncommitted changes in files the merge would touch, since Git would refuse or mix them. Unrelated uncommitted files are fine. A merge, rebase, cherry-pick or revert in progress in the target (or unresolved conflicts) is named, and the merge is refused until it is finished.
 - The notes, which give way first when the pane is short.
 
+For a stacked worktree, the merge goes one hop at a time:
+
+- `Into feature → main`: the branch this merge goes into first (bold), then where that one merges after it (muted). Merging into its own target is not shown in yellow. `t` switches between the target's worktree and the launch checkout, and the preview follows.
+- `⚠ <session> is working in <branch>; merging waits until it is idle` when an agent in the target's worktree is working. Deckhand refuses the merge until it is idle, so it doesn't change files under a running agent. The same applies to any merge into a linked worktree, from the confirmation or not.
+- **Not in this branch yet**: merging a worktree that has worktrees stacked on it lists the ones not merged into it yet, each with how many more are stacked under it (`Login UI (+1 under it)`) and where it will merge afterwards. Nothing is blocked: they move one hop up when this merge is done.
+
+`M` marks a stacked worktree merged into its target's branch.
+
 On conflicts, one small view lists the conflicted files and offers two keys. `enter` (or `esc`) keeps the merge in progress, with conflict markers in the files, and marks the worktree merged now. Resolve the conflicts in your editor or the Git tab's Merge Conflicts group, then commit. `x` aborts it with `git merge --abort`. A squash is not tracked by Git as a merge, so for a squash Deckhand restores the target with `git reset --merge`, keeping your unrelated uncommitted edits. It does that only for a squash it started itself on an unchanged HEAD; otherwise it refuses and says so.
 
-`✓` (merged) belongs to the worktree: every session in a linked worktree shows it, and `M` from any of them sets or clears it. It is also set by itself when the branch was merged outside Deckhand. That means its tip is in the default branch (local, or `origin/<default>` as last fetched; Deckhand never fetches) and it has at least one commit of its own beyond where it started. A fresh branch, or one only fast-forwarded to a newer main, never counts. `i` → `P` finding its PR merged also sets it (GitHub squash merges included). This is checked at daemon start, every five minutes and whenever `i` runs. It never unmarks, and after `M` clears a found marker it stays cleared until the branch gets new commits. Sessions in the main checkout have nothing to merge: `M` says so and points at `space`.
+`✓` (merged) belongs to the worktree: every session in a linked worktree shows it, and `M` from any of them sets or clears it. It is also set by itself when the branch was merged outside Deckhand. That means its tip is in its target's branch, for a [stacked](#stacked-sub-sessions) worktree whose target is still there, or else in the default branch (local, or `origin/<default>` as last fetched; Deckhand never fetches) and it has at least one commit of its own beyond where it started. A fresh branch, or one only fast-forwarded to a newer main, never counts. `i` → `P` finding its PR merged also sets it (GitHub squash merges included). This is checked at daemon start, every five minutes and whenever `i` runs. It never unmarks, and after `M` clears a found marker it stays cleared until the branch gets new commits. Sessions in the main checkout have nothing to merge: `M` says so and points at `space`.
 
 `space` marks any session done (or not done): `☑` in its row, a muted title and `☑2d` (done 2 days ago) after the branch in the details. It is independent of merged (a worktree session can be both) and of archiving; handoffs mention it. If an older Deckhand marked a main-checkout session merged with `M`, it shows as done instead.
 
@@ -376,6 +384,17 @@ New worktrees are created with `git worktree add` at the configured `worktree.lo
 - **Top-level forks**: `n` with a session selected also offers **⑂ Fork <session>**. It forks that session's conversation into a new top-level session rather than a sub-session. The fork starts from the source's directory with `n`'s usual workspace default, and `tab` picks another. A Codex fork stays in the source's worktree, as above. Its details say `⑂ fork of <source>` while the source is listed.
 - **From a handoff**: **↳ From its handoff** creates a clean child from the handoff exported with `H` (see [Resume and handoffs](#resume-and-handoffs)).
 
+### Stacked sub-sessions
+
+A sub-session in a new worktree whose parent has a worktree of its own is **stacked** on it: its branch starts from the parent's branch (whatever `worktree.branchFrom` says) and it merges back into the parent's branch, so a parent's worktree is where its children's work comes together before the parent merges on. It works at any depth.
+
+- **When**: the parent's worktree is a linked worktree (not the main checkout) that is not merged or deleted, and its branch is known. A parent that shares its own parent's worktree stacks its children on that worktree. Otherwise the sub-session is flat, as a top-level session is.
+- **In the create form**: the first base is `<parent's branch> · stacked`, with a line saying it merges back into it. `↑`/`↓` to another base makes it flat. `deckhand new` stacks the same way; `--flat` (or a `--base` other than the parent's branch) keeps it flat.
+- **The session's base** is the parent's branch, so the Git tab, cleanup and creating a PR (`i`, then `c`) compare against it: a stacked worktree's PR targets its parent's branch.
+- **In the sidebar**: the parent's row shows `1/3 in`, how many of the worktrees stacked directly on it are merged into it (a merged worktree still counts after it is deleted), and its details spell it out. A stacked session's details say `→ into <branch>`.
+- **Moving up**: when a target is merged or deleted, the worktrees stacked on it move to its target, one hop up, or become flat at the top. Their details then say `→ into <branch> (was <old target>)`, or `→ into launch checkout (was …)`. Unmarking a merge doesn't move them back.
+- **Merged**: a stacked worktree counts as merged once its branch is in its target's branch (by `m`, or found as below in [Merging and done](#merging-and-done)), and that ticks its task. Whether its commits reached the default branch is the parent's merge.
+
 ## Deckhand commands for agents
 
 An agent in a Deckhand session can take Deckhand actions when you ask it to: "start sub-sessions for these three tasks", "park this in the backlog", "add a step to our note". It runs `deckhand` commands in its shell to do it (Codex calls a `deckhand` tool that runs them, see [What agents are told](#what-agents-are-told)). The sessions it starts appear in the sidebar under it, and you watch them, attach to them and take over as with any other session. You can run the same commands yourself.
@@ -416,6 +435,7 @@ Inside a session, `deckhand new` starts a **sub-session of the caller in a new w
 - **`--agent claude|codex|pi`**: by default the caller's agent. Run by hand, the repository's `defaultAgent`, else Claude.
 - **`--title <title>`**: the name, at most 64 characters. By default the task's title, else the prompt's first line, else the agent's name (`fork` for a fork), with ` 2`, ` 3`… added while an active session of the same name and parent has it.
 - **`--base <branch>`**: where the new worktree's branch starts, instead of `worktree.branchFrom`. Only for a new worktree.
+- **`--flat`**: a new worktree that is not [stacked](#stacked-sub-sessions) on the caller's, starting from `worktree.branchFrom` and merging into the launch checkout. Only for a new worktree.
 - **`--task <id>`**: starts on a task from `deckhand task list` and links it, as `n` in the task list does, so merging or finishing the work ticks it. A prompt replaces the task's text as what the agent receives; without one, the task's text is typed as a draft, as usual. Only a top-level session or a sub-session in a new worktree can start from a task, so with any other `--worktree` the session is top-level. `--task` and `--fork` can't be combined.
 
 A new worktree runs setup as usual. A command can't review `deckhand.json` for you: when the repository's `deckhand.json` sets a `setupCommand` and is not trusted, setup doesn't run and the agent doesn't start. Select the session and press `s` to review the file and retry (see [Setup and actions](#setup-and-actions)).
