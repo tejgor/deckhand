@@ -18,6 +18,18 @@ pub struct MergeLine {
     pub text: String,
     pub color: Option<Color>,
     pub bold: Option<bool>,
+    /// Not in the TS: the line in parts styled apart (their texts make up `text`); none: `text` in one style.
+    pub spans: Option<Vec<MergeSpan>>,
+}
+
+/// Not in the TS: part of a [`MergeLine`] with its own style (the hop a stacked merge makes, among the later ones).
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct MergeSpan {
+    pub text: String,
+    pub color: Option<Color>,
+    pub bold: Option<bool>,
+    pub underline: Option<bool>,
 }
 
 /// TS: mergeModel.ts MergeNoteEntry.
@@ -66,6 +78,24 @@ pub fn surprising_target(preview: &MergePreview) -> bool {
             .is_some_and(|default| preview.target_branch.as_deref() != Some(default))
 }
 
+/// Not in the TS: [`surprising_target`] for a merge that may be stacked. A merge into the worktree's own recorded
+/// target (its parent's worktree) is what was planned, so neither the linked checkout nor the branch not being the
+/// default is a surprise; only that branch not being the one recorded (or none) is. Into the launch checkout, the
+/// rule of a flat merge.
+pub fn surprising_merge_target(preview: &MergePreview, stack: Option<&MergeStack>) -> bool {
+    match stack.filter(|stack| stack.into_target) {
+        Some(stack) => {
+            let target = preview.target_branch.as_deref().filter(|branch| !branch.is_empty());
+            target.is_none()
+                || stack
+                    .target_branch
+                    .as_deref()
+                    .is_some_and(|recorded| Some(recorded) != target)
+        }
+        None => surprising_target(preview),
+    }
+}
+
 /// TS: mergeModel.ts overlappingFiles.
 pub fn overlapping_files(preview: &MergePreview, commit_first: bool) -> Vec<String> {
     let uncommitted: &[String] = if commit_first && preview.uncommitted != 0 {
@@ -92,6 +122,42 @@ pub struct OpenItemsToggle {
     #[serde(default)]
     pub send: bool,
 }
+
+/// Not in the TS: a worktree stacked on the one being merged, with what is stacked under it folded in.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeChild {
+    pub title: String,
+    /// Live worktrees under it, at any depth.
+    #[serde(default)]
+    pub under: usize,
+}
+
+/// Not in the TS: what stacking adds to the merge confirmation (docs/future/orchestrator.md, "One hop at a time").
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeStack {
+    /// The merge goes into the worktree's recorded target (its parent's worktree), not the launch checkout.
+    #[serde(default)]
+    pub into_target: bool,
+    /// The worktree's recorded target branch; none: flat.
+    pub target_branch: Option<String>,
+    /// Into the target: the branches after it, nearest first (the hop merged is the preview's branch).
+    #[serde(default)]
+    pub then: Vec<String>,
+    /// Into the target: the sessions working there (the merge is refused until they are idle).
+    #[serde(default)]
+    pub working: Vec<String>,
+    /// Worktrees stacked directly on this one that are not in yet.
+    #[serde(default)]
+    pub children: Vec<MergeChild>,
+    /// The other target a key switches to (for the hint); none: there is no choice.
+    pub switch_to: Option<String>,
+}
+
+/// The stacked children listed before the rest are summed up in one row.
+pub const MAX_CHILD_ROWS: usize = 5;
 
 /// TS: mergeModel.ts MergeConfirmInput.
 #[skip_serializing_none]
@@ -121,6 +187,9 @@ pub struct MergeConfirmInput {
     /// Not in the TS: the time now (epoch milliseconds), for each commit's age; missing, commits show no age.
     #[serde(default)]
     pub now: Option<i64>,
+    /// Not in the TS: the merge's place in a stack of worktrees; missing, a flat merge with nothing stacked on it.
+    #[serde(default)]
+    pub stack: Option<MergeStack>,
 }
 
 /// TS: mergeModel.ts MergeConfirmLayout.
@@ -156,8 +225,9 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
     let line = |text: String, color: Option<Color>| MergeLine {
         text,
         color,
-        bold: None,
+        ..MergeLine::default()
     };
+    let stack = input.stack.as_ref();
     let mut head: Vec<MergeLine> = Vec::new();
     let mut tail: Vec<MergeLine> = Vec::new();
     let mut commits: Vec<MergeLine> = Vec::new();
@@ -167,23 +237,25 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             None => line("Checking what will be merged…".to_owned(), Some(THEME.muted)),
         }),
         Some(preview) => {
-            let branch = preview.target_branch.as_deref().unwrap_or("(detached)");
-            let prefix = format!("Into {branch} · ");
-            let room = (js_width - to_js(js_len(&prefix))).max(8);
-            let target = compact_path(&preview.target_root, to_index(room));
-            head.push(line(
-                fit(&format!("{prefix}{target}")),
-                Some(if surprising_target(preview) {
-                    THEME.warn
-                } else {
-                    THEME.muted
-                }),
-            ));
+            head.push(into_line(preview, stack, width));
             if let Some(operation) = preview.in_progress {
                 head.push(line(
                     fit(&format!("⚠ {}", operation_problem(operation))),
                     Some(THEME.warn),
                 ));
+            }
+            if let Some(stack) = stack.filter(|stack| stack.into_target)
+                && let Some(first) = stack.working.first()
+            {
+                let branch = preview.target_branch.as_deref().unwrap_or("the target");
+                let text = match stack.working.len() {
+                    1 => format!("⚠ {first} is working in {branch}; merging waits until it is idle"),
+                    count => format!(
+                        "⚠ {first} and {} more are working in {branch}; merging waits until they are idle",
+                        count - 1
+                    ),
+                };
+                head.push(line(fit(&text), Some(THEME.warn)));
             }
             let extra = if input.commit_first && preview.uncommitted != 0 {
                 format!(" · +{}", plural(preview.uncommitted, "uncommitted file"))
@@ -245,6 +317,43 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
                     Some(THEME.accent_soft),
                 ));
             }
+            // Stacked children not in yet: what happens to them (they move to this worktree's target), not a block.
+            if let Some(children) = stack
+                .map(|stack| &stack.children)
+                .filter(|children| !children.is_empty())
+            {
+                let into = stack
+                    .and_then(|stack| stack.target_branch.as_deref())
+                    .or(preview.target_branch.as_deref())
+                    .unwrap_or("the target");
+                tail.push(line(fit("Not in this branch yet:"), None));
+                let shown = if children.len() > MAX_CHILD_ROWS {
+                    MAX_CHILD_ROWS - 1
+                } else {
+                    children.len()
+                };
+                for child in &children[..shown] {
+                    let under = if child.under > 0 {
+                        format!(" (+{} under it)", child.under)
+                    } else {
+                        String::new()
+                    };
+                    let rest = format!("{under} → will merge into {into} afterwards");
+                    // The title gives way first, so the row always says where it goes.
+                    let room = (js_width - 2 - to_js(js_len(&rest))).max(4);
+                    let title = truncate(&child.title, to_index(room));
+                    tail.push(line(fit(&format!("  {title}{rest}")), Some(THEME.muted)));
+                }
+                if shown < children.len() {
+                    tail.push(line(
+                        fit(&format!(
+                            "  +{} more → will merge into {into} afterwards",
+                            children.len() - shown
+                        )),
+                        Some(THEME.muted),
+                    ));
+                }
+            }
             let overlap = overlapping_files(preview, input.commit_first);
             if !overlap.is_empty() {
                 let shown = overlap
@@ -293,6 +402,17 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
         parts.push(HintPart {
             text: text.to_owned(),
             short: Some(short.to_owned()),
+            drop: None,
+        });
+    }
+    if let Some(other) = preview
+        .and(stack)
+        .and_then(|stack| stack.switch_to.as_deref())
+        .filter(|other| !other.is_empty())
+    {
+        parts.push(HintPart {
+            text: format!("t into {other}"),
+            short: Some("t target".to_owned()),
             drop: None,
         });
     }
@@ -362,6 +482,7 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
                     text: entry.title.clone(),
                     color: Some(THEME.muted),
                     bold: Some(true),
+                    spans: None,
                 })
                 .chain(
                     entry
@@ -390,6 +511,7 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             text: "Notes".to_owned(),
             color: Some(THEME.accent_soft),
             bold: Some(true),
+            spans: None,
         });
         notes.extend(shown);
     }
@@ -408,6 +530,81 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
         notes,
         commit_rows,
     }
+}
+
+/// The target line: `Into <branch> · <path>`. Into a stacked target it shows the path one hop at a time,
+/// `Into feature-a → main · <path>`: the hop being merged bold and underlined, the later ones muted.
+fn into_line(preview: &MergePreview, stack: Option<&MergeStack>, width: usize) -> MergeLine {
+    let branch = preview.target_branch.as_deref().unwrap_or("(detached)");
+    let stacked = stack.filter(|stack| stack.into_target);
+    let later: String = stacked
+        .map(|stack| stack.then.iter().map(|hop| format!(" → {hop}")).collect())
+        .unwrap_or_default();
+    let prefix = format!("Into {branch}{later} · ");
+    let room = (to_js(width) - to_js(js_len(&prefix))).max(8);
+    let target = compact_path(&preview.target_root, to_index(room));
+    let text = truncate(&format!("{prefix}{target}"), width);
+    let color = Some(if surprising_merge_target(preview, stack) {
+        THEME.warn
+    } else {
+        THEME.muted
+    });
+    if stacked.is_none() {
+        return MergeLine {
+            text,
+            color,
+            ..MergeLine::default()
+        };
+    }
+    let plain = |text: String, color: Option<Color>| MergeSpan {
+        text,
+        color,
+        ..MergeSpan::default()
+    };
+    let parts = vec![
+        plain("Into ".to_owned(), color),
+        MergeSpan {
+            text: branch.to_owned(),
+            // The default foreground stands out from the muted rest; a surprise keeps its warning color.
+            color: color.filter(|&color| color == THEME.warn),
+            bold: Some(true),
+            underline: Some(true),
+        },
+        plain(later, Some(THEME.muted)),
+        plain(format!(" · {target}"), color),
+    ];
+    MergeLine {
+        spans: Some(fitted_spans(&text, parts)),
+        text,
+        color,
+        bold: None,
+    }
+}
+
+/// `spans` cut as `fitted` (their joined text, maybe truncated with `…`) was: the cut span keeps the ellipsis,
+/// empty spans go.
+fn fitted_spans(fitted: &str, spans: Vec<MergeSpan>) -> Vec<MergeSpan> {
+    let mut rest = fitted;
+    let mut out = Vec::new();
+    for span in spans {
+        if rest.is_empty() {
+            break;
+        }
+        if span.text.is_empty() {
+            continue;
+        }
+        if let Some(after) = rest.strip_prefix(span.text.as_str()) {
+            rest = after;
+            out.push(span);
+        } else {
+            out.push(MergeSpan {
+                text: rest.to_owned(),
+                ..span
+            });
+            rest = "";
+        }
+    }
+    out
 }
 
 /// A Rust count as the JS number it stands for.
@@ -561,6 +758,7 @@ mod tests {
             width: 60,
             height: 40,
             now: None,
+            stack: None,
         }
     }
 
@@ -1053,6 +1251,224 @@ mod tests {
         assert!(loading.toggles.is_empty());
     }
 
+    /// A merge of a worktree stacked on `feature-a` (whose own path goes on to main), into that target.
+    fn stacked() -> MergeConfirmInput {
+        MergeConfirmInput {
+            preview: Some(preview(json!({
+                "targetBranch": "feature-a", "targetIsMain": false, "targetRoot": "/home/me/wt/feature-a",
+            }))),
+            stack: Some(MergeStack {
+                into_target: true,
+                target_branch: Some("feature-a".into()),
+                then: strings(&["main"]),
+                switch_to: Some("main".into()),
+                ..MergeStack::default()
+            }),
+            ..input()
+        }
+    }
+
+    fn span_texts(line: &MergeLine) -> Vec<&str> {
+        line.spans
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .map(|span| span.text.as_str())
+            .collect()
+    }
+
+    #[test]
+    fn a_stacked_merge_shows_its_path_one_hop_at_a_time() {
+        with_home("/home/me", || {
+            let layout = merge_confirm_layout(&stacked());
+            let into = &layout.details[0];
+            assert_eq!(into.text, "Into feature-a → main · ~/wt/feature-a");
+            // Its own recorded target: expected, so muted although it is a linked worktree off the default branch.
+            assert_eq!(into.color, Some(THEME.muted));
+            assert_eq!(span_texts(into), ["Into ", "feature-a", " → main", " · ~/wt/feature-a"]);
+            let spans = into.spans.as_deref().unwrap_or_default();
+            // The hop being merged stands out; the hops after it are muted.
+            assert_eq!(
+                (spans[1].color, spans[1].bold, spans[1].underline),
+                (None, Some(true), Some(true))
+            );
+            assert_eq!((spans[2].color, spans[2].underline), (Some(THEME.muted), None));
+            // The key that switches the target is offered while there is a choice.
+            assert_eq!(
+                layout.hint,
+                "enter choose • space commit first • t into main • esc cancel"
+            );
+
+            // Cut to the width: the spans still make up the text, the cut one keeping the ellipsis.
+            let narrow = merge_confirm_layout(&MergeConfirmInput { width: 15, ..stacked() });
+            assert_eq!(narrow.details[0].text, "Into feature-a…");
+            assert_eq!(span_texts(&narrow.details[0]), ["Into ", "feature-a", "…"]);
+
+            // A deeper stack: every later hop, nearest first.
+            let mut deep = stacked();
+            if let Some(stack) = deep.stack.as_mut() {
+                stack.then = strings(&["feature", "main"]);
+            }
+            assert_eq!(
+                merge_confirm_layout(&deep).details[0].text,
+                "Into feature-a → feature → main · ~/wt/feature-a"
+            );
+
+            // Switched to the launch checkout: the flat line and today's rule (a linked worktree is a surprise).
+            let launch = merge_confirm_layout(&MergeConfirmInput {
+                stack: Some(MergeStack {
+                    into_target: false,
+                    switch_to: Some("feature-a".into()),
+                    ..stacked().stack.unwrap_or_default()
+                }),
+                width: 80,
+                ..stacked()
+            });
+            assert_eq!(launch.details[0].text, "Into feature-a · ~/wt/feature-a");
+            assert_eq!(launch.details[0].color, Some(THEME.warn));
+            assert_eq!(launch.details[0].spans, None);
+            assert!(launch.hint.contains("t into feature-a"));
+
+            // Flat (no stack): as before, and no key to switch.
+            let flat = merge_confirm_layout(&input());
+            assert_eq!(flat.details[0].text, "Into main · ~/code/app");
+            assert_eq!(flat.details[0].spans, None);
+            assert!(!flat.hint.contains("t into"));
+        });
+    }
+
+    #[test]
+    fn a_stacked_merge_is_a_surprise_only_off_its_recorded_branch() {
+        let stack = MergeStack {
+            into_target: true,
+            target_branch: Some("feature-a".into()),
+            ..MergeStack::default()
+        };
+        let linked = |branch: Value| {
+            preview(json!({"targetBranch": branch, "targetIsMain": false, "targetRoot": "/wt/feature-a"}))
+        };
+        assert!(!surprising_merge_target(&linked(json!("feature-a")), Some(&stack)));
+        // The parent's worktree switched branch since: not where this worktree was meant to go.
+        assert!(surprising_merge_target(&linked(json!("other")), Some(&stack)));
+        assert!(surprising_merge_target(&linked(Value::Null), Some(&stack)));
+        // No branch recorded: its target worktree's branch, whichever it is.
+        let unrecorded = MergeStack {
+            target_branch: None,
+            ..stack.clone()
+        };
+        assert!(!surprising_merge_target(&linked(json!("other")), Some(&unrecorded)));
+        // Into the launch checkout, or without a stack: the flat rule.
+        let launch = MergeStack {
+            into_target: false,
+            ..stack
+        };
+        assert!(surprising_merge_target(&linked(json!("feature-a")), Some(&launch)));
+        assert!(!surprising_merge_target(&preview(json!({})), Some(&launch)));
+        assert!(!surprising_merge_target(&preview(json!({})), None));
+    }
+
+    #[test]
+    fn a_stacked_merge_says_who_works_in_the_target() {
+        with_home("/home/me", || {
+            let mut input = stacked();
+            input.width = 100;
+            if let Some(stack) = input.stack.as_mut() {
+                stack.working = strings(&["Auth rework"]);
+            }
+            let layout = merge_confirm_layout(&input);
+            assert_eq!(
+                (layout.details[1].text.as_str(), layout.details[1].color),
+                (
+                    "⚠ Auth rework is working in feature-a; merging waits until it is idle",
+                    Some(THEME.warn)
+                )
+            );
+            if let Some(stack) = input.stack.as_mut() {
+                stack.working = strings(&["Auth rework", "Auth rework / tests"]);
+            }
+            assert_eq!(
+                merge_confirm_layout(&input).details[1].text,
+                "⚠ Auth rework and 1 more are working in feature-a; merging waits until they are idle"
+            );
+            // Into the launch checkout the warning is not about that merge.
+            if let Some(stack) = input.stack.as_mut() {
+                stack.into_target = false;
+            }
+            assert!(
+                !merge_confirm_layout(&input)
+                    .details
+                    .iter()
+                    .any(|line| line.text.contains("is working") || line.text.contains("are working"))
+            );
+        });
+    }
+
+    #[test]
+    fn stacked_children_not_in_yet_are_consequences_one_row_each() {
+        with_home("/home/me", || {
+            let child = |title: &str, under: usize| MergeChild {
+                title: title.into(),
+                under,
+            };
+            let mut input = MergeConfirmInput {
+                width: 80,
+                preview: Some(preview(json!({"uncommitted": 0}))),
+                stack: Some(MergeStack {
+                    children: vec![child("Auth rework / Login UI", 2), child("Auth rework / Tokens", 0)],
+                    ..MergeStack::default()
+                }),
+                ..input()
+            };
+            let layout = merge_confirm_layout(&input);
+            let rows: Vec<&str> = texts(&layout.details)
+                .into_iter()
+                .skip_while(|text| !text.starts_with("Not in"))
+                .collect();
+            // A flat parent: its children go where it goes.
+            assert_eq!(
+                rows,
+                [
+                    "Not in this branch yet:",
+                    "  Auth rework / Login UI (+2 under it) → will merge into main afterwards",
+                    "  Auth rework / Tokens → will merge into main afterwards",
+                ]
+            );
+            // Not a block: the choices stay.
+            assert_eq!(layout.options[0], "Merge into main without committing");
+            // A stacked parent: its children move to its own target, whichever checkout this merge goes into.
+            if let Some(stack) = input.stack.as_mut() {
+                stack.target_branch = Some("feature".into());
+            }
+            let layout = merge_confirm_layout(&input);
+            assert!(texts(&layout.details).contains(&"  Auth rework / Tokens → will merge into feature afterwards"));
+            // Many children: the first ones, then the rest in one row.
+            if let Some(stack) = input.stack.as_mut() {
+                stack.children = (1..=7).map(|n| child(&format!("child {n}"), 0)).collect();
+            }
+            let layout = merge_confirm_layout(&input);
+            let rows: Vec<&str> = texts(&layout.details)
+                .into_iter()
+                .skip_while(|text| !text.starts_with("Not in"))
+                .collect();
+            assert_eq!(rows.len(), 1 + MAX_CHILD_ROWS);
+            assert_eq!(
+                rows[MAX_CHILD_ROWS - 1],
+                "  child 4 → will merge into feature afterwards"
+            );
+            assert_eq!(rows[MAX_CHILD_ROWS], "  +3 more → will merge into feature afterwards");
+            // A long title gives way to where it goes.
+            if let Some(stack) = input.stack.as_mut() {
+                stack.children = vec![child(&"x".repeat(100), 1)];
+            }
+            input.width = 60;
+            let layout = merge_confirm_layout(&input);
+            assert_eq!(
+                layout.details.last().map(|line| line.text.as_str()),
+                Some("  xxxxxx… (+1 under it) → will merge into feature afterwards")
+            );
+        });
+    }
+
     #[test]
     fn plural_and_operation_problem() {
         assert_eq!(plural(1, "file"), "1 file");
@@ -1118,6 +1534,7 @@ mod tests {
                             .and_then(Value::as_str)
                             .map(|color| &*Box::leak(color.to_owned().into_boxed_str())),
                         bold: line.get("bold").and_then(Value::as_bool),
+                        spans: None,
                     })
                 })
                 .collect()

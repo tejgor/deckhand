@@ -28,6 +28,7 @@ use deckhand_protocol::data::{
 };
 use deckhand_sys::desktop::open_in_editor;
 
+use crate::app::modes::confirm::default_merge_target;
 use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
@@ -1663,7 +1664,9 @@ impl Flow<App> for WorktreesFlow {
             };
             let was_merged = truthy(entry.markers.as_ref().and_then(|markers| markers.merged_at.as_deref()));
             let name = worktree_name(entry);
-            let reply = client.mark_session_merged(&owner.id, props.cwd);
+            // A stacked worktree is marked merged into its target's branch, as `m` would merge it.
+            let target_cwd = default_merge_target(props.sessions.iter().copied(), owner, props.cwd);
+            let reply = client.mark_session_merged(&owner.id, &target_cwd);
             let client = Rc::clone(client);
             let cwd = props.cwd.to_owned();
             drop(

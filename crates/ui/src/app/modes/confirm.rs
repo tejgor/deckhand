@@ -15,10 +15,13 @@ use deckhand_core::display::{
 use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim};
 use deckhand_core::key::Input;
 use deckhand_core::merge_model::{
-    MergeConfirmInput, MergeLine, MergeNoteEntry, OpenItemsToggle, conflict_view, merge_confirm_layout,
+    MergeChild, MergeConfirmInput, MergeLine, MergeNoteEntry, MergeStack, OpenItemsToggle, conflict_view,
+    merge_confirm_layout,
 };
+use deckhand_core::merge_stack::{later_hops, launch_branch_from_sessions, stacked_children, working_in};
 use deckhand_core::session_order::session_descendants;
 use deckhand_core::tasks_board::{open_items_removed_with, worktree_open_items};
+use deckhand_core::worktree_records::target_worktree_path;
 use deckhand_protocol::data::{
     CleanupInspection, ResolveMergeAction, SessionCleanupInspection, SessionRecord, SessionStatus, SessionWorktreeMode,
     Task, WorktreeMergeMode, WorktreeMergeResult,
@@ -99,6 +102,11 @@ pub static MERGE_KEYMAP: Keymap = &[
         keys: &[KeySpec::Char("x")],
         action: "abort a conflicted merge",
         help: HelpRef::Hidden("the conflict screen shows its own choices"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("t")],
+        action: "merge a stacked worktree into its target's branch or the launch checkout",
+        help: HelpRef::Hidden("the confirmation shows its own hint line, with t when there is a choice"),
     },
     crate::keymap::SCROLL_DIALOG,
 ];
@@ -534,24 +542,76 @@ pub fn open_merge_confirm(app: &mut App) {
     {
         return;
     }
-    let session_id = session.id;
-    app.merge.request += 1;
-    let request_id = app.merge.request;
+    let stacked_cwd = stacked_merge_target(&app.data.repo_sessions, &session);
     app.merge.confirm_index = 0;
     app.merge.flow = Some(MergeFlow {
-        session_id: session_id.clone(),
+        session_id: session.id,
         commit_first: true,
+        target_cwd: stacked_cwd.clone().unwrap_or_else(|| app.props.cwd.clone()),
+        stacked_cwd,
         ..MergeFlow::default()
     });
     app.set_mode(Mode::ConfirmMerge);
     // What would be merged, checked fresh each time the confirmation opens.
+    fetch_merge_preview(app);
+}
+
+/// Not in the TS: the checkout a stacked worktree merges into by default, its target's worktree (the parent's branch
+/// is checked out there), when that resolves over the sessions; `None` for a flat worktree.
+pub fn stacked_merge_target<'a>(
+    sessions: impl IntoIterator<Item = &'a SessionRecord>,
+    session: &SessionRecord,
+) -> Option<String> {
+    session
+        .worktree
+        .as_ref()
+        .and_then(|worktree| target_worktree_path(sessions, worktree))
+}
+
+/// Not in the TS: where `m`, `M` and the Worktrees view's `M` merge a session's worktree unless told otherwise: its
+/// stacked target ([`stacked_merge_target`]), else the launch checkout `launch_cwd`. A merged marker set there names
+/// the parent's branch.
+pub fn default_merge_target<'a>(
+    sessions: impl IntoIterator<Item = &'a SessionRecord>,
+    session: &SessionRecord,
+    launch_cwd: &str,
+) -> String {
+    stacked_merge_target(sessions, session).unwrap_or_else(|| launch_cwd.to_owned())
+}
+
+/// Not in the TS: the launch checkout's branch, where a stacked merge's path ends, when it is known without asking
+/// Git: what the last preview of a merge into it said, else a session in the main checkout there.
+pub fn launch_branch(app: &App) -> Option<String> {
+    app.merge
+        .launch_branch
+        .clone()
+        .or_else(|| launch_branch_from_sessions(&app.data.repo_sessions, &app.props.cwd))
+}
+
+/// What the merge confirmation's flow would merge into its `target_cwd`, checked fresh; an answer to an earlier
+/// request (the confirmation reopened, or the target switched since) is dropped.
+fn fetch_merge_preview(app: &mut App) {
+    let Some((session_id, target_cwd)) = app
+        .merge
+        .flow
+        .as_ref()
+        .map(|flow| (flow.session_id.clone(), flow.target_cwd.clone()))
+    else {
+        return;
+    };
+    app.merge.request += 1;
+    let request_id = app.merge.request;
     let Some(client) = app.client() else {
         return;
     };
-    let reply = client.merge_preview(&session_id, &app.props.cwd);
+    let into_launch = target_cwd == app.props.cwd;
+    let reply = client.merge_preview(&session_id, &target_cwd);
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         if app.merge.request != request_id {
             return;
+        }
+        if into_launch && let Ok(preview) = &result {
+            app.merge.launch_branch = preview.target_branch.clone().filter(|branch| !branch.is_empty());
         }
         if let Some(flow) = app.merge.flow.as_mut().filter(|flow| flow.session_id == session_id) {
             match result {
@@ -563,6 +623,28 @@ pub fn open_merge_confirm(app: &mut App) {
     drop(task);
 }
 
+/// Not in the TS: `t` on the merge confirmation of a stacked worktree: merge into the launch checkout instead of the
+/// target's worktree, or back. The preview is fetched again for the new target. False when there is no choice.
+fn switch_merge_target(app: &mut App) -> bool {
+    let launch_cwd = app.props.cwd.clone();
+    let Some(flow) = app.merge.flow.as_mut() else {
+        return false;
+    };
+    let Some(stacked) = flow.stacked_cwd.clone() else {
+        return false;
+    };
+    flow.target_cwd = if flow.target_cwd == stacked {
+        launch_cwd
+    } else {
+        stacked
+    };
+    flow.preview = None;
+    flow.preview_error = None;
+    flow.error = None;
+    fetch_merge_preview(app);
+    true
+}
+
 /// TS: the confirm-merge branch.
 pub fn handle_confirm_merge(app: &mut App, input: &Input) {
     let key = &input.key;
@@ -571,7 +653,11 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         app.set_mode(Mode::Browse);
         return;
     }
-    // Until the preview (or its error) is in, the choices are not shown: only Esc acts.
+    // Switching the target works while it checks too: the new target's preview replaces the pending one.
+    if input.input == "t" && switch_merge_target(app) {
+        return;
+    }
+    // Until the preview (or its error) is in, the choices are not shown: only Esc and t act.
     if merge_loading(app.merge.flow.as_ref()) {
         if key.return_ {
             app.set_status(Some("Still checking what will be merged…".to_owned()));
@@ -660,6 +746,12 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     };
     let session_id = session.id.clone();
     let flow = app.merge.flow.clone().filter(|flow| flow.session_id == session_id);
+    // The checkout the confirmation showed (and previewed); without one, where it would have gone.
+    let target_cwd = flow
+        .as_ref()
+        .map(|flow| flow.target_cwd.clone())
+        .filter(|target| !target.is_empty())
+        .unwrap_or_else(|| default_merge_target(&app.data.repo_sessions, &session, &app.props.cwd));
     // The toggle only applies when there is something uncommitted to commit.
     let commit_first = flow
         .as_ref()
@@ -677,7 +769,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     let reply = client.merge_worktree(
         &session_id,
         mode,
-        &app.props.cwd,
+        &target_cwd,
         MergeOptions {
             commit_first,
             send_open_items,
@@ -685,7 +777,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         match result {
-            Ok(result) => merged(app, session_id, mode, result),
+            Ok(result) => merged(app, session_id, mode, result, target_cwd),
             // Shown on the confirmation (a failed commit's hook output can be long); nothing was merged.
             Err(error) => {
                 if let Some(flow) = app.merge.flow.as_mut().filter(|flow| flow.session_id == session_id) {
@@ -699,7 +791,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
 }
 
 /// TS mergeSelected after the merge answered: the conflicts screen, or the outcome in the footer.
-fn merged(app: &mut App, session_id: String, mode: WorktreeMergeMode, result: WorktreeMergeResult) {
+fn merged(app: &mut App, session_id: String, mode: WorktreeMergeMode, result: WorktreeMergeResult, target_cwd: String) {
     let sent = match result.sent_items {
         Some(count) if count != 0 => format!(" · {} sent to the backlog", counted(count, "open note item")),
         _ => String::new(),
@@ -709,7 +801,11 @@ fn merged(app: &mut App, session_id: String, mode: WorktreeMergeMode, result: Wo
         .as_ref()
         .map(|committed| format!("Committed {}, then ", counted(committed.files, "file")));
     if result.conflicted == Some(true) {
-        app.merge.conflict = Some(MergeConflict { session_id, result });
+        app.merge.conflict = Some(MergeConflict {
+            session_id,
+            result,
+            target_cwd,
+        });
         app.set_mode(Mode::MergeConflicts);
         return;
     }
@@ -759,12 +855,23 @@ pub fn resolve_conflicted_merge(app: &mut App, action: ResolveMergeAction) {
     let Some(client) = app.client() else {
         return;
     };
-    let Some(MergeConflict { session_id, result }) = app.merge.conflict.clone() else {
+    let Some(MergeConflict {
+        session_id,
+        result,
+        target_cwd,
+    }) = app.merge.conflict.clone()
+    else {
         return;
     };
     app.set_busy(true);
     app.set_error(None);
-    let reply = client.resolve_merge(&session_id, &app.props.cwd, action);
+    // Where the merge is in progress: the checkout it went into.
+    let target_cwd = if target_cwd.is_empty() {
+        app.props.cwd.clone()
+    } else {
+        target_cwd
+    };
+    let reply = client.resolve_merge(&session_id, &target_cwd, action);
     let task = app.dispatch().spawn(reply, move |app: &mut App, outcome| {
         match outcome {
             Ok(updated) => {
@@ -1114,13 +1221,85 @@ pub struct MergeConfirmPaneProps<'a> {
     pub tasks: &'a [Task],
     /// The time now (epoch milliseconds), for the commits' ages; `None` leaves them out.
     pub now: Option<i64>,
+    /// Not in the TS: the launch checkout's branch when known, where a stacked merge's path ends.
+    pub launch_branch: Option<&'a str>,
 }
 
-/// A merge line as a `<Text wrap="truncate-end">`.
+/// A merge line as a `<Text wrap="truncate-end">` (its spans styled apart when it has them).
 fn merge_line_row(line: &MergeLine) -> Row {
     let mut style = TextStyle::default().color(line.color.and_then(color));
     style.bold = line.bold;
-    text(line.text.clone(), style)
+    match line.spans.as_deref() {
+        Some(spans) => spans
+            .iter()
+            .map(|span| {
+                let mut style = TextStyle::default().color(span.color.and_then(color));
+                style.bold = span.bold;
+                style.underline = span.underline;
+                Seg::new(span.text.clone(), style)
+            })
+            .collect(),
+        None => text(line.text.clone(), style),
+    }
+}
+
+/// Not in the TS: what stacking adds to the merge confirmation of `session`'s worktree: the path from its target on,
+/// who works there, the worktrees stacked on it and the key to switch target. `None` for a flat worktree with nothing
+/// stacked on it (the confirmation as it always was).
+fn merge_stack(props: &MergeConfirmPaneProps<'_>) -> Option<MergeStack> {
+    let session = props.session?;
+    let worktree = session.worktree.as_ref()?;
+    let sessions = props.sessions.iter().copied();
+    let children: Vec<MergeChild> = worktree
+        .id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+        .map(|id| {
+            stacked_children(sessions.clone(), id)
+                .into_iter()
+                .map(|child| MergeChild {
+                    title: display_session_title(child.session, props.sessions),
+                    under: child.under,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let flow = props.flow;
+    let stacked_cwd = flow.and_then(|flow| flow.stacked_cwd.as_deref());
+    if stacked_cwd.is_none() && children.is_empty() {
+        return None;
+    }
+    let into_target = stacked_cwd.is_some() && flow.map(|flow| flow.target_cwd.as_str()) == stacked_cwd;
+    let target_id = worktree.target_worktree_id.as_deref().unwrap_or_default();
+    let (then, working) = match stacked_cwd.filter(|_| into_target) {
+        Some(root) => (
+            later_hops(sessions.clone(), worktree, props.launch_branch),
+            working_in(sessions, target_id, root)
+                .into_iter()
+                .map(|session| display_session_title(session, props.sessions))
+                .collect(),
+        ),
+        None => (Vec::new(), Vec::new()),
+    };
+    let switch_to = stacked_cwd.map(|root| {
+        if into_target {
+            props.launch_branch.unwrap_or("the launch checkout").to_owned()
+        } else {
+            worktree
+                .target_branch
+                .clone()
+                .filter(|branch| !branch.is_empty())
+                .unwrap_or_else(|| compact_path(root, 30))
+        }
+    });
+    Some(MergeStack {
+        into_target,
+        target_branch: worktree.target_branch.clone().filter(|branch| !branch.is_empty()),
+        then,
+        working,
+        children,
+        switch_to,
+    })
 }
 
 /// The rows the merge screen lays out for: enough that nothing (commits, a hook's output, notes) is cut; the body
@@ -1161,6 +1340,7 @@ pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogR
         width: content_width,
         height: MERGE_LAYOUT_ROWS,
         now: props.now,
+        stack: merge_stack(props),
     });
     let on_task = flow.is_some_and(|flow| flow.on_items);
     let mut rows = DialogRows::default();
@@ -2344,6 +2524,236 @@ mod tests {
         });
     }
 
+    /// `record` (in a worktree) stacked on the worktree `target` (its id and branch).
+    fn stacked_on(mut record: SessionRecord, target: (&str, &str)) -> SessionRecord {
+        if let Some(worktree) = record.worktree.as_mut() {
+            worktree.target_worktree_id = Some(target.0.to_owned());
+            worktree.target_branch = Some(target.1.to_owned());
+        }
+        record
+    }
+
+    /// Login UI (selected, on `login` at /wt/login) stacked on its parent Auth rework (on `feature` at /wt/lead).
+    fn stacked_sessions() -> Vec<SessionRecord> {
+        let lead = in_worktree(
+            session("lead", "Auth rework", SessionStatus::Running),
+            "w-lead",
+            "/wt/lead",
+            "feature",
+        );
+        let mut login = stacked_on(
+            in_worktree(
+                session("c1", "Login UI", SessionStatus::Running),
+                "w-login",
+                "/wt/login",
+                "login",
+            ),
+            ("w-lead", "feature"),
+        );
+        login.parent_session_id = Some("lead".to_owned());
+        vec![login, lead]
+    }
+
+    /// A daemon's preview of a merge into the checkout the request names: the stacked target (/wt/lead, on
+    /// `feature`), else the launch checkout (/repo, on main).
+    fn previews_by_target(request: &Value) -> Value {
+        let mut preview = preview_json(0);
+        if request["targetCwd"] == "/wt/lead" {
+            preview["targetRoot"] = json!("/wt/lead");
+            preview["targetBranch"] = json!("feature");
+            preview["targetIsMain"] = json!(false);
+        }
+        json!({"ok": true, "data": preview})
+    }
+
+    fn preview_branch(app: &App) -> Option<String> {
+        app.merge
+            .flow
+            .as_ref()
+            .and_then(|flow| flow.preview.as_ref())
+            .and_then(|preview| preview.target_branch.clone())
+    }
+
+    /// The merge screen as the app would draw it for the selected session.
+    fn merge_screen(app: &App) -> Vec<String> {
+        let sessions = app.sessions();
+        let session_refs = refs(&sessions);
+        let selected = app.selected_session();
+        let launch = launch_branch(app);
+        let props = MergeConfirmPaneProps {
+            session: selected.as_ref(),
+            sessions: &session_refs,
+            flow: app.merge.flow.as_ref(),
+            selected_index: app.merge.confirm_index,
+            tasks: &[],
+            now: None,
+            launch_branch: launch.as_deref(),
+        };
+        drawn(|buf, area| render_merge_confirm_pane(&props, buf, area))
+    }
+
+    #[test]
+    fn a_stacked_worktree_merges_into_its_target_by_default_and_t_switches() {
+        run(async {
+            let (mut app, mut rx) = app_with(stacked_sessions());
+            let (client, requests) = fake_daemon(previews_by_target);
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[0]["type"], "merge-preview");
+            assert_eq!(requests.borrow()[0]["targetCwd"], "/wt/lead");
+            let flow = app.merge.flow.clone().unwrap();
+            assert_eq!(
+                (flow.target_cwd.as_str(), flow.stacked_cwd.as_deref()),
+                ("/wt/lead", Some("/wt/lead"))
+            );
+            assert_eq!(preview_branch(&app).as_deref(), Some("feature"));
+            // t: the launch checkout instead, previewed afresh (the target's preview goes at once).
+            handle_confirm_merge(&mut app, &press("t"));
+            let flow = app.merge.flow.clone().unwrap();
+            assert_eq!(flow.target_cwd, "/repo");
+            assert!(flow.preview.is_none());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[1]["targetCwd"], "/repo");
+            assert_eq!(preview_branch(&app).as_deref(), Some("main"));
+            // The launch checkout's branch is remembered: where a stacked merge's path ends.
+            assert_eq!(app.merge.launch_branch.as_deref(), Some("main"));
+            // Switched twice before the answers: the earlier answer is dropped.
+            handle_confirm_merge(&mut app, &press("t"));
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow().len(), 4);
+            assert_eq!(
+                app.merge.flow.as_ref().map(|flow| flow.target_cwd.as_str()),
+                Some("/repo")
+            );
+            assert_eq!(preview_branch(&app).as_deref(), Some("main"));
+            // And back to the target.
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            assert_eq!(preview_branch(&app).as_deref(), Some("feature"));
+
+            // A flat worktree has no choice: t does nothing, and the hint does not offer it.
+            let (mut flat, mut flat_rx) = app_with(vec![in_worktree(
+                session("s1", "beta", SessionStatus::Running),
+                "w1",
+                "/wt/beta",
+                "beta",
+            )]);
+            let (client, flat_requests) = fake_daemon(previews_by_target);
+            flat.connection.client = Some(client);
+            open_merge_confirm(&mut flat);
+            settle(&mut flat, &mut flat_rx).await;
+            assert_eq!(flat_requests.borrow()[0]["targetCwd"], "/repo");
+            assert_eq!(flat.merge.flow.as_ref().and_then(|flow| flow.stacked_cwd.clone()), None);
+            handle_confirm_merge(&mut flat, &press("t"));
+            settle(&mut flat, &mut flat_rx).await;
+            assert_eq!(flat_requests.borrow().len(), 1);
+            assert_eq!(preview_branch(&flat).as_deref(), Some("main"));
+            assert!(!merge_screen(&flat).iter().any(|row| row.contains("t into")));
+        });
+    }
+
+    #[test]
+    fn a_stacked_merge_and_its_conflicts_go_to_the_chosen_target() {
+        run(async {
+            let reply = serde_json::to_value(stacked_sessions()[0].clone()).unwrap();
+            let (client, requests) = fake_daemon(move |request| match request["type"].as_str() {
+                Some("merge-preview") => previews_by_target(request),
+                Some("merge-worktree") => json!({"ok": true, "data": merge_result(
+                    json!({"conflicted": true, "conflicts": ["a.txt"], "targetBranch": "feature"}),
+                )}),
+                _ => json!({"ok": true, "data": reply}),
+            });
+            let (mut app, mut rx) = app_with(stacked_sessions());
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let merge = requests.borrow()[1].clone();
+            assert_eq!(merge["type"], "merge-worktree");
+            assert_eq!(merge["targetCwd"], "/wt/lead");
+            assert_eq!(app.mode, Mode::MergeConflicts);
+            // The conflicted merge is in progress in the target: it is kept (or aborted) there.
+            assert_eq!(
+                app.merge.conflict.as_ref().map(|conflict| conflict.target_cwd.as_str()),
+                Some("/wt/lead")
+            );
+            handle_merge_conflicts(&mut app, &escape());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[2]["type"], "resolve-merge");
+            assert_eq!(requests.borrow()[2]["targetCwd"], "/wt/lead");
+            assert_eq!(app.mode, Mode::Browse);
+            // Switched to the launch checkout: merged there.
+            open_merge_confirm(&mut app);
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let last = requests.borrow().last().cloned().unwrap();
+            assert_eq!(
+                (last["type"].as_str(), last["targetCwd"].as_str()),
+                (Some("merge-worktree"), Some("/repo"))
+            );
+        });
+    }
+
+    #[test]
+    fn a_merge_into_a_working_target_says_so_and_shows_the_refusal() {
+        run(async {
+            let mut sessions = stacked_sessions();
+            sessions[1].agent_status = Some(deckhand_protocol::data::AgentActivityStatus::Active);
+            let refusal = "Auth rework is working in feature; merge when it is idle";
+            let (client, _requests) = fake_daemon(move |request| {
+                if request["type"] == "merge-preview" {
+                    previews_by_target(request)
+                } else {
+                    json!({"ok": false, "error": refusal})
+                }
+            });
+            let (mut app, mut rx) = app_with(sessions);
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            let warning = "⚠ Auth rework is working in feature; merging waits until it is idle";
+            assert!(merge_screen(&app).iter().any(|row| row.contains(warning)));
+            // Nothing is blocked here: the daemon refuses, and its answer shows on the confirmation.
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(app.mode, Mode::ConfirmMerge);
+            assert_eq!(
+                app.merge.flow.as_ref().and_then(|flow| flow.error.as_deref()),
+                Some(refusal)
+            );
+            assert_eq!(app.messages.error, None);
+            assert!(merge_screen(&app).iter().any(|row| row.contains(refusal)));
+            // Into the launch checkout the parent's work does not hold the merge up.
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            assert!(!merge_screen(&app).iter().any(|row| row.contains("is working in")));
+        });
+    }
+
+    #[test]
+    fn marking_a_stacked_worktree_merged_names_its_target() {
+        run(async {
+            let reply = serde_json::to_value(stacked_sessions()[0].clone()).unwrap();
+            let (client, requests) = fake_daemon(move |_| json!({"ok": true, "data": reply}));
+            let (mut app, mut rx) = app_with(stacked_sessions());
+            app.connection.client = Some(client);
+            crate::app::modes::browse::mark_selected_merged(&mut app);
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[0]["type"], "mark-session-merged");
+            assert_eq!(requests.borrow()[0]["targetCwd"], "/wt/lead");
+            // Its target's worktree has no session left to find it by: the launch checkout, as a flat worktree.
+            app.data.repo_sessions.retain(|session| session.id != "lead");
+            crate::app::modes::browse::mark_selected_merged(&mut app);
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[1]["targetCwd"], "/repo");
+        });
+    }
+
     #[test]
     fn a_failed_or_stale_preview_is_kept_apart() {
         run(async {
@@ -2534,6 +2944,7 @@ mod tests {
             app.set_mode(Mode::MergeConflicts);
             app.merge.conflict = Some(MergeConflict {
                 session_id: "s1".to_owned(),
+                target_cwd: "/repo".to_owned(),
                 result: serde_json::from_value(result).unwrap(),
             });
             handle_merge_conflicts(&mut app, &press("x"));
@@ -2555,6 +2966,7 @@ mod tests {
             let (mut app, mut rx) = merging(0, client);
             app.merge.conflict = Some(MergeConflict {
                 session_id: "s1".to_owned(),
+                target_cwd: "/repo".to_owned(),
                 result: serde_json::from_value(merge_result(json!({"conflicted": true, "conflicts": ["a.txt"]})))
                     .unwrap(),
             });
@@ -2575,6 +2987,7 @@ mod tests {
             let (mut app, mut rx) = merging(0, client);
             app.merge.conflict = Some(MergeConflict {
                 session_id: "s1".to_owned(),
+                target_cwd: "/repo".to_owned(),
                 result: serde_json::from_value(merge_result(json!({"conflicted": true}))).unwrap(),
             });
             app.set_mode(Mode::MergeConflicts);
@@ -2838,6 +3251,7 @@ mod tests {
             selected_index: 0,
             tasks: &[],
             now: None,
+            launch_branch: None,
         };
         assert_pane("45-confirm-merge", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
@@ -2863,6 +3277,7 @@ mod tests {
             selected_index: 0,
             tasks: &[],
             now: None,
+            launch_branch: None,
         };
         assert_pane("58-confirm-merge-commits", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
@@ -2880,6 +3295,7 @@ mod tests {
             selected_index: 2,
             tasks: &[],
             now: None,
+            launch_branch: None,
         };
         let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&waiting, buf, area)));
         // A full-pane screen: the title right under the border.
@@ -2907,6 +3323,157 @@ mod tests {
         };
         let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&failed, buf, area)));
         assert!(rows.iter().any(|row| row.contains("hook failed")));
+    }
+
+    #[test]
+    fn a_stacked_merge_confirmation_matches_the_snapshot() {
+        // Login UI, stacked on Auth rework, whose agent is working; the launch checkout is on main.
+        let mut lead = in_worktree(
+            session("lead", "Auth rework", SessionStatus::Running),
+            "w-lead",
+            "<TMP>/home/worktrees/auth",
+            "feature",
+        );
+        lead.agent_status = Some(deckhand_protocol::data::AgentActivityStatus::Active);
+        let mut login = stacked_on(
+            in_worktree(
+                session("c1", "Login UI", SessionStatus::Running),
+                "w-login",
+                "<TMP>/home/worktrees/login",
+                "login",
+            ),
+            ("w-lead", "feature"),
+        );
+        login.parent_session_id = Some("lead".to_owned());
+        let sessions = [login, lead];
+        let preview: MergePreview = serde_json::from_value(json!({"sourceRef": "login",
+            "targetRoot": "<TMP>/home/worktrees/auth", "targetBranch": "feature", "targetIsMain": false,
+            "defaultBranch": "main", "commitCount": 1, "commits": ["login form"],
+            "diff": {"files": 2, "insertions": 40, "deletions": 3}, "uncommitted": 0,
+            "overlap": {"committed": [], "uncommitted": []}}))
+        .unwrap();
+        let flow = MergeFlow {
+            session_id: "c1".to_owned(),
+            preview: Some(preview),
+            commit_first: true,
+            target_cwd: "<TMP>/home/worktrees/auth".to_owned(),
+            stacked_cwd: Some("<TMP>/home/worktrees/auth".to_owned()),
+            ..MergeFlow::default()
+        };
+        let props = MergeConfirmPaneProps {
+            session: sessions.first(),
+            sessions: &refs(&sessions),
+            flow: Some(&flow),
+            selected_index: 0,
+            tasks: &[],
+            now: None,
+            launch_branch: Some("main"),
+        };
+        let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&props, buf, area)));
+        let text: Vec<&str> = rows
+            .iter()
+            .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
+            .collect();
+        // The hop being merged, then the rest of the path; who works in the target; the key to the other target.
+        assert_eq!(text[1], "Merge \"Login UI\"?");
+        assert_eq!(text[2], "Into feature → main · <TMP>/home/worktrees/auth");
+        assert_eq!(
+            text[3],
+            "⚠ Auth rework is working in feature; merging waits until it is idle"
+        );
+        assert!(text.contains(&"enter choose • t into main • esc cancel"), "{text:#?}");
+        // The hop merged is bold and underlined, the later one not.
+        let area = Rect::new(0, 0, 98, 31);
+        let mut buf = Buffer::empty(area);
+        render_merge_confirm_pane(&props, &mut buf, area);
+        let y = (0..area.height)
+            .find(|&y| {
+                (0..area.width)
+                    .map(|x| buf[(x, y)].symbol())
+                    .collect::<String>()
+                    .contains("Into feature")
+            })
+            .unwrap();
+        let x = (0..area.width).find(|&x| buf[(x, y)].symbol() == "I").unwrap();
+        let cell = |offset: u16| buf[(x + offset, y)].clone();
+        assert!(cell(5).modifier.contains(ratatui::style::Modifier::UNDERLINED));
+        assert!(cell(5).modifier.contains(ratatui::style::Modifier::BOLD));
+        assert!(!cell(15).modifier.contains(ratatui::style::Modifier::UNDERLINED));
+        assert_pane("61-confirm-merge-stacked", |buf, area| {
+            render_merge_confirm_pane(&props, buf, area);
+        });
+    }
+
+    #[test]
+    fn a_parent_merge_confirmation_lists_its_children_not_in_yet() {
+        // Auth rework (flat) with Login UI (and Login form under it) and Tokens stacked on it.
+        let lead = in_worktree(
+            session("lead", "Auth rework", SessionStatus::Running),
+            "w-lead",
+            "<TMP>/home/worktrees/auth",
+            "feature",
+        );
+        let child = |id: &str, title: &str, worktree: &str, parent: &str, target: (&str, &str)| {
+            let mut record = stacked_on(
+                in_worktree(
+                    session(id, title, SessionStatus::Running),
+                    worktree,
+                    &format!("<TMP>/home/worktrees/{worktree}"),
+                    worktree,
+                ),
+                target,
+            );
+            record.parent_session_id = Some(parent.to_owned());
+            record
+        };
+        // Each child's worktree id is its branch name here; Login form is stacked on Login UI's worktree.
+        let sessions = [
+            lead,
+            child("c1", "Login UI", "login", "lead", ("w-lead", "feature")),
+            child("c2", "Tokens", "tokens", "lead", ("w-lead", "feature")),
+            child("g1", "Login form", "form", "c1", ("login", "login")),
+        ];
+        let flow = MergeFlow {
+            session_id: "lead".to_owned(),
+            preview: Some(feat_preview()),
+            commit_first: true,
+            target_cwd: "<TMP>/demo".to_owned(),
+            ..MergeFlow::default()
+        };
+        let props = MergeConfirmPaneProps {
+            session: sessions.first(),
+            sessions: &refs(&sessions),
+            flow: Some(&flow),
+            selected_index: 0,
+            tasks: &[],
+            now: None,
+            launch_branch: Some("main"),
+        };
+        let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&props, buf, area)));
+        let text: Vec<&str> = rows
+            .iter()
+            .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
+            .collect();
+        let at = text.iter().position(|row| *row == "Not in this branch yet:").unwrap();
+        // One row per direct child, the grandchild folded into the child it sits under; nothing is blocked.
+        assert_eq!(
+            text[at + 1..at + 3],
+            [
+                "Login UI (+1 under it) → will merge into main afterwards",
+                "Tokens → will merge into main afterwards",
+            ]
+        );
+        assert!(!text.iter().any(|row| row.contains("Login form")));
+        assert!(
+            text.iter()
+                .any(|row| row.contains("Merge into main without committing"))
+        );
+        // A flat merge: the line as always, and no other target to switch to.
+        assert_eq!(text[2], "Into main · <TMP>/demo");
+        assert!(!text.iter().any(|row| row.contains("t into")));
+        assert_pane("62-confirm-merge-children", |buf, area| {
+            render_merge_confirm_pane(&props, buf, area);
+        });
     }
 
     #[test]
@@ -3028,6 +3595,7 @@ mod tests {
                     selected_index: 1,
                     tasks: &[],
                     now: None,
+                    launch_branch: None,
                 };
                 // The full 92-column pane.
                 let lines = dialog_rows(&plain_rows(92, height, |buf, area| {
@@ -3080,6 +3648,7 @@ mod tests {
                 selected_index: 0,
                 tasks: &tasks,
                 now: None,
+                launch_branch: None,
             };
             let with_tasks = dialog_rows(&plain_rows(92, 30, |buf, area| {
                 render_merge_confirm_pane(&props, buf, area)
@@ -3173,6 +3742,7 @@ mod tests {
                     selected_index: 0,
                     tasks: &[],
                     now: None,
+                    launch_branch: None,
                 },
                 &mut buf,
                 area,

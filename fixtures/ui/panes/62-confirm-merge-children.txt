@@ -1,0 +1,31 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Merge "Auth rework"?                                                                           │
+│ Into main · <TMP>/demo                                                                         │
+│ 1 commit · 1 file +1 −1                                                                        │
+│ Not in this branch yet:                                                                        │
+│   Login UI (+1 under it) → will merge into main afterwards                                     │
+│   Tokens → will merge into main afterwards                                                     │
+│   feat change                                                                                  │
+│                                                                                                │
+│ Notes                                                                                          │
+│ No notes for this worktree, this session or its sub-sessions.                                  │
+│                                                                                                │
+│ ❯ Merge into main without committing                                                           │
+│   Squash merge into main without committing                                                    │
+│   Cancel                                                                                       │
+│                                                                                                │
+│ enter choose • esc cancel                                                                      │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯

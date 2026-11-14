@@ -1,0 +1,31 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Merge "Login UI"?                                                                              │
+│ Into feature → main · <TMP>/home/worktrees/auth                                                │
+│ ⚠ Auth rework is working in feature; merging waits until it is idle                            │
+│ 1 commit · 2 files +40 −3                                                                      │
+│   login form                                                                                   │
+│                                                                                                │
+│ Notes                                                                                          │
+│ No notes for this worktree, this session or its sub-sessions.                                  │
+│                                                                                                │
+│ ❯ Merge into feature without committing                                                        │
+│   Squash merge into feature without committing                                                 │
+│   Cancel                                                                                       │
+│                                                                                                │
+│ enter choose • t into main • esc cancel                                                        │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯
