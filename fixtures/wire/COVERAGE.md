@@ -62,7 +62,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `changes-diff` | 2 | 0 |
 | c2d | - | `close-terminal` | 0 | 1 |
 | c2d | - | `create-pr` | 2 | 0 |
-| c2d | - | `create` | 14 | 1 |
+| c2d | - | `create` | 14 | 2 |
 | c2d | - | `delete-worktree` | 8 | 0 |
 | c2d | - | `detach` | 0 | 1 |
 | c2d | - | `dev-detach` | 0 | 1 |
@@ -85,8 +85,12 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `merge-worktree` | 4 | 0 |
 | c2d | - | `new-terminal` | 0 | 1 |
 | c2d | - | `open-note` | 1 | 0 |
+| c2d | - | `open-orchestrator` | 0 | 1 |
 | c2d | - | `open-tasks` | 0 | 1 |
 | c2d | - | `ping` | 1 | 0 |
+| c2d | - | `plan-apply` | 0 | 1 |
+| c2d | - | `plan-check` | 0 | 1 |
+| c2d | - | `plan-decide` | 0 | 1 |
 | c2d | - | `project-info` | 2 | 0 |
 | c2d | - | `promote-note-item` | 2 | 0 |
 | c2d | - | `remove` | 3 | 0 |
@@ -143,15 +147,17 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `git-output` | 0 | 1 |
 | d2c | - | `git-updated` | 0 | 2 |
 | d2c | - | `output` | 0 | 1 |
+| d2c | - | `plan-pending` | 0 | 1 |
+| d2c | - | `plan-settled` | 0 | 1 |
 | d2c | - | `preview-updated` | 1 | 1 |
 | d2c | - | `session-removed` | 1 | 0 |
-| d2c | - | `session-updated` | 24 | 0 |
+| d2c | - | `session-updated` | 24 | 2 |
 | d2c | - | `tasks-updated` | 1 | 0 |
 | d2c | - | `terminal-attached` | 1 | 0 |
 | d2c | - | `terminal-detached` | 1 | 0 |
 | d2c | - | `terminal-output` | 1 | 0 |
 | d2c | - | `terminal-updated` | 1 | 1 |
-| d2c | - | response (failure) | 24 | 1 |
+| d2c | - | response (failure) | 24 | 2 |
 | d2c | - | response `agent-hook` | 1 | 0 |
 | d2c | - | response `agent-versions` | 3 | 0 |
 | d2c | - | response `archive-session` | 2 | 0 |
@@ -180,8 +186,12 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `merge-worktree` | 5 | 0 |
 | d2c | - | response `new-terminal` | 0 | 1 |
 | d2c | - | response `open-note` | 1 | 0 |
+| d2c | - | response `open-orchestrator` | 0 | 1 |
 | d2c | - | response `open-tasks` | 0 | 1 |
 | d2c | - | response `ping` | 1 | 0 |
+| d2c | - | response `plan-apply` | 0 | 2 |
+| d2c | - | response `plan-check` | 0 | 1 |
+| d2c | - | response `plan-decide` | 0 | 1 |
 | d2c | - | response `project-info` | 13 | 0 |
 | d2c | - | response `promote-note-item` | 2 | 0 |
 | d2c | - | response `remove` | 1 | 0 |

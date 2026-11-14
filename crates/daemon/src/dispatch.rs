@@ -161,7 +161,12 @@ impl Daemon {
                 reply(client, &r.request_id, updated)
             }
             Request::List(r) => reply(client, &r.request_id, self.handle_list()),
-            Request::Subscribe(r) => reply(client, &r.request_id, self.handle_subscribe(conn, &r).await),
+            Request::Subscribe(r) => {
+                reply(client, &r.request_id, self.handle_subscribe(conn, &r).await)?;
+                // Not in the TS: plans waiting for an answer in the client's repository, after its sessions.
+                self.send_pending_plans(client).await;
+                Ok(())
+            }
             Request::ListWorktrees(r) => reply(client, &r.request_id, self.handle_list_worktrees(&r).await),
             Request::WorktreeOverview(r) => reply(
                 client,
@@ -318,6 +323,10 @@ impl Daemon {
                     .await,
             ),
             Request::Remove(r) => reply(client, &r.request_id, self.handle_remove(&r).await),
+            Request::PlanCheck(r) => reply(client, &r.request_id, self.handle_plan_check(&r).await),
+            Request::PlanApply(r) => reply(client, &r.request_id, self.handle_plan_apply(&r).await),
+            Request::PlanDecide(r) => reply(client, &r.request_id, self.handle_plan_decide(&r).await),
+            Request::OpenOrchestrator(r) => reply(client, &r.request_id, self.handle_open_orchestrator(&r).await),
             // Attaches answer by themselves (the response, then `*attached` and the initial frame).
             Request::Attach(r) => self.handle_attach(conn, &r).await,
             Request::AttachTerminal(r) => {

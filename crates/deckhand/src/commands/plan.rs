@@ -30,6 +30,8 @@ pub struct NewContext<'a> {
     pub existing_path: Option<&'a str>,
     /// Every session the daemon has, so a name made up here does not clash with an active one.
     pub sessions: &'a [SessionRecord],
+    /// `--parent`, found among them (the daemon checks the caller may start sessions under it).
+    pub parent: Option<&'a SessionRecord>,
 }
 
 fn needs_caller(what: &str) -> DhError {
@@ -40,9 +42,11 @@ fn needs_caller(what: &str) -> DhError {
 
 /// The `create` input for `deckhand new` (see `NEW_USAGE`), built as the UI's form does (`submit_create`).
 ///
-/// - A sub-session of the caller unless `--top-level` or no caller. With `--task` and a worktree other than a new one,
-///   top-level: the daemon starts a task only in a top-level session or a sub-session in a new worktree.
+/// - A sub-session of `--parent`, else of the caller unless `--top-level` or no caller. With `--task` and a worktree
+///   other than a new one, top-level: the daemon starts a task only in a top-level session or a sub-session in a new
+///   worktree.
 /// - The new session starts from its parent's (or fork source's) directory, else the repository's checkout.
+///   `--worktree same` is the parent's worktree (else the caller's).
 /// - The agent: `--agent`, the caller's, the repository's default, else Claude; a fork keeps the caller's.
 pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSessionInput, DhError> {
     let caller = cx.caller;
@@ -55,7 +59,10 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
             .as_ref()
             .is_some_and(|choice| *choice != WorktreeChoice::New);
     let top_level = args.top_level || caller.is_none() || task_outside_new_worktree;
-    let parent = caller.filter(|_| !top_level);
+    let parent = match cx.parent {
+        Some(parent) => Some(parent),
+        None => caller.filter(|_| !top_level),
+    };
     let program = match (args.fork, caller) {
         (true, Some(source)) => match args.agent {
             Some(agent) if agent != source.program => {
@@ -73,7 +80,10 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
             .unwrap_or(ProgramKey::Claude),
     };
     let kind = args.fork.then_some(SubSessionKind::Forked);
-    let repo_root = caller.map_or(cx.repo_root, |caller| caller.repo_root.as_str());
+    let repo_root = cx
+        .parent
+        .or(caller)
+        .map_or(cx.repo_root, |session| session.repo_root.as_str());
     // Where it starts from: its parent, or the session a top-level fork copies (as the UI's `create_origin`).
     let origin = parent.or(caller.filter(|_| args.fork));
     let origin_cwd = origin.map_or(repo_root, |origin| origin.cwd.as_str());
@@ -84,8 +94,8 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
     };
     let (worktree_mode, cwd, existing_worktree_path) = match args.worktree.clone().unwrap_or(default_choice) {
         WorktreeChoice::New => (WorktreeMode::New, origin_cwd, None),
-        WorktreeChoice::Same => match caller {
-            Some(caller) => (WorktreeMode::None, caller.cwd.as_str(), None),
+        WorktreeChoice::Same => match cx.parent.or(caller) {
+            Some(shared) => (WorktreeMode::None, shared.cwd.as_str(), None),
             None => return Err(needs_caller("--worktree same")),
         },
         WorktreeChoice::None => (WorktreeMode::None, repo_root, None),
@@ -122,6 +132,7 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
         submit: args.draft.then_some(false),
         // Absent: the daemon stacks a sub-session's new worktree on its parent's where it can.
         stacked: (args.flat && worktree_mode == WorktreeMode::New).then_some(false),
+        role: None,
     })
 }
 
@@ -305,6 +316,7 @@ mod tests {
             task: None,
             existing_path: None,
             sessions,
+            parent: None,
         }
     }
 
@@ -345,6 +357,7 @@ mod tests {
                 prompt: Some("Write the tests.\nThen run them.".into()),
                 submit: None,
                 stacked: None,
+                role: None,
             }
         );
     }
@@ -366,6 +379,42 @@ mod tests {
                 .ok(),
             Some(ProgramKey::Claude)
         );
+    }
+
+    #[test]
+    fn parent_puts_the_session_under_another_session_with_or_without_a_caller() {
+        let caller = in_worktree("lead", "claude");
+        let started = in_worktree("auth", "codex");
+        let sessions = [caller.clone(), started.clone()];
+        let args = |worktree: Option<WorktreeChoice>| NewArgs {
+            parent: Some("auth".into()),
+            worktree,
+            prompt: Some("Token storage".into()),
+            ..NewArgs::default()
+        };
+        let under = |caller: Option<&SessionRecord>, worktree: Option<WorktreeChoice>| {
+            let mut cx = cx(caller, &sessions);
+            cx.parent = Some(&started);
+            create_input(&args(worktree), &cx).expect("input")
+        };
+        for caller in [Some(&caller), None] {
+            let input = under(caller, None);
+            assert_eq!(input.parent_session_id.as_deref(), Some("auth"));
+            assert_eq!(input.sub_session_kind, Some(SubSessionKind::Clean));
+            // From the parent's worktree, so the daemon stacks it there.
+            assert_eq!(
+                (input.cwd.as_str(), input.worktree_mode),
+                ("/wt/auth", Some(WorktreeMode::New))
+            );
+            let same = under(caller, Some(WorktreeChoice::Same));
+            assert_eq!(
+                (same.cwd.as_str(), same.worktree_mode),
+                ("/wt/auth", Some(WorktreeMode::None))
+            );
+        }
+        // The caller's agent is still the default.
+        assert_eq!(under(Some(&caller), None).program, ProgramKey::Claude);
+        assert_eq!(under(None, None).program, ProgramKey::Claude);
     }
 
     #[test]

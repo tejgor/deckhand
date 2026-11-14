@@ -15,6 +15,11 @@
 //!   through `env_vars` (names only, so the hook token never appears in an argument); with
 //!   `allow_deckhand_commands` (unless false) the tool runs without asking (`default_tools_approval_mode`).
 //!
+//! - **The orchestrator** (a Claude session with role `orchestrator`) also gets its guide, always loaded
+//!   ([`ORCHESTRATOR_GUIDE`], `--append-system-prompt`, after the trigger when that goes there too: Claude takes the
+//!   flag once), and the file-editing tools denied ([`ORCHESTRATOR_DISALLOWED_TOOLS`], `--disallowedTools`), so it
+//!   plans and dispatches but cannot implement.
+//!
 //! The plugin lives in the state directory (`<DECKHAND_HOME>/agent-plugin`) and is rewritten only when its content
 //! differs from this build's.
 
@@ -23,7 +28,8 @@ use std::path::{Path, PathBuf};
 use deckhand_core::agent_guide::{CODEX_TRIGGER, GUIDE, SKILL_DESCRIPTION, SKILL_NAME, TRIGGER};
 use deckhand_core::agent_versions::compare_versions;
 use deckhand_core::error::{DhError, Result};
-use deckhand_protocol::data::ProgramKey;
+use deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE;
+use deckhand_protocol::data::{ProgramKey, SessionRole};
 
 use crate::agent_path::program_help;
 use crate::paths;
@@ -34,6 +40,9 @@ pub const PLUGIN_DIR_NAME: &str = "agent-plugin";
 
 /// The permission rule that lets Claude run `deckhand` commands without asking.
 pub const DECKHAND_COMMANDS_RULE: &str = "Bash(deckhand:*)";
+
+/// The tools an orchestrator may not use: it plans and dispatches, the sessions it starts implement.
+pub const ORCHESTRATOR_DISALLOWED_TOOLS: [&str; 3] = ["Edit", "Write", "NotebookEdit"];
 
 /// The name of Deckhand's MCP server in Codex's `mcp_servers` (its tool shows as `deckhand` from server `deckhand`).
 pub const CODEX_MCP_SERVER: &str = "deckhand";
@@ -209,11 +218,13 @@ pub struct CommandInputs<'a> {
     pub codex_version: Option<&'a str>,
     /// The `deckhand` Codex starts as its MCP server (none: no server).
     pub deckhand: Option<&'a Path>,
+    /// The session's role (the orchestrator gets its guide and no file-editing tools).
+    pub role: Option<SessionRole>,
 }
 
 /// The launch arguments that tell an agent about the `deckhand` commands (see the module docs). `plugin`: the
 /// plugin directory, when it could be written; `allow_commands`: pre-allow them; `deckhand`: the executable Codex
-/// starts as its MCP server; `version`: the agent's version.
+/// starts as its MCP server; `version`: the agent's version; `role`: the session's.
 pub async fn command_args(
     program: ProgramKey,
     command: &str,
@@ -221,6 +232,7 @@ pub async fn command_args(
     allow_commands: bool,
     deckhand: Option<&Path>,
     version: Option<&str>,
+    role: Option<SessionRole>,
 ) -> Vec<String> {
     let help = program_help(command).await;
     let codex_instructions = if program == ProgramKey::Codex {
@@ -237,6 +249,7 @@ pub async fn command_args(
             codex_instructions: codex_instructions.as_deref(),
             codex_version: version,
             deckhand,
+            role,
         },
     )
 }
@@ -250,22 +263,35 @@ pub fn command_args_for(program: ProgramKey, inputs: &CommandInputs) -> Vec<Stri
         codex_instructions,
         codex_version,
         deckhand,
+        role,
     } = *inputs;
     let mut args = Vec::new();
     match program {
         ProgramKey::Claude => {
-            // `--allowedTools` takes several values: the next option ends them, so it goes first.
+            let orchestrator = role == Some(SessionRole::Orchestrator);
+            // `--allowedTools` and `--disallowedTools` take several values: the next option ends them, so they go
+            // first.
             if allow_commands && help.contains("--allowedTools") {
                 args.extend(["--allowedTools".to_owned(), DECKHAND_COMMANDS_RULE.to_owned()]);
             }
+            if orchestrator && help.contains("--disallowedTools") {
+                args.push("--disallowedTools".to_owned());
+                args.extend(ORCHESTRATOR_DISALLOWED_TOOLS.map(str::to_owned));
+            }
+            // Claude takes `--append-system-prompt` once: the trigger (without the plugin) and the orchestrator's
+            // guide share it.
+            let mut appended = Vec::new();
             match plugin {
                 Some(plugin) if help.contains("--plugin-dir") => {
                     args.extend(["--plugin-dir".to_owned(), plugin.to_string_lossy().into_owned()]);
                 }
-                _ if help.contains("--append-system-prompt") => {
-                    args.extend(["--append-system-prompt".to_owned(), TRIGGER.to_owned()]);
-                }
-                _ => {}
+                _ => appended.push(TRIGGER),
+            }
+            if orchestrator {
+                appended.push(ORCHESTRATOR_GUIDE.trim_end());
+            }
+            if help.contains("--append-system-prompt") && !appended.is_empty() {
+                args.extend(["--append-system-prompt".to_owned(), appended.join("\n\n")]);
             }
         }
         ProgramKey::Pi => match plugin {
@@ -352,6 +378,83 @@ mod tests {
             ..inputs(CLAUDE_HELP, Some(plugin), true)
         };
         assert_eq!(claude(with_mcp), claude(inputs(CLAUDE_HELP, Some(plugin), true)));
+    }
+
+    #[test]
+    fn the_orchestrator_gets_its_guide_and_no_editing_tools() {
+        let plugin = Path::new("/h/agent-plugin");
+        let orchestrator = |help: &str, plugin: Option<&Path>| {
+            command_args_for(
+                ProgramKey::Claude,
+                &CommandInputs {
+                    role: Some(SessionRole::Orchestrator),
+                    ..inputs(help, plugin, true)
+                },
+            )
+        };
+        let help = format!("{CLAUDE_HELP}  --disallowedTools, --disallowed-tools <tools...>\n");
+        let guide = ORCHESTRATOR_GUIDE.trim_end();
+        assert_eq!(
+            orchestrator(&help, Some(plugin)),
+            strings(&[
+                "--allowedTools",
+                "Bash(deckhand:*)",
+                "--disallowedTools",
+                "Edit",
+                "Write",
+                "NotebookEdit",
+                "--plugin-dir",
+                "/h/agent-plugin",
+                "--append-system-prompt",
+                guide,
+            ])
+        );
+        // Without the plugin the trigger goes in the same --append-system-prompt, first.
+        let combined = format!("{TRIGGER}\n\n{guide}");
+        assert_eq!(
+            orchestrator(&help, None),
+            strings(&[
+                "--allowedTools",
+                "Bash(deckhand:*)",
+                "--disallowedTools",
+                "Edit",
+                "Write",
+                "NotebookEdit",
+                "--append-system-prompt",
+                &combined,
+            ])
+        );
+        // Each flag only when the installed Claude lists it.
+        assert_eq!(
+            orchestrator(CLAUDE_HELP, Some(plugin)),
+            strings(&[
+                "--allowedTools",
+                "Bash(deckhand:*)",
+                "--plugin-dir",
+                "/h/agent-plugin",
+                "--append-system-prompt",
+                guide,
+            ])
+        );
+        assert_eq!(
+            orchestrator("--disallowedTools --plugin-dir", Some(plugin)),
+            strings(&[
+                "--disallowedTools",
+                "Edit",
+                "Write",
+                "NotebookEdit",
+                "--plugin-dir",
+                "/h/agent-plugin"
+            ])
+        );
+        assert!(orchestrator("", Some(plugin)).is_empty());
+        // Any other session gets neither.
+        let plain = command_args_for(ProgramKey::Claude, &inputs(&help, Some(plugin), true));
+        assert!(
+            !plain
+                .iter()
+                .any(|arg| arg == "--disallowedTools" || arg == "--append-system-prompt")
+        );
     }
 
     #[test]

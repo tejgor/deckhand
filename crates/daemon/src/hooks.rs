@@ -76,6 +76,23 @@ static LETTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\p{L}").expect("v
 #[derive(Debug, Default)]
 pub struct HooksState {}
 
+/// Not in the TS: how long [`Daemon::deliver_prompt`] waits between the paste and the Enter that submits it.
+pub const SUBMIT_AFTER_PASTE: Duration = Duration::from_millis(150);
+
+/// `text` as one bracketed paste, so no character of it acts as a key.
+pub fn paste(text: &str) -> String {
+    format!("\x1b[200~{text}\x1b[201~")
+}
+
+/// The worker event typing `data` into the agent.
+fn agent_input(data: &str) -> Map<String, Value> {
+    let mut payload = Map::new();
+    payload.insert("type".to_owned(), Value::String("input".to_owned()));
+    payload.insert("target".to_owned(), Value::String("agent".to_owned()));
+    payload.insert("data".to_owned(), Value::String(data.to_owned()));
+    payload
+}
+
 /// TS: `AGENT_PROMPT_PATTERN.test(screen)`.
 pub fn shows_agent_prompt(screen: &str) -> bool {
     AGENT_PROMPT.is_match(screen)
@@ -432,12 +449,52 @@ impl Daemon {
             return Ok(());
         }
         self.drop_draft(session_id, None, true);
-        let mut payload = Map::new();
-        payload.insert("type".to_owned(), Value::String("input".to_owned()));
-        payload.insert("target".to_owned(), Value::String("agent".to_owned()));
-        payload.insert("data".to_owned(), Value::String(format!("\x1b[200~{text}\x1b[201~")));
-        self.send_worker_event(session_id, payload);
+        self.send_worker_event(session_id, agent_input(&paste(&text)));
         self.log(&format!("typed the task draft into {session_id}")).await;
+        Ok(())
+    }
+
+    /// Not in the TS: types `text` into the agent of `session_id` as one bracketed paste and submits it (`deckhand
+    /// do`, to the orchestrator), as a draft is typed but sent. Only while the agent sits idle at its input: refused,
+    /// with nothing typed, while it starts, works, waits for an answer (a question or a permission), shows a menu, or
+    /// has a draft waiting.
+    pub async fn deliver_prompt(&self, session_id: &str, text: &str) -> Result<()> {
+        let session = self.require_session(session_id)?;
+        let name = self.session_path(&session);
+        let refuse = |why: &str| Err(DhError::msg(format!("{name} {why}; nothing was sent")));
+        match session.status {
+            SessionStatus::Starting => return refuse("is still starting"),
+            SessionStatus::Exited => return refuse("is not running"),
+            SessionStatus::Running => {}
+        }
+        let Some(worker) = self
+            .session_worker(session_id)
+            .filter(|worker| !worker.channel.is_exited())
+        else {
+            return refuse("is not running");
+        };
+        if session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::NeedsInput) {
+            return refuse("is waiting for an answer (a question or a permission): answer it in Deckhand first");
+        }
+        if deckhand_core::sidebar_model::agent_working(&session) {
+            return refuse("is busy with a turn: try again when it is idle");
+        }
+        if worker.draft.borrow().is_some() {
+            return refuse("has a draft waiting to be typed");
+        }
+        let at_input = worker
+            .screen
+            .borrow()
+            .as_deref()
+            .is_some_and(|screen| !js_trim(screen).is_empty() && !shows_agent_prompt(screen));
+        if !at_input {
+            return refuse("is not at its input (its screen shows a menu or question, or nothing yet)");
+        }
+        self.send_worker_event(session_id, agent_input(&paste(text)));
+        // The paste lands first, then the Enter that submits it (an Enter inside the paste would only add a line).
+        tokio::time::sleep(SUBMIT_AFTER_PASTE).await;
+        self.send_worker_event(session_id, agent_input("\r"));
+        self.log(&format!("sent a request to {session_id}")).await;
         Ok(())
     }
 
@@ -528,7 +585,7 @@ pub(crate) mod tests {
     }
 
     /// The other end of a fake session worker's channel.
-    struct FakeWorker {
+    pub(crate) struct FakeWorker {
         theirs: BufReader<UnixStream>,
         _events: ChannelEvents,
     }
@@ -544,7 +601,7 @@ pub(crate) mod tests {
 
     /// A daemon in `dir` without a notes store, with session `s` (running, launch `launch-1`) and its fake worker
     /// (token `token`).
-    async fn setup(dir: &Path) -> (Daemon, Rc<WorkerRuntime>, FakeWorker) {
+    pub(crate) async fn setup(dir: &Path) -> (Daemon, Rc<WorkerRuntime>, FakeWorker) {
         let daemon = test_daemon(dir);
         daemon.notes_tasks.borrow_mut().notes = None;
         let mut record = session("s", "/r", "/r");
@@ -772,12 +829,16 @@ pub(crate) mod tests {
                 error.to_string(),
                 "Cannot read properties of undefined (reading 'program')"
             );
-            // It starts sessions only from itself: another parent, fork source or handoff is refused.
-            for key in ["parentSessionId", "forkFromSessionId", "handoffFromSessionId"] {
+            // It forks and hands off only itself, and starts sessions only under itself or sessions it started.
+            for (key, refusal) in [
+                ("parentSessionId", crate::sessions::NOT_CALLERS_PARENT),
+                ("forkFromSessionId", crate::sessions::NOT_CALLERS_CHILD),
+                ("handoffFromSessionId", crate::sessions::NOT_CALLERS_CHILD),
+            ] {
                 let mut request = create(caller("token"));
                 request.input = Some(json!({ key: "other" }));
                 let error = daemon.handle_create(&request).await.unwrap_err();
-                assert_eq!(error.to_string(), crate::sessions::NOT_CALLERS_CHILD, "{key}");
+                assert_eq!(error.to_string(), refusal, "{key}");
             }
             // Once the session exited, its launch's credentials no longer work.
             daemon.patch_session("s", |session| session.status = SessionStatus::Exited);
@@ -845,6 +906,159 @@ pub(crate) mod tests {
             assert_eq!(error.to_string(), "session does not exist");
             daemon.handle_remove(&remove("theirs", Value::Null)).await.unwrap();
             assert!(daemon.get_session("theirs").is_none());
+        });
+    }
+
+    /// Sessions around caller `s`: `spawned` (started by it, top-level, as a plan does), `deep` (under `spawned`),
+    /// `sub` (its sub-session from before `spawnedBySessionId`), `theirs` (another's) and `top` (the user's).
+    fn family(daemon: &Daemon) {
+        for (id, parent, spawned_by) in [
+            ("spawned", None, Some("s")),
+            ("deep", Some("spawned"), None),
+            ("sub", Some("s"), None),
+            ("theirs", Some("other"), None),
+            ("top", None, None),
+        ] {
+            let mut member = session(id, "/r", "/r");
+            member.title = id.to_owned();
+            member.status = SessionStatus::Exited;
+            member.parent_session_id = parent.map(str::to_owned);
+            member.spawned_by_session_id = spawned_by.map(str::to_owned);
+            daemon.set_session(member);
+        }
+    }
+
+    /// A `create` input for a clean session titled `title` under `parent`.
+    fn child_input(title: &str, parent: Option<&str>) -> Value {
+        json!({"title": title, "program": "claude", "cwd": "/r", "repoRoot": "/r", "cols": 80, "rows": 24,
+            "worktreeMode": "none", "parentSessionId": parent, "subSessionKind": parent.map(|_| "clean")})
+    }
+
+    #[test]
+    fn a_caller_starts_sessions_under_itself_and_the_sessions_it_started_and_is_recorded_as_their_starter() {
+        use crate::sessions::{CALLER_CANNOT_ORCHESTRATE, NOT_CALLERS_PARENT};
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            // The agent is resolved after validation; a cached name keeps the test off PATH.
+            daemon
+                .launch
+                .borrow_mut()
+                .program_command_cache
+                .insert(deckhand_protocol::data::ProgramKey::Claude, "claude".into());
+            family(&daemon);
+            assert_eq!(
+                daemon.started_by("s"),
+                ["spawned", "deep", "sub"].map(str::to_owned).into_iter().collect()
+            );
+            let as_caller = |input: Value| {
+                let mut request = create(caller("token"));
+                request.input = Some(input);
+                let daemon = daemon.clone();
+                async move { daemon.handle_create(&request).await }
+            };
+            for (title, parent) in [
+                ("under itself", Some("s")),
+                ("under spawned", Some("spawned")),
+                ("under deep", Some("deep")),
+                ("under sub", Some("sub")),
+                ("top level", None),
+            ] {
+                let created = as_caller(child_input(title, parent)).await.unwrap();
+                assert_eq!(created.parent_session_id.as_deref(), parent, "{title}");
+                // Who started it is recorded from the authenticated caller.
+                assert_eq!(created.spawned_by_session_id.as_deref(), Some("s"), "{title}");
+            }
+            for parent in ["theirs", "top"] {
+                let error = as_caller(child_input("refused", Some(parent))).await.unwrap_err();
+                assert_eq!(error.to_string(), NOT_CALLERS_PARENT, "{parent}");
+            }
+            let mut orchestrator = child_input("Orchestrator", None);
+            orchestrator["role"] = json!("orchestrator");
+            let error = as_caller(orchestrator).await.unwrap_err();
+            assert_eq!(error.to_string(), CALLER_CANNOT_ORCHESTRATE);
+            // Run by hand (no caller): any parent of the repository, and nobody recorded as its starter, whatever the
+            // input says.
+            let mut input = child_input("by hand", Some("theirs"));
+            input["spawnedBySessionId"] = json!("s");
+            let request: deckhand_protocol::wire::Create =
+                serde_json::from_value(json!({"requestId": "r", "input": input})).unwrap();
+            let created = daemon.handle_create(&request).await.unwrap();
+            assert_eq!(created.parent_session_id.as_deref(), Some("theirs"));
+            assert_eq!(created.spawned_by_session_id, None);
+        });
+    }
+
+    #[test]
+    fn a_caller_stops_and_removes_the_sessions_it_started_and_those_under_them() {
+        use crate::sessions::NOT_CALLERS_SUB_SESSION;
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            family(&daemon);
+            for id in ["spawned", "deep", "sub"] {
+                // Allowed: the kill's own check answers (they have exited).
+                let error = daemon
+                    .handle_kill(&kill(id, caller("token"), json!({})))
+                    .await
+                    .unwrap_err();
+                assert_eq!(error.to_string(), "session is not running", "{id}");
+            }
+            for id in ["theirs", "top", "s"] {
+                let error = daemon
+                    .handle_kill(&kill(id, caller("token"), json!({})))
+                    .await
+                    .unwrap_err();
+                assert_eq!(error.to_string(), NOT_CALLERS_SUB_SESSION, "{id}");
+                let error = daemon.handle_remove(&remove(id, caller("token"))).await.unwrap_err();
+                assert_eq!(error.to_string(), NOT_CALLERS_SUB_SESSION, "{id}");
+            }
+            daemon.handle_remove(&remove("deep", caller("token"))).await.unwrap();
+            daemon.handle_remove(&remove("spawned", caller("token"))).await.unwrap();
+            assert!(daemon.get_session("deep").is_none() && daemon.get_session("spawned").is_none());
+        });
+    }
+
+    #[test]
+    fn a_request_is_typed_and_submitted_only_while_the_agent_is_idle_at_its_input() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, worker, mut fake) = setup(dir.path()).await;
+            daemon.set_session({
+                let mut session = daemon.get_session("s").unwrap();
+                session.title = "Orchestrator".into();
+                session
+            });
+            let refused =
+                |daemon: Daemon| async move { daemon.deliver_prompt("s", "Plan it").await.unwrap_err().to_string() };
+            // No screen yet, or a menu on it.
+            assert!(refused(daemon.clone()).await.contains("is not at its input"));
+            *worker.screen.borrow_mut() = Some("❯ 1. Yes, I trust this folder\n".into());
+            assert!(refused(daemon.clone()).await.contains("is not at its input"));
+            *worker.screen.borrow_mut() = Some("> \n".into());
+            // Waiting for an answer, or working.
+            seed(&daemon, AttentionState::NeedsInput, None, None);
+            assert_eq!(
+                refused(daemon.clone()).await,
+                "Orchestrator is waiting for an answer (a question or a permission): answer it in Deckhand first; \
+                 nothing was sent"
+            );
+            seed(&daemon, AttentionState::Working, None, None);
+            assert_eq!(
+                refused(daemon.clone()).await,
+                "Orchestrator is busy with a turn: try again when it is idle; nothing was sent"
+            );
+            seed(&daemon, AttentionState::ResponseEnded, None, None);
+            daemon.deliver_prompt("s", "Plan it").await.unwrap();
+            let pasted = fake.next().await;
+            assert_eq!(pasted["type"], "input");
+            assert_eq!(pasted["target"], "agent");
+            assert_eq!(pasted["data"], "\x1b[200~Plan it\x1b[201~");
+            let submitted = fake.next().await;
+            assert_eq!(submitted["data"], "\r");
         });
     }
 

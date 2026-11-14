@@ -10,10 +10,11 @@ use serde_with::skip_serializing_none;
 
 use crate::data::{
     AgentUpdateResult, AgentVersions, AttachResult, BranchList, CandidateSizes, ChangeDiff, ChangeStageResult,
-    ChangesRecord, CreatePrResult, MergePreview, NoteSaveResult, OkResult, PaneRecord, PingResult, PreviewRecord,
-    ProjectInfo, PromoteNoteItemResult, SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection,
-    SessionRecord, SessionRestartOutcome, SettingsInfo, TasksDoc, WorkspaceSummary, WorktreeCandidates,
-    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
+    ChangesRecord, CreatePrResult, MergePreview, NoteSaveResult, OkResult, OrchestratorResult, PaneRecord, PendingPlan,
+    PingResult, PlanDecision, PlanOutcome, PlanSummary, PreviewRecord, ProjectInfo, PromoteNoteItemResult,
+    SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
+    SettingsInfo, TasksDoc, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
+    WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
 };
 use crate::order::Ordered;
 
@@ -133,6 +134,23 @@ pub struct TasksUpdated {
     pub tasks: TasksDoc,
 }
 
+/// Not in the TS: a plan waits for the user's answer (`plan-apply`); also sent to a client that subscribes while one
+/// is pending for its repository.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PlanPending {
+    pub plan: PendingPlan,
+}
+
+/// Not in the TS: a pending plan was answered (by any client) or expired: its confirmation closes.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSettled {
+    pub plan_id: String,
+    pub decision: PlanDecision,
+}
+
 /// types.ts ServerMessage (= ServerResponse | ServerEvent), internally tagged on `type`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -161,6 +179,10 @@ pub enum ServerMessage {
     AgentVersionsUpdated(Box<AgentVersionsUpdated>),
     #[serde(rename = "tasks-updated")]
     TasksUpdated(TasksUpdated),
+    #[serde(rename = "plan-pending")]
+    PlanPending(Box<PlanPending>),
+    #[serde(rename = "plan-settled")]
+    PlanSettled(PlanSettled),
     #[serde(rename = "terminal-output")]
     TerminalOutput(SessionOutput),
     #[serde(rename = "git-output")]
@@ -206,6 +228,8 @@ impl ServerMessage {
         "changes-updated",
         "agent-versions-updated",
         "tasks-updated",
+        "plan-pending",
+        "plan-settled",
         "terminal-output",
         "git-output",
         "dev-output",
@@ -237,6 +261,8 @@ impl ServerMessage {
             ServerMessage::ChangesUpdated(_) => "changes-updated",
             ServerMessage::AgentVersionsUpdated(_) => "agent-versions-updated",
             ServerMessage::TasksUpdated(_) => "tasks-updated",
+            ServerMessage::PlanPending(_) => "plan-pending",
+            ServerMessage::PlanSettled(_) => "plan-settled",
             ServerMessage::TerminalOutput(_) => "terminal-output",
             ServerMessage::GitOutput(_) => "git-output",
             ServerMessage::DevOutput(_) => "dev-output",
@@ -294,6 +320,12 @@ pub enum ResponseData {
     Attach(Box<Ordered<AttachResult>>),
     /// Not in the TS: what became of each session `restart-sessions` resumed.
     SessionRestarts(Vec<SessionRestartOutcome>),
+    /// Not in the TS: `plan-check`.
+    PlanSummary(Box<PlanSummary>),
+    /// Not in the TS: `plan-apply`.
+    PlanOutcome(Box<PlanOutcome>),
+    /// Not in the TS: `open-orchestrator`.
+    Orchestrator(Box<OrchestratorResult>),
 }
 
 /// `ResponseData::decode` was given a request type the daemon does not answer with data.
@@ -318,7 +350,8 @@ impl ResponseData {
             | "stop-action"
             | "kill"
             | "remove"
-            | "dismiss-interrupted" => ResponseData::Ok(from(data)?),
+            | "dismiss-interrupted"
+            | "plan-decide" => ResponseData::Ok(from(data)?),
             "export-handoff" | "open-note" | "open-tasks" => ResponseData::Path(from(data)?),
             "set-session-done"
             | "set-reply-read"
@@ -343,6 +376,9 @@ impl ResponseData {
             "agent-versions" => ResponseData::AgentVersions(Box::new(from(data)?)),
             "update-agent" => ResponseData::AgentUpdate(Box::new(from(data)?)),
             "restart-sessions" => ResponseData::SessionRestarts(from(data)?),
+            "plan-check" => ResponseData::PlanSummary(Box::new(from(data)?)),
+            "plan-apply" => ResponseData::PlanOutcome(Box::new(from(data)?)),
+            "open-orchestrator" => ResponseData::Orchestrator(Box::new(from(data)?)),
             "list-worktrees" => ResponseData::Worktrees(from(data)?),
             "worktree-overview" => ResponseData::WorktreeOverview(from(data)?),
             "delete-worktree" => ResponseData::WorktreeDelete(from(data)?),

@@ -19,8 +19,8 @@ use deckhand_core::jsstr::{self, date, js_trim};
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
-    AgentSessionRef, AgentSessionRefKind, PreviewRecord, ProgramKey, RestartMode, SessionRecord, SessionSetup,
-    SessionStatus, SetupState,
+    AgentSessionRef, AgentSessionRefKind, PreviewRecord, ProgramKey, RestartMode, SessionRecord, SessionRole,
+    SessionSetup, SessionStatus, SetupState,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage, SessionOutput, SessionRef};
 use deckhand_protocol::records::AppConfig;
@@ -871,7 +871,13 @@ impl Daemon {
     /// short trigger instead. `allow_deckhand_commands: false` leaves the commands to the agent's own permissions.
     /// Codex also gets the `deckhand` MCP server when its version allows: the agents' `deckhand` link (this build),
     /// else this executable.
-    pub async fn deckhand_command_args(&self, program: ProgramKey, command: &str, config: &AppConfig) -> Vec<String> {
+    pub async fn deckhand_command_args(
+        &self,
+        program: ProgramKey,
+        command: &str,
+        config: &AppConfig,
+        role: Option<SessionRole>,
+    ) -> Vec<String> {
         let dir = agent_commands::plugin_dir(&self.paths.config_dir);
         let (deckhand, version) = if program == ProgramKey::Codex {
             // The version is read beside every launch anyway (`start_worker`), so this is usually cached.
@@ -895,6 +901,7 @@ impl Daemon {
             allow,
             deckhand.as_deref(),
             version.as_deref(),
+            role,
         )
         .await
     }
@@ -1494,7 +1501,7 @@ mod tests {
             let config = AppConfig::default();
             assert_eq!(
                 daemon
-                    .deckhand_command_args(ProgramKey::Claude, &command, &config)
+                    .deckhand_command_args(ProgramKey::Claude, &command, &config, None)
                     .await,
                 [
                     "--allowedTools",
@@ -1512,7 +1519,9 @@ mod tests {
                 ..AppConfig::default()
             };
             assert_eq!(
-                daemon.deckhand_command_args(ProgramKey::Claude, &command, &off).await,
+                daemon
+                    .deckhand_command_args(ProgramKey::Claude, &command, &off, None)
+                    .await,
                 ["--plugin-dir", plugin_text.as_str()]
             );
         });
@@ -1548,7 +1557,7 @@ mod tests {
 
             let new = fake_codex("codex", "0.163.0");
             let args = daemon
-                .deckhand_command_args(ProgramKey::Codex, &new, &AppConfig::default())
+                .deckhand_command_args(ProgramKey::Codex, &new, &AppConfig::default(), None)
                 .await;
             assert_eq!(args.len(), 4, "{args:?}");
             assert!(args[1].starts_with("developer_instructions="), "{args:?}");
@@ -1566,7 +1575,7 @@ mod tests {
                 allow_deckhand_commands: Some(false),
                 ..AppConfig::default()
             };
-            let args = daemon.deckhand_command_args(ProgramKey::Codex, &new, &off).await;
+            let args = daemon.deckhand_command_args(ProgramKey::Codex, &new, &off, None).await;
             assert!(
                 args[3].starts_with(&server) && !args[3].contains("approval"),
                 "{args:?}"
@@ -1575,7 +1584,7 @@ mod tests {
             // Too old for it: the developer instructions alone, as before.
             let old = fake_codex("old-codex", "0.121.0");
             let args = daemon
-                .deckhand_command_args(ProgramKey::Codex, &old, &AppConfig::default())
+                .deckhand_command_args(ProgramKey::Codex, &old, &AppConfig::default(), None)
                 .await;
             assert_eq!(args.len(), 2, "{args:?}");
         });

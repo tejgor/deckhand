@@ -4,7 +4,7 @@
 //! servers as its own children, outside it (`deckhand_sys::agent_commands` adds this one at launch). The server
 //! speaks MCP over stdio: one JSON-RPC 2.0 message per line on stdin and stdout, logs on stderr. Its one tool,
 //! [`TOOL_NAME`], runs this executable with the words it is given (only the agent commands,
-//! [`COMMAND_WORDS`]), in this process's environment, which Codex forwards from its own (`env_vars`): the caller's
+//! [`AGENT_WORDS`]), in this process's environment, which Codex forwards from its own (`env_vars`): the caller's
 //! `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`, and the Deckhand home and channel.
 //! Messages are handled one at a time, in order.
 
@@ -18,7 +18,7 @@ use tokio::sync::mpsc;
 
 use deckhand_core::error::DhError;
 
-use crate::commands::args::COMMAND_WORDS;
+use crate::commands::args::AGENT_WORDS;
 
 /// The protocol versions this server speaks, newest first. An `initialize` asking for another gets the newest.
 pub const PROTOCOL_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -164,7 +164,7 @@ where
 }
 
 /// The command words in a call's `arguments` (`{"args": [...]}`): strings only, a leading `deckhand` dropped, the
-/// first word one of [`COMMAND_WORDS`].
+/// first word one of [`AGENT_WORDS`].
 pub fn command_words(arguments: Option<&Value>) -> Result<Vec<String>, String> {
     let words = arguments
         .and_then(|arguments| arguments.get("args"))
@@ -180,10 +180,10 @@ pub fn command_words(arguments: Option<&Value>) -> Result<Vec<String>, String> {
     }
     match args.first() {
         None => Err("args is empty: pass the command's words, e.g. [\"guide\"].".to_owned()),
-        Some(word) if COMMAND_WORDS.contains(&word.as_str()) => Ok(args),
+        Some(word) if AGENT_WORDS.contains(&word.as_str()) => Ok(args),
         Some(word) => Err(format!(
             "`deckhand {word}` is not available here. The tool runs: {}.",
-            COMMAND_WORDS.join(", ")
+            AGENT_WORDS.join(", ")
         )),
     }
 }

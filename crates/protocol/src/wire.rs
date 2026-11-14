@@ -966,6 +966,56 @@ pub struct Remove {
     pub caller: Option<AgentCaller>,
 }
 
+/// Not in the TS: `plan-check` (validate an orchestrator plan and answer its summary) and `plan-apply` (validate it,
+/// wait for the user's answer in Deckhand, then create it). `plan` is checked by the daemon, every problem at once.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanRequest {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    /// The repository the plan is for, run by hand (a caller's own repository otherwise).
+    #[serde(default, skip_serializing_if = "Loose::is_absent")]
+    pub cwd: Loose<String>,
+    #[serde(default, deserialize_with = "lenient::present")]
+    pub plan: Option<Value>,
+    /// Set by `deckhand` commands run inside a session: the daemon checks it and acts for that session.
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
+}
+
+/// Not in the TS: a UI's answer to a pending plan (`enter`: approve, `esc`: reject). The first answer wins.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanDecide {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub plan_id: String,
+    /// Approves only when `true`; anything else rejects.
+    #[serde(default, deserialize_with = "lenient::strict_true")]
+    pub approve: Option<bool>,
+}
+
+/// Not in the TS: the repository's orchestrator: started when none runs (with `prompt` as its first message), else
+/// given `prompt` (typed and submitted while it is idle at its input).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenOrchestrator {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, skip_serializing_if = "Loose::is_absent")]
+    pub cwd: Loose<String>,
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub prompt: Option<String>,
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub cols: Option<i64>,
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub rows: Option<i64>,
+}
+
 /// `attach`, `attach-terminal`, `attach-git`, `attach-dev`, `attach-action` (attach.ts literal order).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1152,6 +1202,14 @@ pub enum Request {
     SetReplyRead(SetReplyRead),
     #[serde(rename = "remove")]
     Remove(Remove),
+    #[serde(rename = "plan-check")]
+    PlanCheck(PlanRequest),
+    #[serde(rename = "plan-apply")]
+    PlanApply(PlanRequest),
+    #[serde(rename = "plan-decide")]
+    PlanDecide(PlanDecide),
+    #[serde(rename = "open-orchestrator")]
+    OpenOrchestrator(OpenOrchestrator),
     #[serde(rename = "attach")]
     Attach(Attach),
     #[serde(rename = "input")]
@@ -1228,7 +1286,8 @@ request_table! {
     RestartSessions => "restart-sessions", DismissInterrupted => "dismiss-interrupted",
     Kill => "kill", MergePreview => "merge-preview", MergeWorktree => "merge-worktree",
     ResolveMerge => "resolve-merge", MarkSessionMerged => "mark-session-merged", SetSessionDone => "set-session-done",
-    SetReplyRead => "set-reply-read", Remove => "remove", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
+    SetReplyRead => "set-reply-read", Remove => "remove", PlanCheck => "plan-check", PlanApply => "plan-apply",
+    PlanDecide => "plan-decide", OpenOrchestrator => "open-orchestrator", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
     AttachTerminal => "attach-terminal", TerminalInput => "terminal-input", TerminalResize => "terminal-resize",
     TerminalDetach => "terminal-detach", AttachGit => "attach-git", GitInput => "git-input", GitResize => "git-resize",
     GitDetach => "git-detach", AttachDev => "attach-dev", DevInput => "dev-input", DevResize => "dev-resize",
@@ -1293,6 +1352,9 @@ impl Request {
             R::SetSessionDone(r) => &r.request_id,
             R::SetReplyRead(r) => &r.request_id,
             R::Remove(r) => &r.request_id,
+            R::PlanCheck(r) | R::PlanApply(r) => &r.request_id,
+            R::PlanDecide(r) => &r.request_id,
+            R::OpenOrchestrator(r) => &r.request_id,
             R::Attach(r) | R::AttachTerminal(r) | R::AttachGit(r) | R::AttachDev(r) | R::AttachAction(r) => {
                 &r.request_id
             }
@@ -1481,6 +1543,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 82);
+        assert_eq!(Request::TYPES.len(), 86);
     }
 }

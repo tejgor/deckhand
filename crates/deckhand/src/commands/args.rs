@@ -1,4 +1,4 @@
-//! Parsing `deckhand new|ls|task|note|kill|remove|guide` and their usage texts.
+//! Parsing `deckhand new|ls|task|note|kill|remove|guide|plan|do` and their usage texts.
 //!
 //! Options take their value as the next argument or after `=` (`--title=x`), so a value may start with `-`. `--`
 //! ends the options. Every command takes `--json` and `--help` (`-h`).
@@ -7,12 +7,17 @@ use deckhand_core::error::DhError;
 use deckhand_protocol::data::ProgramKey;
 
 /// The words that run one of these commands (the first argument).
-pub const COMMAND_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remove", "guide"];
+pub const COMMAND_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remove", "guide", "plan", "do"];
+
+/// The commands every agent may run (its guide's, and Codex's `deckhand` tool's): not the orchestrator's `plan`
+/// (Claude only) or your `do`.
+pub const AGENT_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remove", "guide"];
 
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
 Usage: deckhand new [--prompt <text>] [--draft] [--agent claude|codex|pi] [--title <title>] [--task <id>]
-                    [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--json]
+                    [--parent <id>] [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level]
+                    [--fork] [--json]
 
 Starts a session. Run inside a Deckhand session, it is a sub-session of that session in a new worktree; run
 elsewhere, a top-level session of the current repository.
@@ -24,8 +29,10 @@ elsewhere, a top-level session of the current repository.
   --title <title>     The session's name (default: the task's title, else the prompt's first line)
   --task <id>         Start on a task from `deckhand task list` (top-level unless in a new worktree; the
                       prompt, if any, replaces the task's text; without one the task's text is typed as a draft)
-  --worktree <where>  new: a new worktree (the default); same: this session's worktree; none: no worktree,
-                      in the repository's checkout; <path>: an existing worktree
+  --parent <id>       A sub-session of that session instead: inside a session, one this session started (or one
+                      under those); run by hand, any session of the repository
+  --worktree <where>  new: a new worktree (the default); same: the parent's (else this session's) worktree;
+                      none: no worktree, in the repository's checkout; <path>: an existing worktree
   --base <branch>     The branch a new worktree starts from (default: a sub-session's is stacked on this
                       session's worktree branch, starting from it and merging into it; else the repository's
                       setting)
@@ -69,15 +76,49 @@ session's own. Only inside a Deckhand session.";
 pub const KILL_USAGE: &str = "\
 Usage: deckhand kill <session id> [--json]
 
-Ends a running session. Inside a Deckhand session, only a sub-session this session started. Its worktree and
-branch are kept.";
+Ends a running session. Inside a Deckhand session, only a session this session started (or one under those). Its
+worktree and branch are kept.";
 
 /// `deckhand remove --help`.
 pub const REMOVE_USAGE: &str = "\
 Usage: deckhand remove <session id> [--json]
 
-Removes an ended session from the list. Inside a Deckhand session, only a sub-session this session started.
-Its worktree and branch are kept.";
+Removes an ended session from the list. Inside a Deckhand session, only a session this session started (or one
+under those). Its worktree and branch are kept.";
+
+/// `deckhand plan --help`.
+pub const PLAN_USAGE: &str = "\
+Usage: deckhand plan check [<file>|-] [--json]
+       deckhand plan apply [<file>|-] [--json]
+
+An orchestrator plan: sessions (a tree, each with its brief) and backlog tasks, as JSON from a file or stdin (-, the
+default). Every problem is reported at once, and nothing is created while there is one.
+  check   Validates the plan and prints what it would create
+  apply   Validates it, waits for you to confirm it in Deckhand (enter creates, esc cancels; it expires after 15
+          minutes), then creates it and prints what was created. Only in the orchestrator session, or by hand.
+
+{\"sessions\": [{\"key\": \"auth\", \"title\": \"Auth rework\", \"prompt\": \"<brief>\", \"agent\": \"claude\",
+               \"parent\": null, \"worktree\": \"new\", \"base\": null, \"flat\": false, \"task\": null},
+              {\"key\": \"tokens\", \"title\": \"Token storage\", \"prompt\": \"<brief>\", \"parent\": \"auth\"}],
+ \"tasks\": [{\"title\": \"Remove legacy endpoint\", \"details\": \"After Auth rework merges: ...\"}]}
+
+  key       Unique in the plan; other sessions name it as their parent
+  title     At most 64 characters; prompt: the brief, sent as the session's first message
+  agent     claude, codex or pi (default: the repository's default agent, else claude)
+  parent    Another session's key, an existing session's ID (or a unique prefix), or null for a top-level session
+  worktree  new (the default), same (its parent's worktree) or none (the repository's checkout)
+  base      Where a new worktree's branch starts; flat: true keeps a sub-session's new worktree from stacking on
+            its parent's branch
+  task      An open task's ID, which the session takes on (top-level, or in a new worktree)
+Sessions are created parents first, each with its brief sent; then the tasks go to the backlog.";
+
+/// `deckhand do --help`.
+pub const DO_USAGE: &str = "\
+Usage: deckhand do <request> [--json]
+
+Hands a request to the repository's orchestrator, which splits it into sessions for you to confirm: starts it with
+the request as its first message, or, when it runs and is idle at its input, types the request and sends it. Run it
+from a terminal in the repository, not inside a session.";
 
 /// `deckhand guide --help`.
 pub const GUIDE_USAGE: &str = "\
@@ -114,6 +155,19 @@ pub enum Action {
     NoteAdd(String),
     Kill(String),
     Remove(String),
+    /// `plan check`.
+    PlanCheck(PlanSource),
+    /// `plan apply`.
+    PlanApply(PlanSource),
+    /// `do <request>`.
+    Do(String),
+}
+
+/// Where a plan's JSON comes from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PlanSource {
+    Stdin,
+    File(String),
 }
 
 /// `task move --to`.
@@ -141,6 +195,8 @@ pub struct NewArgs {
     pub agent: Option<ProgramKey>,
     pub title: Option<String>,
     pub task: Option<String>,
+    /// A session ID (or a prefix of one).
+    pub parent: Option<String>,
     pub worktree: Option<WorktreeChoice>,
     pub base: Option<String>,
     pub flat: bool,
@@ -279,6 +335,17 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "guide" => simple(rest, GUIDE_USAGE, Action::Guide),
         "task" => parse_task(rest),
         "note" => parse_note(rest),
+        "plan" => parse_plan(rest),
+        "do" => {
+            let scanned = scan(rest, &[], DO_USAGE)?;
+            if scanned.help {
+                return Ok(help(DO_USAGE));
+            }
+            Ok(Invocation {
+                action: Action::Do(words(&scanned, "a request", "do", DO_USAGE)?),
+                json: scanned.json,
+            })
+        }
         "kill" | "remove" => {
             let usage = if word == "kill" { KILL_USAGE } else { REMOVE_USAGE };
             let scanned = scan(rest, &[], usage)?;
@@ -345,6 +412,7 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
         ("--agent", Kind::Value),
         ("--title", Kind::Value),
         ("--task", Kind::Value),
+        ("--parent", Kind::Value),
         ("--worktree", Kind::Value),
         ("--base", Kind::Value),
         ("--flat", Kind::Switch),
@@ -362,6 +430,7 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
         agent: scanned.value("--agent").as_deref().map(parse_agent).transpose()?,
         title: scanned.value("--title"),
         task: scanned.value("--task"),
+        parent: scanned.value("--parent").filter(|parent| !parent.is_empty()),
         worktree: scanned.value("--worktree").as_deref().map(parse_worktree).transpose()?,
         base: scanned.value("--base").filter(|base| !base.is_empty()),
         flat: scanned.switch("--flat"),
@@ -379,6 +448,19 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
     }
     if new.flat && !matches!(new.worktree, None | Some(WorktreeChoice::New)) {
         return Err(usage_error("--flat applies only to a new worktree", NEW_USAGE));
+    }
+    if new.parent.is_some() && new.top_level {
+        return Err(usage_error("--parent and --top-level cannot be combined", NEW_USAGE));
+    }
+    if new.parent.is_some() && new.fork {
+        return Err(usage_error("--parent and --fork cannot be combined", NEW_USAGE));
+    }
+    if new.parent.is_some() && new.task.is_some() && !matches!(new.worktree, None | Some(WorktreeChoice::New)) {
+        return Err(usage_error(
+            "--task under a --parent needs a new worktree (a task starts only a top-level session or a sub-session in \
+             a new worktree)",
+            NEW_USAGE,
+        ));
     }
     Ok(Invocation {
         action: Action::New(new),
@@ -420,6 +502,32 @@ fn parse_task(rest: &[String]) -> Result<Invocation, DhError> {
             Action::TaskMove { id, to }
         }
         Some(other) => return Err(usage_error(&format!("Unknown task command: {other}"), usage)),
+        None => return Ok(help(usage)),
+    };
+    Ok(Invocation {
+        action,
+        json: scanned.json,
+    })
+}
+
+fn parse_plan(rest: &[String]) -> Result<Invocation, DhError> {
+    let usage = PLAN_USAGE;
+    let sub = rest.first().map(String::as_str);
+    let scanned = scan(rest.get(1..).unwrap_or_default(), &[], usage)?;
+    if scanned.help || matches!(sub, None | Some("--help" | "-h")) {
+        return Ok(help(usage));
+    }
+    let source = match scanned.positionals.as_slice() {
+        [] => PlanSource::Stdin,
+        [only] if only == "-" => PlanSource::Stdin,
+        [only] if !only.trim().is_empty() => PlanSource::File(only.clone()),
+        [_] => return Err(usage_error("deckhand plan needs a file, or - for stdin", usage)),
+        [_, extra, ..] => return Err(usage_error(&format!("Unexpected argument: {extra}"), usage)),
+    };
+    let action = match sub {
+        Some("check") => Action::PlanCheck(source),
+        Some("apply") => Action::PlanApply(source),
+        Some(other) => return Err(usage_error(&format!("Unknown plan command: {other}"), usage)),
         None => return Ok(help(usage)),
     };
     Ok(Invocation {
@@ -488,11 +596,12 @@ mod tests {
             "Login",
             "--task",
             "ab12",
+            "--parent",
+            "9f8e",
             "--worktree",
             "new",
             "--base=main",
             "--flat",
-            "--top-level",
         ]);
         assert_eq!(
             all,
@@ -502,14 +611,16 @@ mod tests {
                 agent: Some(ProgramKey::Codex),
                 title: Some("Login".into()),
                 task: Some("ab12".into()),
+                parent: Some("9f8e".into()),
                 worktree: Some(WorktreeChoice::New),
                 base: Some("main".into()),
                 flat: true,
-                top_level: true,
+                top_level: false,
                 fork: false,
             }
         );
         assert!(new(&["--fork"]).fork);
+        assert!(new(&["--top-level"]).top_level);
     }
 
     #[test]
@@ -540,6 +651,12 @@ mod tests {
         assert!(refused(&["new", "--task", "a", "--fork"]).starts_with("--task and --fork cannot be combined"));
         assert!(refused(&["new", "--base", "main", "--worktree", "same"]).starts_with("--base applies only"));
         assert!(refused(&["new", "--flat", "--worktree", "none"]).starts_with("--flat applies only"));
+        assert!(refused(&["new", "--parent", "a", "--top-level"]).starts_with("--parent and --top-level cannot"));
+        assert!(refused(&["new", "--parent", "a", "--fork"]).starts_with("--parent and --fork cannot"));
+        assert!(
+            refused(&["new", "--parent", "a", "--task", "t", "--worktree", "same"])
+                .starts_with("--task under a --parent needs a new worktree")
+        );
         assert!(refused(&["new", "--prompt"]).starts_with("--prompt needs a value"));
         assert!(refused(&["new", "--title", "a", "--title", "b"]).starts_with("--title is given twice"));
         assert!(refused(&["new", "--fork=yes"]).starts_with("--fork takes no value"));
@@ -570,6 +687,9 @@ mod tests {
             (&["kill", "--help"], KILL_USAGE),
             (&["remove", "--help"], REMOVE_USAGE),
             (&["guide", "--help"], GUIDE_USAGE),
+            (&["plan"], PLAN_USAGE),
+            (&["plan", "apply", "--help"], PLAN_USAGE),
+            (&["do", "--help"], DO_USAGE),
         ] {
             assert_eq!(parsed(list).action, Action::Help(usage), "{list:?}");
         }
@@ -651,7 +771,7 @@ mod tests {
     #[test]
     fn the_guide_names_every_command_and_option_of_new() {
         let guide = deckhand_core::agent_guide::GUIDE;
-        for word in COMMAND_WORDS.iter().filter(|word| **word != "guide") {
+        for word in AGENT_WORDS.iter().filter(|word| **word != "guide") {
             assert!(guide.contains(&format!("deckhand {word}")), "{word}");
         }
         for listed in [
@@ -671,6 +791,31 @@ mod tests {
         for option in options {
             assert!(guide.contains(option), "{option}");
         }
+    }
+
+    #[test]
+    fn plan_reads_its_json_from_a_file_or_stdin_and_do_takes_the_request() {
+        assert_eq!(parsed(&["plan", "check"]).action, Action::PlanCheck(PlanSource::Stdin));
+        assert_eq!(
+            parsed(&["plan", "apply", "-"]).action,
+            Action::PlanApply(PlanSource::Stdin)
+        );
+        assert_eq!(
+            parsed(&["plan", "apply", "plan.json", "--json"]),
+            Invocation {
+                action: Action::PlanApply(PlanSource::File("plan.json".into())),
+                json: true
+            }
+        );
+        assert!(refused(&["plan", "apply", "a", "b"]).starts_with("Unexpected argument: b"));
+        assert!(refused(&["plan", "run"]).starts_with("Unknown plan command: run"));
+        assert_eq!(
+            parsed(&["do", "Split", "the", "auth", "rework"]).action,
+            Action::Do("Split the auth rework".into())
+        );
+        assert!(refused(&["do"]).starts_with("deckhand do needs a request"));
+        // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.
+        assert!(deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE.contains("deckhand plan apply"));
     }
 
     #[test]

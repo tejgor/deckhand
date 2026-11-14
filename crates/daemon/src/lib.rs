@@ -10,6 +10,7 @@ pub mod launch;
 pub mod lifecycle;
 pub mod merge;
 pub mod notes_tasks;
+pub mod plans;
 pub mod server;
 pub mod sessions;
 pub mod stacking;

@@ -38,8 +38,9 @@ pub enum Command {
     /// `mcp` (not in TS): the MCP server Codex is given at launch, whose one tool runs the agent commands (see
     /// `crate::mcp`). Not listed in [`HELP_TEXT`].
     Mcp,
-    /// `new`, `ls`, `task`, `note`, `kill`, `remove`, `guide` (not in TS): Deckhand actions for the agents it runs
-    /// (see `crate::commands`). Holds argv from the command word on.
+    /// `new`, `ls`, `task`, `note`, `kill`, `remove`, `guide`, `plan`, `do` (not in TS): Deckhand actions for the agents
+    /// it runs, the orchestrator's plans and your requests to it (see `crate::commands`). Holds argv from the command
+    /// word on.
     Agent(Vec<String>),
     /// `--session-worker` anywhere in argv.
     SessionWorker,
@@ -80,8 +81,10 @@ Deckhand actions, for the agents in its sessions (and for you):
   ls                           List the checkout's sessions
   task list|add|done|reopen|move  List, add, tick or move the repository's tasks
   note add <item>              Add a step to this session's note
-  kill <id>, remove <id>       End, or remove, a session (from inside one: only its sub-sessions)
+  kill <id>, remove <id>       End, or remove, a session (from inside one: only sessions it started)
   guide                        Print the guide to these commands for agents
+  plan check|apply [<file>]    Check an orchestrator plan, or create it once you confirm it in Deckhand
+  do <request>                 Hand a request to the repository's orchestrator (started if none runs)
 Each takes --json; deckhand <command> --help describes it.
 
 --check only reports; --yes (-y) installs, or restarts, without asking.
@@ -464,6 +467,8 @@ mod tests {
             "note add <item>",
             "kill <id>, remove <id>",
             "guide",
+            "plan check|apply [<file>]",
+            "do <request>",
             "deckhand <command> --help",
         ] {
             assert!(HELP_TEXT.contains(listed), "{listed}");

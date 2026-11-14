@@ -761,6 +761,9 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
                 }
             });
         })),
+        // Orchestrator plans: the confirmation is not built yet.
+        on_plan_pending: None,
+        on_plan_settled: None,
     }
 }
 

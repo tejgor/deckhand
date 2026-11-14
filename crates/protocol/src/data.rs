@@ -100,6 +100,25 @@ string_union!(WorktreeCreator {
 });
 string_union!(MergeDetected { Ancestor = "ancestor", Pr = "pr" });
 string_union!(SubSessionKind { Clean = "clean", Forked = "forked" });
+string_union!(
+    /// Not in the TS: what a session is for, beyond its work. The orchestrator plans and dispatches sessions
+    /// (`deckhand plan apply`) and never implements.
+    SessionRole { Orchestrator = "orchestrator" }
+);
+string_union!(
+    /// Not in the TS: where an orchestrator plan's session works: a new worktree, its parent's (`same`) or none (the
+    /// launch checkout).
+    PlanWorktree { New = "new", Same = "same", None = "none" }
+);
+string_union!(
+    /// Not in the TS: how a pending plan ended: approved (`enter` in Deckhand), rejected (`esc`), or expired unanswered.
+    PlanDecision { Approved = "approved", Rejected = "rejected", Expired = "expired" }
+);
+string_union!(
+    /// Not in the TS: what `plan-apply` came to: everything created, cancelled in Deckhand, expired unanswered, or
+    /// stopped at a session that could not be created (what was created before it stays).
+    PlanStatus { Created = "created", Cancelled = "cancelled", Expired = "expired", Failed = "failed" }
+);
 string_union!(AgentSessionRefKind { Name = "name", Path = "path", Id = "id" });
 string_union!(
     /// agentSignals.ts AttentionState.
@@ -421,6 +440,12 @@ pub struct SessionRecord {
     /// Not in the TS: set on a session that was live when the previous daemon stopped, until it is resumed or the
     /// offer to resume it is dismissed (what it was doing then). Projected by the daemon and never saved.
     pub interrupted_while: Option<InterruptedWhile>,
+    /// Not in the TS: the session whose `deckhand` command (or applied plan) started this one. Set by the daemon from
+    /// the authenticated caller, never from a client's input; persisted. It decides what that session may later do to
+    /// this one (`--parent`, `kill`, `remove`), apart from where it sits in the tree (`parent_session_id`).
+    pub spawned_by_session_id: Option<String>,
+    /// Not in the TS: the session's role (the repository's orchestrator); persisted.
+    pub role: Option<SessionRole>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]
     pub extra: IndexMap<String, Value>,
@@ -874,6 +899,9 @@ pub struct CreateSessionInput {
     /// the launch checkout) instead of stacked on its parent's worktree branch; absent: the daemon decides (stacked
     /// where it can be).
     pub stacked: Option<bool>,
+    /// Not in the TS: the session's role. An orchestrator is a top-level Claude session without a worktree, one running
+    /// per repository; its title defaults to `Orchestrator`.
+    pub role: Option<SessionRole>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1326,6 +1354,158 @@ pub enum TaskOp {
     ReopenLinked { link: TaskLink, auto: TaskAuto },
     #[serde(rename = "abandon-linked")]
     AbandonLinked { link: TaskLink, tried: Option<String> },
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Orchestrator plans (not in the TS)
+
+/// One session of an orchestrator plan (`deckhand plan apply`), as validated: `agent` and `worktree` filled in,
+/// `title` trimmed, `task` the full ID. `parent` is another entry's `key`, or an existing session's full ID.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSession {
+    pub key: String,
+    pub title: String,
+    pub prompt: String,
+    pub agent: ProgramKey,
+    pub parent: Option<String>,
+    pub worktree: PlanWorktree,
+    pub base: Option<String>,
+    pub flat: Option<bool>,
+    pub task: Option<String>,
+}
+
+/// One backlog task of an orchestrator plan.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanTask {
+    pub title: String,
+    pub details: Option<String>,
+}
+
+/// An orchestrator plan as validated (`sessions` in creation order: parents before children).
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Plan {
+    pub sessions: Vec<PlanSession>,
+    pub tasks: Vec<PlanTask>,
+}
+
+/// One session of a plan as the confirmation shows it, in tree order (each under its parent).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSummaryEntry {
+    pub key: String,
+    pub title: String,
+    /// 0 for a root of the shown tree (top-level, or under an existing session), else its parent entry's depth + 1.
+    pub depth: u32,
+    pub agent: ProgramKey,
+    pub worktree: PlanWorktree,
+    /// The parent when it is an entry of the plan.
+    pub parent_key: Option<String>,
+    /// The parent when it is an existing session (its full ID).
+    pub parent_session_id: Option<String>,
+    /// The parent's title (an existing session's path, `parent / child`).
+    pub parent_title: Option<String>,
+    /// A new worktree's base, when the plan names one.
+    pub base: Option<String>,
+    /// A new worktree only: stacked on its parent's branch (true) or flat (false).
+    pub stacked: Option<bool>,
+    /// The branch a stacked worktree starts from and merges into, when it is known already (an existing parent's).
+    pub stacked_on: Option<String>,
+    /// The plan session whose new branch a stacked worktree starts from and merges into (its title), when that
+    /// branch is made by the plan.
+    pub stacked_on_title: Option<String>,
+    pub task_id: Option<String>,
+    pub task_title: Option<String>,
+}
+
+/// What a plan would create, for the confirmation in Deckhand and `deckhand plan check`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSummary {
+    pub sessions: Vec<PlanSummaryEntry>,
+    pub tasks: Vec<PlanTask>,
+    /// `3 sessions, 1 task`.
+    pub counts: String,
+}
+
+/// A plan waiting for the user's answer in Deckhand (`plan-pending`).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingPlan {
+    pub id: String,
+    /// The repository checkout the plan is for: its sessions belong there.
+    pub repo_root: String,
+    /// The session that applied it (the orchestrator), absent when run by hand.
+    pub caller_session_id: Option<String>,
+    /// That session's title.
+    pub caller_title: Option<String>,
+    pub plan: Plan,
+    pub summary: PlanSummary,
+    pub created_at: String,
+    /// When it is dropped unanswered (15 minutes after `created_at`).
+    pub expires_at: String,
+}
+
+/// A task a plan added to the backlog.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanCreatedTask {
+    pub id: String,
+    pub title: String,
+}
+
+/// The entry a plan stopped at, and why.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanFailure {
+    /// The session entry's key; absent for a task.
+    pub key: Option<String>,
+    pub title: String,
+    pub error: String,
+}
+
+/// `plan-apply`'s answer once the plan is settled.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanOutcome {
+    pub plan_id: String,
+    pub status: PlanStatus,
+    /// The sessions created, in creation order, each with its plan key (as created; they start in the background).
+    pub sessions: Vec<PlanCreatedSession>,
+    pub tasks: Vec<PlanCreatedTask>,
+    pub failed: Option<PlanFailure>,
+}
+
+/// A session a plan created.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanCreatedSession {
+    pub key: String,
+    pub session: Ordered<SessionRecord>,
+}
+
+/// `open-orchestrator`'s answer: the repository's orchestrator, and whether it was started now or given the prompt.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrchestratorResult {
+    pub session: Ordered<SessionRecord>,
+    /// Started by this request (the prompt, if any, is its first message).
+    pub started: bool,
+    /// The prompt was typed into the running orchestrator and submitted.
+    pub delivered: bool,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

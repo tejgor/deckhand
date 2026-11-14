@@ -271,6 +271,7 @@ use crate::launch::LaunchState;
 use crate::lifecycle::LifecycleState;
 use crate::merge::MergeState;
 use crate::notes_tasks::NotesTasksState;
+use crate::plans::PlansState;
 use crate::server::ServerState;
 use crate::sessions::SessionsState;
 use crate::workspaces::WorkspacesState;
@@ -340,6 +341,8 @@ pub struct Inner {
     pub worktrees: RefCell<WorktreesState>,
     /// Configuration (no state of its own yet).
     pub config: RefCell<ConfigState>,
+    /// Orchestrator plans waiting for the user's answer.
+    pub plans: RefCell<PlansState>,
 }
 
 /// TS: daemon.ts InkDaemon. Clones share the daemon.
@@ -388,6 +391,7 @@ impl Daemon {
                 merge: RefCell::new(MergeState::default()),
                 worktrees: RefCell::new(WorktreesState::default()),
                 config: RefCell::new(ConfigState::default()),
+                plans: RefCell::new(PlansState::default()),
             }
         }))
     }

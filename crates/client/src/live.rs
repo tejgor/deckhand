@@ -23,20 +23,22 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MoveDirection, NoteSaveResult, NoteSection, PingResult, PreviewRecord, ProgramKey, ProjectInfo,
-    PromoteNoteItemResult, ResolveMergeAction, RestartMode, SavedConfigDocument, SendOpenItemsResult,
-    SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, StageMode, TaskOp, TasksDoc,
-    TerminalRecord, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
-    WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
+    MoveDirection, NoteSaveResult, NoteSection, OrchestratorResult, PendingPlan, PingResult, PlanOutcome, PlanSummary,
+    PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
+    SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
+    SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates,
+    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
+    WorktreeOverview,
 };
+use deckhand_protocol::events::PlanSettled;
 use deckhand_protocol::wire::{
     AgentCaller, AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest,
     DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose,
-    MergeWorktree, OpenNote, PromoteNoteItem, Remove, ReorderSession, RequestOnly, ResolveMerge, Restart,
-    RestartSessions, ReturnTaskToNote, RunAction, SaveConfig, SaveNote, SendOpenItems, SessionRequest,
-    SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest,
-    TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest,
-    WorktreeCandidateSizes,
+    MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanRequest, PromoteNoteItem, Remove, ReorderSession,
+    RequestOnly, ResolveMerge, Restart, RestartSessions, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
+    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
+    StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane,
+    WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -71,6 +73,11 @@ pub struct LiveClientHandlers {
     pub on_agent_versions_updated: Option<Box<dyn Fn(AgentVersions)>>,
     /// `tasks-updated`.
     pub on_tasks_updated: Option<Box<dyn Fn(TasksDoc)>>,
+    /// Not in the TS: `plan-pending` (an orchestrator plan waits for the user's answer; also sent right after a
+    /// `subscribe` answer for each plan already waiting in the repository).
+    pub on_plan_pending: Option<Box<dyn Fn(PendingPlan)>>,
+    /// Not in the TS: `plan-settled` (a pending plan was answered or expired).
+    pub on_plan_settled: Option<Box<dyn Fn(PlanSettled)>>,
     /// A socket error, or a message that could not be handled.
     pub on_error: Option<Box<dyn Fn(DhError)>>,
     /// The connection closed (after every pending request was rejected with `daemon connection closed`).
@@ -195,6 +202,19 @@ fn dispatch(state: &RefCell<LiveState>, handlers: &LiveClientHandlers, message: 
         "action-updated" => deliver(h, h.on_action_updated.as_deref(), message, "action"),
         "agent-versions-updated" => deliver(h, h.on_agent_versions_updated.as_deref(), message, "versions"),
         "tasks-updated" => deliver(h, h.on_tasks_updated.as_deref(), message, "tasks"),
+        "plan-pending" => deliver(h, h.on_plan_pending.as_deref(), message, "plan"),
+        "plan-settled" => {
+            if let Some(handler) = h.on_plan_settled.as_deref() {
+                match serde_json::from_value::<PlanSettled>(message.clone()) {
+                    Ok(settled) => handler(settled),
+                    Err(error) => {
+                        if let Some(on_error) = &h.on_error {
+                            on_error(DhError::msg(format!("invalid plan-settled in daemon message: {error}")));
+                        }
+                    }
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -256,6 +276,16 @@ async fn write_loop(
         if let Err(error) = writer.write_all(&line).await {
             socket_failed(&state, &handlers, socket_error(&error, "write"));
         }
+    }
+}
+
+/// `plan-check` / `plan-apply`.
+fn plan_request(cwd: &str, plan: Value, caller: Option<AgentCaller>) -> PlanRequest {
+    PlanRequest {
+        request_id: new_request_id(),
+        cwd: cwd.into(),
+        plan: Some(plan),
+        caller,
     }
 }
 
@@ -837,6 +867,44 @@ impl LiveClient {
             session_id: session_id.to_owned(),
             move_open_items: None,
             caller,
+        }))
+    }
+
+    /// Not in the TS: validates an orchestrator plan (`deckhand plan check`) and answers its summary.
+    pub fn plan_check(&self, cwd: &str, plan: Value, caller: Option<AgentCaller>) -> Reply<PlanSummary> {
+        self.request(Request::PlanCheck(plan_request(cwd, plan, caller)))
+    }
+
+    /// Not in the TS: applies an orchestrator plan (`deckhand plan apply`). Answered once the user answered it in
+    /// Deckhand (or it expired) and what it holds was created.
+    pub fn plan_apply(&self, cwd: &str, plan: Value, caller: Option<AgentCaller>) -> Reply<PlanOutcome> {
+        self.request(Request::PlanApply(plan_request(cwd, plan, caller)))
+    }
+
+    /// Not in the TS: answers a pending plan (`approve`: create it; else cancel it). The first answer wins.
+    pub fn plan_decide(&self, plan_id: &str, approve: bool) -> Reply<()> {
+        self.request(Request::PlanDecide(PlanDecide {
+            request_id: new_request_id(),
+            plan_id: plan_id.to_owned(),
+            approve: Some(approve),
+        }))
+    }
+
+    /// Not in the TS: the repository's orchestrator: started when none runs (`prompt`, if any, its first message),
+    /// else given `prompt` (typed and submitted while it is idle at its input).
+    pub fn open_orchestrator(
+        &self,
+        cwd: &str,
+        prompt: Option<&str>,
+        cols: i64,
+        rows: i64,
+    ) -> Reply<OrchestratorResult> {
+        self.request(Request::OpenOrchestrator(OpenOrchestrator {
+            request_id: new_request_id(),
+            cwd: cwd.into(),
+            prompt: prompt.map(str::to_owned),
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 

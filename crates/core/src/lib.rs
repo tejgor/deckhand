@@ -16,6 +16,8 @@ pub mod key;
 pub mod merge_model;
 pub mod merge_stack;
 pub mod notes;
+pub mod orchestrator_guide;
+pub mod plan;
 pub mod project_config;
 pub mod project_config_document;
 pub mod session_features;

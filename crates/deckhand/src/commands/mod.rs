@@ -1,9 +1,9 @@
-//! `deckhand new|ls|task|note|kill|remove|guide`: Deckhand actions from a shell, for the agents Deckhand runs (not in
-//! the TS).
+//! `deckhand new|ls|task|note|kill|remove|guide|plan|do`: Deckhand actions from a shell, for the agents Deckhand runs
+//! (not in the TS), the orchestrator's `plan` and your `do`.
 //!
 //! Inside a session the command acts for that session, the caller: its `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID`
 //! and `DECKHAND_HOOK_TOKEN` go with `create`, `kill` and `remove`, and the daemon checks them as it does hook
-//! callbacks (a session's sub-sessions are its own to end). Run by hand there is no caller. The daemon is reached
+//! callbacks (the sessions a session started are its own to end). Run by hand there is no caller. The daemon is reached
 //! (and started when it is not running) as the UI does it (`create_live_client`); `guide` and `--help` need none.
 //! Parsing is [`args`], the requests [`plan`], the output [`view`].
 
@@ -11,11 +11,12 @@ pub mod args;
 pub mod plan;
 pub mod view;
 
+use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;
 
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use deckhand_client::live::{LiveClient, LiveClientHandlers, create_live_client};
@@ -23,17 +24,20 @@ use deckhand_core::agent_guide::GUIDE;
 use deckhand_core::display::truncate;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date::now_ms;
+use deckhand_core::plan::summary_lines;
 use deckhand_core::session_order::sort_sessions_for_sidebar;
 use deckhand_core::tasks::{append_note_item, parse_tasks};
 use deckhand_core::tasks_board::{work_key_of, work_label};
-use deckhand_protocol::data::{SessionRecord, SessionStatus, Task, TaskOp};
+use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
+use deckhand_protocol::Ordered;
+use deckhand_protocol::data::{PlanStatus, SessionRecord, SessionStatus, Task, TaskOp};
 use deckhand_protocol::wire::AgentCaller;
 use deckhand_sys::git::ensure_git_repo;
 
 use crate::cli::print_line;
 use crate::hook::HookEnv;
 
-use args::{Action, Invocation, MoveTo, NewArgs, WorktreeChoice};
+use args::{Action, Invocation, MoveTo, NewArgs, PlanSource, WorktreeChoice};
 use plan::{MovePlan, NewContext, caller_note, create_input, find_session, find_task, plan_move, session_path};
 use view::{short_id, task_view};
 
@@ -108,6 +112,9 @@ impl Cx {
             Action::NoteAdd(item) => self.note_add(&item).await,
             Action::Kill(id) => self.end(&id, true).await,
             Action::Remove(id) => self.end(&id, false).await,
+            Action::PlanCheck(source) => self.plan_check(&source).await,
+            Action::PlanApply(source) => self.plan_apply(&source).await,
+            Action::Do(request) => self.hand_to_orchestrator(&request).await,
             Action::Help(_) | Action::Guide => Ok(()),
         }
     }
@@ -145,8 +152,14 @@ impl Cx {
 
     async fn new_session(&mut self, args: &NewArgs) -> Result<(), DhError> {
         let (sessions, caller) = self.sessions().await?;
-        let repo_root = match caller.as_ref() {
-            Some(caller) => caller.repo_root.clone(),
+        let parent = args
+            .parent
+            .as_deref()
+            .map(|id| find_session(id, &sessions))
+            .transpose()?
+            .cloned();
+        let repo_root = match parent.as_ref().or(caller.as_ref()) {
+            Some(session) => session.repo_root.clone(),
             None => self.repo_root().await?,
         };
         let tasks = match args.task.as_ref() {
@@ -182,6 +195,7 @@ impl Cx {
                 task,
                 existing_path: existing_path.as_deref(),
                 sessions: &sessions,
+                parent: parent.as_ref(),
             },
         )?;
         // Subscribed first, so the updates that bring its worktree are not missed.
@@ -197,7 +211,13 @@ impl Cx {
     }
 
     /// `session` once it has its worktree or has left `starting` (or after [`START_WAIT`]).
-    async fn settled(&mut self, mut session: SessionRecord) -> SessionRecord {
+    async fn settled(&mut self, session: SessionRecord) -> SessionRecord {
+        let fallback = session.clone();
+        self.all_settled(vec![session]).await.pop().unwrap_or(fallback)
+    }
+
+    /// Each of `sessions` once it has its worktree or has left `starting`, waiting [`START_WAIT`] at most in all.
+    async fn all_settled(&mut self, mut sessions: Vec<SessionRecord>) -> Vec<SessionRecord> {
         let ready = |session: &SessionRecord| {
             session.status != SessionStatus::Starting
                 || session
@@ -206,14 +226,17 @@ impl Cx {
                     .is_some_and(|worktree| worktree.path.as_deref().is_some_and(|path| !path.is_empty()))
         };
         let deadline = tokio::time::Instant::now() + START_WAIT;
-        while !ready(&session) {
+        while !sessions.iter().all(ready) {
             match tokio::time::timeout_at(deadline, self.updates.recv()).await {
-                Ok(Some(update)) if update.id == session.id => session = update,
-                Ok(Some(_)) => {}
+                Ok(Some(update)) => {
+                    if let Some(held) = sessions.iter_mut().find(|session| session.id == update.id) {
+                        *held = update;
+                    }
+                }
                 Ok(None) | Err(_) => break,
             }
         }
-        session
+        sessions
     }
 
     async fn ls(&self) -> Result<(), DhError> {
@@ -392,6 +415,105 @@ impl Cx {
             return Ok(());
         }
         Err(DhError::msg("The note kept changing while saving; try again"))
+    }
+
+    /// The plan's JSON, from its file or stdin.
+    fn read_plan(source: &PlanSource) -> Result<Value, DhError> {
+        let text = match source {
+            PlanSource::File(path) => std::fs::read_to_string(path)
+                .map_err(|error| DhError::msg(format!("Cannot read the plan {path}: {error}")))?,
+            PlanSource::Stdin => {
+                let mut text = String::new();
+                std::io::stdin()
+                    .read_to_string(&mut text)
+                    .map_err(|error| DhError::msg(format!("Cannot read the plan from stdin: {error}")))?;
+                text
+            }
+        };
+        serde_json::from_str(&text).map_err(|error| DhError::msg(format!("The plan is not valid JSON: {error}")))
+    }
+
+    /// The repository a plan is for: the caller's (the daemon reads it from the caller), else the current directory's.
+    async fn plan_cwd(&self) -> Result<String, DhError> {
+        match self.caller {
+            Some(_) => Ok(String::new()),
+            None => self.repo_root().await,
+        }
+    }
+
+    async fn plan_check(&self, source: &PlanSource) -> Result<(), DhError> {
+        let plan = Self::read_plan(source)?;
+        let cwd = self.plan_cwd().await?;
+        let summary = self.client.plan_check(&cwd, plan, self.caller.clone()).await?;
+        if self.json {
+            return print_json(&summary);
+        }
+        let mut lines = summary_lines(&summary);
+        lines.push(
+            "The plan is valid. Nothing was created: deckhand plan apply asks for confirmation in Deckhand.".into(),
+        );
+        print_line(&lines.join("\n"));
+        Ok(())
+    }
+
+    async fn plan_apply(&mut self, source: &PlanSource) -> Result<(), DhError> {
+        let plan = Self::read_plan(source)?;
+        let cwd = self.plan_cwd().await?;
+        let repo_root = match self.caller.as_ref() {
+            Some(_) => self
+                .sessions()
+                .await?
+                .1
+                .map(|caller| caller.repo_root)
+                .unwrap_or_default(),
+            None => cwd.clone(),
+        };
+        // Subscribed first, so the updates that bring the new worktrees are not missed.
+        self.client.subscribe(&repo_root).await?;
+        eprintln!(
+            "Waiting for confirmation in Deckhand (open it in this repository: enter creates the plan, esc cancels it; \
+             it expires in 15 minutes)..."
+        );
+        let mut outcome = self.client.plan_apply(&cwd, plan, self.caller.clone()).await?;
+        let records: Vec<SessionRecord> = outcome
+            .sessions
+            .iter()
+            .map(|created| (*created.session).clone())
+            .collect();
+        let settled = self.all_settled(records).await;
+        for (created, session) in outcome.sessions.iter_mut().zip(settled) {
+            created.session = Ordered::from(session);
+        }
+        if self.json {
+            print_json(&outcome)?;
+        } else {
+            print_line(&view::plan_outcome(&outcome));
+        }
+        match outcome.status {
+            PlanStatus::Created => Ok(()),
+            PlanStatus::Cancelled => Err(DhError::msg("Cancelled in Deckhand")),
+            PlanStatus::Expired => Err(DhError::msg("The plan expired unanswered")),
+            PlanStatus::Failed => Err(DhError::msg("The plan was created only in part")),
+        }
+    }
+
+    /// `deckhand do`: the request goes to the repository's orchestrator (started with it, or typed into it).
+    async fn hand_to_orchestrator(&self, request: &str) -> Result<(), DhError> {
+        if self.caller.is_some() {
+            return Err(DhError::msg(
+                "deckhand do is for you, from a terminal in the repository, not for a session: ask the user to run it",
+            ));
+        }
+        let repo_root = self.repo_root().await?;
+        let result = self
+            .client
+            .open_orchestrator(&repo_root, Some(request), DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS)
+            .await?;
+        if self.json {
+            return print_json(&result);
+        }
+        print_line(&view::orchestrator(&result));
+        Ok(())
     }
 
     /// `kill` (`stop`: end it) or `remove` the session `id` names.

@@ -33,22 +33,23 @@ pub const GUIDE_BUDGET: usize = 1400;
 pub const GUIDE: &str = "\
 # deckhand: act for this Deckhand session, only when the user asks
 
-Never start sessions, move tasks or end sessions on your own. Merging and deleting worktrees stay with the user.
+Never start sessions, move tasks or end sessions unasked. Merges and worktree deletions stay with the user.
 
-deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>]
+deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>] [--parent <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--draft]
   Default: a sub-session in a new worktree stacked on this branch (--flat: not); same: this worktree; none: the
-  main checkout; --top-level: a sibling. Sent at once (--draft: typed). Brief it fully (context, constraints, what
-  done means): it knows nothing of this conversation unless --fork. Long prompts: quoted heredoc (new --help).
-  --task: works on that task, replacing its text; ticked when merged or done; top-level unless in a new worktree.
+  main checkout; --top-level: a sibling; --parent: under one you started. Sent at once (--draft: typed). Brief it
+  fully (context, constraints, what done is): it knows nothing of this chat unless --fork. Long prompts: quoted
+  heredoc (new --help). --task: works on that task, replacing its text; ticked when merged or done; top-level
+  unless in a new worktree.
 deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
-  Told to park something? task add it rather than doing it.
+  Told to park something? Just task add it.
 deckhand note add <item>  a step in this session's note
 deckhand ls               sessions (* is this one)
-deckhand kill <id>        end a sub-session this session started
+deckhand kill <id>        end a session you started
 deckhand remove <id>      then take it off the list
 
-IDs: any unique prefix. --json on any command; <command> --help for details.
+IDs: any unique prefix. --json anywhere; <command> --help for more.
 As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.
 ";
 

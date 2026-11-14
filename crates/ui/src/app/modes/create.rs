@@ -611,6 +611,7 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
         prompt: None,
         submit: None,
         stacked,
+        role: None,
     };
     let reply = client.create_session(input);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {
