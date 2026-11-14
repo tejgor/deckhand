@@ -266,9 +266,12 @@ pub fn part_style_spec(part: &RowPart, row: &SidebarRow) -> PartStyleSpec {
     }
     match part.role {
         RowRole::Gutter => spec(INK_THEME.active, true),
-        RowRole::Number | RowRole::Archived | RowRole::Merged | RowRole::Count | RowRole::Outdated => {
-            spec(INK_THEME.muted, true)
-        }
+        RowRole::Number
+        | RowRole::Archived
+        | RowRole::Merged
+        | RowRole::Count
+        | RowRole::Integrated
+        | RowRole::Outdated => spec(INK_THEME.muted, true),
         RowRole::Done | RowRole::Agent | RowRole::DevShared | RowRole::Parent => spec(INK_THEME.muted, false),
         RowRole::Dev => spec(INK_THEME.success, false),
         RowRole::Cleanup => spec(INK_THEME.error, false),
@@ -832,6 +835,7 @@ mod tests {
             "merged" => RowRole::Merged,
             "done" => RowRole::Done,
             "count" => RowRole::Count,
+            "integrated" => RowRole::Integrated,
             "outdated" => RowRole::Outdated,
             "agent" => RowRole::Agent,
             other => return Err(format!("unknown role {other}")),
@@ -927,6 +931,22 @@ mod tests {
         assert_eq!(part_style(&title, &row).color, Some(Color::Red));
         let selected = SidebarRow { selected: true, ..row };
         assert_eq!(part_style(&title, &selected), TextStyle::default());
+    }
+
+    #[test]
+    fn the_stacked_count_is_muted_like_the_sub_session_count() {
+        let row = SidebarRow {
+            id: "a".into(),
+            parts: Vec::new(),
+            selected: false,
+            dimmed: false,
+            done: false,
+            unread: false,
+            color: "red",
+        };
+        let style = |role| part_style(&RowPart { text: "x".into(), role }, &row);
+        assert_eq!(style(RowRole::Integrated), style(RowRole::Count));
+        assert_eq!(style(RowRole::Integrated).dim, Some(true));
     }
 
     #[test]

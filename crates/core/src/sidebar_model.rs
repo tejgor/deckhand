@@ -59,6 +59,10 @@ pub enum RowRole {
     Done,
     #[serde(rename = "count")]
     Count,
+    /// Not in the TS: `2/3 in` on a worktree's row: how many of the worktrees stacked directly on it are merged into
+    /// it, of how many (muted, like the count).
+    #[serde(rename = "integrated")]
+    Integrated,
     #[serde(rename = "outdated")]
     Outdated,
     #[serde(rename = "agent")]
@@ -104,9 +108,11 @@ pub const OUTDATED_MARKER: &str = "↑";
 /// TS: sidebarModel.ts MIN_TITLE (title columns below which suffix markers are dropped).
 pub const MIN_TITLE: usize = 4;
 
-/// TS: sidebarModel.ts DROP_ORDER (suffix markers dropped first to last; the agent stays).
-pub const DROP_ORDER: [RowRole; 8] = [
+/// TS: sidebarModel.ts DROP_ORDER (suffix markers dropped first to last; the agent stays). Not in the TS: `2/3 in`
+/// goes early, being the widest marker and spelled out again in the details.
+pub const DROP_ORDER: [RowRole; 9] = [
     RowRole::DevShared,
+    RowRole::Integrated,
     RowRole::Outdated,
     RowRole::Count,
     RowRole::Merged,
@@ -172,6 +178,100 @@ fn is_merged(session: &SessionRecord) -> bool {
             .as_ref()
             .and_then(|worktree| worktree.merged_at.as_ref()),
     ) || truthy(session.merged_at.as_ref())
+}
+
+/// The session's `worktree.id`, when truthy.
+fn worktree_id(session: &SessionRecord) -> Option<&str> {
+    session
+        .worktree
+        .as_ref()
+        .and_then(|worktree| worktree.id.as_deref())
+        .filter(|id| !id.is_empty())
+}
+
+/// Not in the TS: for each worktree others are stacked on, how many of the worktrees directly on it are merged (into
+/// it), of how many. Sessions sharing a worktree count it once. A worktree deleted without being merged no longer
+/// counts; one merged and then deleted (cleaned up) stays in. A worktree moved up when this one was merged or deleted
+/// targets another, so it drops out by itself.
+fn stacked_counts<'a, I>(sessions: I) -> HashMap<&'a str, (usize, usize)>
+where
+    I: IntoIterator<Item = &'a SessionRecord>,
+{
+    let mut children: HashMap<&str, HashMap<&str, bool>> = HashMap::new();
+    for session in sessions {
+        let (Some(worktree), Some(id)) = (session.worktree.as_ref(), worktree_id(session)) else {
+            continue;
+        };
+        let Some(target) = worktree
+            .target_worktree_id
+            .as_deref()
+            .filter(|target| !target.is_empty() && *target != id)
+        else {
+            continue;
+        };
+        let merged = truthy(worktree.merged_at.as_ref());
+        if truthy(worktree.deleted_at.as_ref()) && !merged {
+            continue;
+        }
+        *children.entry(target).or_default().entry(id).or_default() |= merged;
+    }
+    children
+        .into_iter()
+        .map(|(target, children)| {
+            let merged = children.values().filter(|merged| **merged).count();
+            (target, (merged, children.len()))
+        })
+        .collect()
+}
+
+/// A worktree others can be stacked on: linked (not the main checkout) and not deleted.
+fn stackable(session: &SessionRecord) -> bool {
+    session
+        .worktree
+        .as_ref()
+        .is_some_and(|worktree| worktree.is_main != Some(true) && !truthy(worktree.deleted_at.as_ref()))
+}
+
+/// Not in the TS: `(merged, total)` of the worktrees stacked directly on the session's worktree (the row's `2/3 in`),
+/// or None when none is.
+pub fn stacked_children_in<S: SessionLike>(session: &SessionRecord, all_sessions: &[S]) -> Option<(usize, usize)> {
+    let id = worktree_id(session).filter(|_| stackable(session))?;
+    stacked_counts(all_sessions.iter().map(SessionLike::session))
+        .get(id)
+        .copied()
+}
+
+/// Not in the TS: the session whose row shows each stacked-on worktree's `2/3 in`: the first of `listed` in that
+/// worktree without a listed ancestor in it, so a parent and its sub-sessions in its worktree do not all repeat it.
+fn integration_rows<'a>(
+    listed: &[&'a SessionRecord],
+    all_sessions: &[&SessionRecord],
+    counts: &HashMap<&str, (usize, usize)>,
+) -> HashMap<&'a str, &'a str> {
+    let listed_ids: HashSet<&str> = listed.iter().map(|session| session.id.as_str()).collect();
+    let mut rows = HashMap::new();
+    for &session in listed {
+        let Some(id) = worktree_id(session).filter(|id| counts.contains_key(id) && !rows.contains_key(id)) else {
+            continue;
+        };
+        if !stackable(session) {
+            continue;
+        }
+        let mut seen: HashSet<&str> = HashSet::from([session.id.as_str()]);
+        let mut current = session;
+        let mut under_one = false;
+        while let Some(parent) = parent_of(current, all_sessions).filter(|parent| seen.insert(parent.id.as_str())) {
+            if listed_ids.contains(parent.id.as_str()) && worktree_id(parent) == Some(id) {
+                under_one = true;
+                break;
+            }
+            current = parent;
+        }
+        if !under_one {
+            rows.insert(id, session.id.as_str());
+        }
+    }
+    rows
 }
 
 /// The parent of a sub-session, when it is among `sessions`.
@@ -291,6 +391,8 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
     // ▾ ▸ and +N count the sub-sessions this view lists (an archived one is gone from the active view); depth and
     // titles still follow every ancestor.
     let (listed, sections) = listed_sessions(input.all_sessions, input.filter, input.sectioned);
+    let stacked = stacked_counts(input.all_sessions.iter().copied());
+    let integration = integration_rows(&listed, input.all_sessions, &stacked);
     let mut out = Vec::with_capacity(input.rows.len());
     for (index, &session) in input.rows.iter().enumerate() {
         let selected = input.selected_id == Some(session.id.as_str());
@@ -379,6 +481,12 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         }
         if truthy(session.done_at.as_ref()) {
             suffix.push(part(DONE_MARKER, RowRole::Done));
+        }
+        if let Some((merged, total)) = worktree_id(session)
+            .filter(|id| integration.get(id) == Some(&session.id.as_str()))
+            .and_then(|id| stacked.get(id))
+        {
+            suffix.push(part(format!("{merged}/{total} in"), RowRole::Integrated));
         }
         if child_count > 0 {
             suffix.push(part(format!("+{child_count}"), RowRole::Count));
@@ -1025,6 +1133,12 @@ fn details<S: SessionLike>(
     {
         lines.push(parent);
     }
+    // Not in the TS: where a stacked worktree merges, and where it came from when it moved up.
+    if let Some(target) = target_line(session, width)
+        && room(&lines) >= 1
+    {
+        lines.push(target);
+    }
     // The task it works on (b), and how many more are open on its work: kept longer than the checklist line below.
     if let Some(task) = task
         && room(&lines) >= 1
@@ -1049,7 +1163,52 @@ fn details<S: SessionLike>(
     {
         lines.push(vec![detail(checklist, THEME.muted)]);
     }
+    // Not in the TS: the row's `2/3 in` in words, only in a row left over (the row already shows it).
+    if let Some((merged, total)) = stacked_children_in(session, all_sessions)
+        && room(&lines) >= 1
+    {
+        let text = format!("{merged} of {total} stacked worktrees in");
+        lines.push(vec![detail(cut(&text, jnum(width)), THEME.muted)]);
+    }
     lines
+}
+
+/// Not in the TS: `→ into <target branch>` for a stacked worktree; after its target was merged or deleted,
+/// `→ into <new target> (was <old>)`, or `→ into launch checkout (was <old>)` when nothing is left to stack on. None
+/// for a flat worktree that never moved, and for a deleted one. Too wide, `into` goes first, then the end is cut.
+fn target_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
+    let worktree = session.worktree.as_ref()?;
+    if truthy(worktree.deleted_at.as_ref()) {
+        return None;
+    }
+    let nonempty = |value: Option<&String>| value.filter(|text| !text.is_empty()).cloned();
+    let stacked = nonempty(worktree.target_worktree_id.as_ref()).is_some();
+    let target = nonempty(worktree.target_branch.as_ref()).filter(|_| stacked);
+    let was = nonempty(worktree.retargeted_from.as_ref());
+    if !stacked && was.is_none() {
+        return None;
+    }
+    let mut line = vec![
+        detail("→ into ", THEME.muted),
+        match target {
+            Some(branch) => detail(branch, THEME.accent_soft),
+            // A target recorded without its branch (edited state); flat merges into the launch checkout.
+            None if stacked => detail("target worktree", THEME.muted),
+            None => detail("launch checkout", THEME.muted),
+        },
+    ];
+    if let Some(was) = was {
+        line.push(DetailPart {
+            text: format!(" (was {was})"),
+            color: Some(THEME.muted),
+            dim: Some(true),
+        });
+    }
+    let width = jnum(width);
+    if line.iter().map(|part| jlen(&part.text)).sum::<i64>() > width {
+        line[0].text = "→ ".into();
+    }
+    Some(cut_parts(&line, width))
 }
 
 /// Not in the TS: `↳ sub-session of <parent> · <its state>` (`⑂ fork of` for a fork), the parent's name cut to
@@ -2590,5 +2749,271 @@ mod tests {
         ];
         assert_eq!(details(5), full);
         assert_eq!(details(4), full[..4].to_vec());
+    }
+
+    /// A managed worktree `w-<name>` at `/wt/<name>` on `feat/<name>`, with `fields` added.
+    fn linked(name: &str, fields: Value) -> Value {
+        let mut worktree = json!({
+            "mode": "managed", "id": format!("w-{name}"), "path": format!("/wt/{name}"), "branch": format!("feat/{name}"),
+        });
+        if let (Some(worktree), Some(fields)) = (worktree.as_object_mut(), fields.as_object()) {
+            worktree.extend(fields.clone());
+        }
+        worktree
+    }
+
+    /// The target fields of a worktree stacked on `w-<parent>`.
+    fn on(parent: &str) -> Value {
+        json!({"targetWorktreeId": format!("w-{parent}"), "targetBranch": format!("feat/{parent}")})
+    }
+
+    /// `<name>`, a clean sub-session of `parent` in a worktree of its own (`worktree`).
+    fn child(name: &str, parent: &str, worktree: Value) -> SessionRecord {
+        sess(
+            name,
+            json!({"parentSessionId": parent, "subSessionKind": "clean", "cwd": format!("/wt/{name}"), "worktree": worktree}),
+        )
+    }
+
+    /// `auth` with a sub-session in its own worktree (`notes`) and three worktrees stacked on it, `tokens` merged.
+    /// `refresh` was stacked on `tokens` and moved up to `auth` when `tokens` was merged.
+    fn stack() -> Vec<SessionRecord> {
+        let merged = |name: &str| {
+            let mut fields = on("auth");
+            fields["mergedAt"] = json!(ago(30));
+            linked(name, fields)
+        };
+        vec![
+            sess(
+                "auth",
+                json!({"cwd": "/wt/auth", "worktree": linked("auth", json!({}))}),
+            ),
+            sess(
+                "notes",
+                json!({"parentSessionId": "auth", "subSessionKind": "clean", "cwd": "/wt/auth", "worktree": {"mode": "none", "id": "w-auth"}}),
+            ),
+            child("tokens", "auth", merged("tokens")),
+            child(
+                "refresh",
+                "tokens",
+                linked(
+                    "refresh",
+                    json!({"targetWorktreeId": "w-auth", "targetBranch": "feat/auth", "retargetedFrom": "feat/tokens"}),
+                ),
+            ),
+            child("login", "auth", linked("login", on("auth"))),
+            child("oauth", "auth", linked("oauth", on("auth"))),
+        ]
+    }
+
+    fn integrated(row: &SidebarRow) -> Option<String> {
+        row.parts
+            .iter()
+            .find(|part| part.role == RowRole::Integrated)
+            .map(|part| part.text.clone())
+    }
+
+    #[test]
+    fn a_worktree_counts_the_worktrees_stacked_directly_on_it_that_are_merged_in() {
+        let list = stack();
+        let all = refs(&list);
+        let of = |all: &[&SessionRecord], id: &str| {
+            stacked_children_in(all.iter().find(|session| session.id == id).unwrap(), all)
+        };
+        // tokens is in; login, oauth and refresh (moved up from tokens) are not.
+        assert_eq!(of(&all, "auth"), Some((1, 4)));
+        // A sub-session in auth's worktree reads its worktree's count; nothing is stacked on the leaves.
+        assert_eq!(of(&all, "notes"), Some((1, 4)));
+        assert_eq!(of(&all, "login"), None);
+        // Deleted without being merged: gone. Merged, then deleted (cleaned up): still in.
+        let mut more = list.clone();
+        more.push(child("dropped", "auth", {
+            let mut fields = on("auth");
+            fields["deletedAt"] = json!(ago(10));
+            linked("dropped", fields)
+        }));
+        more.push(child("shipped", "auth", {
+            let mut fields = on("auth");
+            fields["mergedAt"] = json!(ago(20));
+            fields["deletedAt"] = json!(ago(10));
+            linked("shipped", fields)
+        }));
+        // Two sessions in login's worktree count it once; one stacked on login is login's, not auth's.
+        more.push(child("login-2", "login", linked("login", on("auth"))));
+        more.push(child("login-tests", "login", linked("login-tests", on("login"))));
+        // Moved away from auth (auth's own target was merged): it targets another worktree and drops out.
+        more.push(child(
+            "moved",
+            "auth",
+            linked(
+                "moved",
+                json!({"targetWorktreeId": "w-root", "targetBranch": "feat/root", "retargetedFrom": "feat/auth"}),
+            ),
+        ));
+        let more = refs(&more);
+        assert_eq!(of(&more, "auth"), Some((2, 5)));
+        assert_eq!(of(&more, "login"), Some((0, 1)));
+        // A deleted worktree, or the main checkout, has nothing stacked on it to count.
+        let deleted = SessionRecord {
+            worktree: Some(serde_json::from_value(linked("auth", json!({"deletedAt": ago(1)}))).unwrap()),
+            ..list[0].clone()
+        };
+        assert_eq!(stacked_children_in(&deleted, &all), None);
+    }
+
+    #[test]
+    fn a_parents_row_shows_how_many_of_its_stacked_worktrees_are_in_once_per_worktree() {
+        let list = stack();
+        let all = refs(&list);
+        let rows = rows_of(&all, Opts::default());
+        let marks: Vec<Option<String>> = rows.iter().map(integrated).collect();
+        // On auth's row only: not on notes (in auth's worktree, under it), not on the stacked children.
+        assert_eq!(marks, [Some("1/4 in".into()), None, None, None, None, None]);
+        // At sidebar widths of 37 and 40 (rows of 34 and 37 columns) the title keeps most of the row.
+        let at = |width: usize| {
+            texts(
+                &all[..1],
+                Opts {
+                    all: Some(&all),
+                    width: Some(width),
+                    ..Opts::default()
+                },
+            )
+        };
+        assert_eq!(at(34), ["  1 ▾ ● auth              1/4 in ✶"]);
+        assert_eq!(at(37), ["  1 ▾ ● auth                 1/4 in ✶"]);
+        // Another top-level session that joined auth's worktree: the first listed carries it.
+        let mut joined = list.clone();
+        joined.push(sess(
+            "review",
+            json!({"cwd": "/wt/auth", "worktree": {"mode": "attached", "id": "w-auth", "path": "/wt/auth"}}),
+        ));
+        let joined = refs(&joined);
+        let marks: Vec<Option<String>> = rows_of(&joined, Opts::default()).iter().map(integrated).collect();
+        assert_eq!(marks[0].as_deref(), Some("1/4 in"));
+        assert_eq!(marks[6], None);
+        // The archived view lists only archived sessions: there an archived sub-session in the worktree carries it.
+        let mut archived = list.clone();
+        archived[1].archived_at = Some(ago(1));
+        let archived = refs(&archived);
+        let rows = rows_of(
+            &archived[1..2],
+            Opts {
+                all: Some(&archived),
+                filter: Some(SessionFilter::Archived),
+                ..Opts::default()
+            },
+        );
+        assert_eq!(integrated(&rows[0]).as_deref(), Some("1/4 in"));
+    }
+
+    #[test]
+    fn the_stacked_count_gives_way_first_on_a_narrow_row() {
+        let list = stack();
+        let all = refs(&list);
+        assert_eq!(DROP_ORDER[1], RowRole::Integrated);
+        let row = |width: usize| {
+            texts(
+                &all[..1],
+                Opts {
+                    all: Some(&all),
+                    width: Some(width),
+                    ..Opts::default()
+                },
+            )[0]
+            .clone()
+        };
+        assert_eq!(row(21), "  1 ▾ ● auth 1/4 in ✶");
+        // One column less and the title would go under its minimum: the count goes, the title stays whole.
+        assert_eq!(row(20), "  1 ▾ ● auth       ✶");
+    }
+
+    #[test]
+    fn details_say_where_a_stacked_worktree_merges_and_where_it_moved_from() {
+        let list = stack();
+        let all = refs(&list);
+        let lines = |session: &SessionRecord, all: &[&SessionRecord]| {
+            line_texts(&session_details_with_parent(
+                Some(session),
+                all,
+                34,
+                10,
+                NOW,
+                None,
+                None,
+            ))
+        };
+        let find = |id: &str| all.iter().copied().find(|session| session.id == id).unwrap();
+        let target = |lines: Vec<String>| lines.into_iter().find(|line| line.starts_with("→ "));
+        assert_eq!(target(lines(find("login"), &all)).as_deref(), Some("→ into feat/auth"));
+        assert_eq!(
+            target(lines(find("refresh"), &all)).as_deref(),
+            Some("→ into feat/auth (was feat/tokens)")
+        );
+        // Moved up with nothing left to stack on: it merges into the launch checkout. Narrower, `into` goes first.
+        let flat = child("flat", "auth", linked("flat", json!({"retargetedFrom": "feat/auth"})));
+        let wide = line_texts(&session_details_with_parent(
+            Some(&flat),
+            &[&flat],
+            40,
+            10,
+            NOW,
+            None,
+            None,
+        ));
+        assert_eq!(target(wide).as_deref(), Some("→ into launch checkout (was feat/auth)"));
+        assert_eq!(
+            target(lines(&flat, &[&flat])).as_deref(),
+            Some("→ launch checkout (was feat/auth)")
+        );
+        // A worktree that was always flat, a session without one and a deleted worktree say nothing.
+        assert_eq!(target(lines(find("auth"), &all)), None);
+        assert_eq!(target(lines(&sess("plain", json!({})), &all)), None);
+        let deleted = child("gone", "auth", {
+            let mut fields = on("auth");
+            fields["deletedAt"] = json!(ago(1));
+            linked("gone", fields)
+        });
+        assert_eq!(target(lines(&deleted, &[&deleted])), None);
+        // Cut to the width, the target first.
+        let narrow = line_texts(&session_details_with_parent(
+            Some(find("refresh")),
+            &all,
+            16,
+            10,
+            NOW,
+            None,
+            None,
+        ));
+        assert!(narrow.iter().any(|line| line == "→ feat/auth (wa…"), "{narrow:?}");
+    }
+
+    #[test]
+    fn a_parents_details_spell_out_its_stacked_count_in_a_spare_row() {
+        let list = stack();
+        let all = refs(&list);
+        let details = |rows: usize| {
+            line_texts(&session_details_with_parent(
+                Some(all[0]),
+                &all,
+                34,
+                rows,
+                NOW,
+                None,
+                None,
+            ))
+        };
+        assert_eq!(
+            details(10),
+            [
+                "─".repeat(34).as_str(),
+                "auth",
+                "✶ claude · idle · 5m",
+                "⎇ feat/auth",
+                "1 of 4 stacked worktrees in",
+            ]
+        );
+        // Without a row to spare it is the line left out.
+        assert_eq!(details(4), details(10)[..4].to_vec());
     }
 }
