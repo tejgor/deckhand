@@ -892,19 +892,13 @@ impl LiveClient {
         }))
     }
 
-    /// Not in the TS: the repository's orchestrator: started when none runs (`prompt`, if any, its first message),
-    /// else given `prompt` (typed and submitted while it is idle at its input).
-    pub fn open_orchestrator(
-        &self,
-        cwd: &str,
-        prompt: Option<&str>,
-        cols: i64,
-        rows: i64,
-    ) -> Reply<OrchestratorResult> {
+    /// Not in the TS: a new orchestrator for the idea `idea` (its first message, its title from the first line), on
+    /// a new top-level line of the same title.
+    pub fn open_orchestrator(&self, cwd: &str, idea: &str, cols: i64, rows: i64) -> Reply<OrchestratorResult> {
         self.request(Request::OpenOrchestrator(OpenOrchestrator {
             request_id: new_request_id(),
             cwd: cwd.into(),
-            prompt: prompt.map(str::to_owned),
+            prompt: Some(idea.to_owned()),
             cols: Some(cols),
             rows: Some(rows),
         }))

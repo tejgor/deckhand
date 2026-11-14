@@ -81,10 +81,10 @@ Deckhand actions, for the agents in its sessions (and for you):
   ls                           List the checkout's sessions
   task list|add|done|reopen|move  List, add, tick or move the repository's tasks
   note add <item>              Add a step to this session's note
-  kill <id>, remove <id>       End, or remove, a session (from inside one: only sessions it started)
+  kill <id>, remove <id>       End, or remove, a session (from inside one: only sessions under it)
   guide                        Print the guide to these commands for agents
   plan check|apply [<file>]    Check an orchestrator plan, or create it once you confirm it in Deckhand
-  do <request>                 Hand a request to the repository's orchestrator (started if none runs)
+  do <idea>                    Start a new orchestrator for an idea, which splits it into sessions
 Each takes --json; deckhand <command> --help describes it.
 
 --check only reports; --yes (-y) installs, or restarts, without asking.
@@ -468,7 +468,7 @@ mod tests {
             "kill <id>, remove <id>",
             "guide",
             "plan check|apply [<file>]",
-            "do <request>",
+            "do <idea>",
             "deckhand <command> --help",
         ] {
             assert!(HELP_TEXT.contains(listed), "{listed}");

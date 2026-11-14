@@ -76,9 +76,6 @@ static LETTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\p{L}").expect("v
 #[derive(Debug, Default)]
 pub struct HooksState {}
 
-/// Not in the TS: how long [`Daemon::deliver_prompt`] waits between the paste and the Enter that submits it.
-pub const SUBMIT_AFTER_PASTE: Duration = Duration::from_millis(150);
-
 /// `text` as one bracketed paste, so no character of it acts as a key.
 pub fn paste(text: &str) -> String {
     format!("\x1b[200~{text}\x1b[201~")
@@ -454,50 +451,6 @@ impl Daemon {
         Ok(())
     }
 
-    /// Not in the TS: types `text` into the agent of `session_id` as one bracketed paste and submits it (`deckhand
-    /// do`, to the orchestrator), as a draft is typed but sent. Only while the agent sits idle at its input: refused,
-    /// with nothing typed, while it starts, works, waits for an answer (a question or a permission), shows a menu, or
-    /// has a draft waiting.
-    pub async fn deliver_prompt(&self, session_id: &str, text: &str) -> Result<()> {
-        let session = self.require_session(session_id)?;
-        let name = self.session_path(&session);
-        let refuse = |why: &str| Err(DhError::msg(format!("{name} {why}; nothing was sent")));
-        match session.status {
-            SessionStatus::Starting => return refuse("is still starting"),
-            SessionStatus::Exited => return refuse("is not running"),
-            SessionStatus::Running => {}
-        }
-        let Some(worker) = self
-            .session_worker(session_id)
-            .filter(|worker| !worker.channel.is_exited())
-        else {
-            return refuse("is not running");
-        };
-        if session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::NeedsInput) {
-            return refuse("is waiting for an answer (a question or a permission): answer it in Deckhand first");
-        }
-        if deckhand_core::sidebar_model::agent_working(&session) {
-            return refuse("is busy with a turn: try again when it is idle");
-        }
-        if worker.draft.borrow().is_some() {
-            return refuse("has a draft waiting to be typed");
-        }
-        let at_input = worker
-            .screen
-            .borrow()
-            .as_deref()
-            .is_some_and(|screen| !js_trim(screen).is_empty() && !shows_agent_prompt(screen));
-        if !at_input {
-            return refuse("is not at its input (its screen shows a menu or question, or nothing yet)");
-        }
-        self.send_worker_event(session_id, agent_input(&paste(text)));
-        // The paste lands first, then the Enter that submits it (an Enter inside the paste would only add a line).
-        tokio::time::sleep(SUBMIT_AFTER_PASTE).await;
-        self.send_worker_event(session_id, agent_input("\r"));
-        self.log(&format!("sent a request to {session_id}")).await;
-        Ok(())
-    }
-
     /// TS: InkDaemon.dropDraft: forgets the draft (`save`: also clear the session's `startPrompt`); `reason` is logged
     /// when it was not typed.
     pub fn drop_draft(&self, session_id: &str, reason: Option<&str>, save: bool) {
@@ -828,7 +781,7 @@ pub(crate) mod tests {
                 error.to_string(),
                 "Cannot read properties of undefined (reading 'program')"
             );
-            // It forks and hands off only itself, and starts sessions only under itself or sessions it started.
+            // It forks and hands off only itself, and starts sessions only under itself or sessions under it.
             for (key, refusal) in [
                 ("parentSessionId", crate::sessions::NOT_CALLERS_PARENT),
                 ("forkFromSessionId", crate::sessions::NOT_CALLERS_CHILD),
@@ -908,13 +861,15 @@ pub(crate) mod tests {
         });
     }
 
-    /// Sessions around caller `s`: `spawned` (started by it, top-level, as a plan does), `deep` (under `spawned`),
-    /// `sub` (its sub-session from before `spawnedBySessionId`), `theirs` (another's) and `top` (the user's).
+    /// Sessions around caller `s`: `sub` (its sub-session), `deep` (under `sub`), `spawned` (started by it but
+    /// top-level, as `--top-level` makes one), `outside` (started by it under another's session, as a plan may),
+    /// `theirs` (another's) and `top` (the user's).
     fn family(daemon: &Daemon) {
         for (id, parent, spawned_by) in [
+            ("sub", Some("s"), Some("s")),
+            ("deep", Some("sub"), None),
             ("spawned", None, Some("s")),
-            ("deep", Some("spawned"), None),
-            ("sub", Some("s"), None),
+            ("outside", Some("top"), Some("s")),
             ("theirs", Some("other"), None),
             ("top", None, None),
         ] {
@@ -934,7 +889,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_caller_starts_sessions_under_itself_and_the_sessions_it_started_and_is_recorded_as_their_starter() {
+    fn a_caller_starts_sessions_under_itself_and_its_descendants_and_is_recorded_as_their_starter() {
         use crate::sessions::{CALLER_CANNOT_ORCHESTRATE, NOT_CALLERS_PARENT};
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
@@ -947,9 +902,10 @@ pub(crate) mod tests {
                 .program_command_cache
                 .insert(deckhand_protocol::data::ProgramKey::Claude, "claude".into());
             family(&daemon);
+            // Its tree, by parent links: who started a session is a record only.
             assert_eq!(
-                daemon.started_by("s"),
-                ["spawned", "deep", "sub"].map(str::to_owned).into_iter().collect()
+                daemon.descendants_of("s"),
+                ["sub", "deep"].map(str::to_owned).into_iter().collect()
             );
             let as_caller = |input: Value| {
                 let mut request = create(caller("token"));
@@ -959,7 +915,6 @@ pub(crate) mod tests {
             };
             for (title, parent) in [
                 ("under itself", Some("s")),
-                ("under spawned", Some("spawned")),
                 ("under deep", Some("deep")),
                 ("under sub", Some("sub")),
                 ("top level", None),
@@ -969,7 +924,7 @@ pub(crate) mod tests {
                 // Who started it is recorded from the authenticated caller.
                 assert_eq!(created.spawned_by_session_id.as_deref(), Some("s"), "{title}");
             }
-            for parent in ["theirs", "top"] {
+            for parent in ["spawned", "outside", "theirs", "top"] {
                 let error = as_caller(child_input("refused", Some(parent))).await.unwrap_err();
                 assert_eq!(error.to_string(), NOT_CALLERS_PARENT, "{parent}");
             }
@@ -990,14 +945,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_caller_stops_and_removes_the_sessions_it_started_and_those_under_them() {
+    fn a_caller_stops_and_removes_only_the_sessions_under_it() {
         use crate::sessions::NOT_CALLERS_SUB_SESSION;
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         local(async {
             let (daemon, _worker, _fake) = setup(dir.path()).await;
             family(&daemon);
-            for id in ["spawned", "deep", "sub"] {
+            for id in ["sub", "deep"] {
                 // Allowed: the kill's own check answers (they have exited).
                 let error = daemon
                     .handle_kill(&kill(id, caller("token"), json!({})))
@@ -1005,7 +960,7 @@ pub(crate) mod tests {
                     .unwrap_err();
                 assert_eq!(error.to_string(), "session is not running", "{id}");
             }
-            for id in ["theirs", "top", "s"] {
+            for id in ["spawned", "outside", "theirs", "top", "s"] {
                 let error = daemon
                     .handle_kill(&kill(id, caller("token"), json!({})))
                     .await
@@ -1015,49 +970,8 @@ pub(crate) mod tests {
                 assert_eq!(error.to_string(), NOT_CALLERS_SUB_SESSION, "{id}");
             }
             daemon.handle_remove(&remove("deep", caller("token"))).await.unwrap();
-            daemon.handle_remove(&remove("spawned", caller("token"))).await.unwrap();
-            assert!(daemon.get_session("deep").is_none() && daemon.get_session("spawned").is_none());
-        });
-    }
-
-    #[test]
-    fn a_request_is_typed_and_submitted_only_while_the_agent_is_idle_at_its_input() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        local(async {
-            let (daemon, worker, mut fake) = setup(dir.path()).await;
-            daemon.set_session({
-                let mut session = daemon.get_session("s").unwrap();
-                session.title = "Orchestrator".into();
-                session
-            });
-            let refused =
-                |daemon: Daemon| async move { daemon.deliver_prompt("s", "Plan it").await.unwrap_err().to_string() };
-            // No screen yet, or a menu on it.
-            assert!(refused(daemon.clone()).await.contains("is not at its input"));
-            *worker.screen.borrow_mut() = Some("❯ 1. Yes, I trust this folder\n".into());
-            assert!(refused(daemon.clone()).await.contains("is not at its input"));
-            *worker.screen.borrow_mut() = Some("> \n".into());
-            // Waiting for an answer, or working.
-            seed(&daemon, AttentionState::NeedsInput, None, None);
-            assert_eq!(
-                refused(daemon.clone()).await,
-                "Orchestrator is waiting for an answer (a question or a permission): answer it in Deckhand first; \
-                 nothing was sent"
-            );
-            seed(&daemon, AttentionState::Working, None, None);
-            assert_eq!(
-                refused(daemon.clone()).await,
-                "Orchestrator is busy with a turn: try again when it is idle; nothing was sent"
-            );
-            seed(&daemon, AttentionState::ResponseEnded, None, None);
-            daemon.deliver_prompt("s", "Plan it").await.unwrap();
-            let pasted = fake.next().await;
-            assert_eq!(pasted["type"], "input");
-            assert_eq!(pasted["target"], "agent");
-            assert_eq!(pasted["data"], "\x1b[200~Plan it\x1b[201~");
-            let submitted = fake.next().await;
-            assert_eq!(submitted["data"], "\r");
+            daemon.handle_remove(&remove("sub", caller("token"))).await.unwrap();
+            assert!(daemon.get_session("deep").is_none() && daemon.get_session("sub").is_none());
         });
     }
 

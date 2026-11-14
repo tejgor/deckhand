@@ -304,8 +304,11 @@ fn text(text: impl Into<String>, style: TextStyle) -> Row {
     vec![Seg::new(text, style)]
 }
 
-/// The dialog `width` wide: what the plan holds, its tree of sessions, its backlog tasks and when it expires; the
-/// answer keys (or the answer being sent) at the bottom.
+/// How many lines of the idea's brief the dialog shows.
+const BRIEF_ROWS: usize = 4;
+
+/// The dialog `width` wide: what the plan holds (and the idea it is for), its tree of sessions, its parked work (or
+/// backlog tasks), the idea's brief and when it expires; the answer keys (or the answer being sent) at the bottom.
 pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
     let content_width = usize::from(width).saturating_sub(4).max(1);
     let muted = TextStyle::fg(THEME.muted);
@@ -317,14 +320,17 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
         content_width,
         Wrap::Wrap,
     ));
-    let from = match plan.caller_title.as_deref().filter(|title| !title.is_empty()) {
-        Some(caller) => format!("{caller}'s plan: {}.", summary.counts),
-        None => format!("A plan of {}.", summary.counts),
+    let idea = summary.idea.as_deref().filter(|idea| !idea.is_empty());
+    let from = match (idea, plan.caller_title.as_deref().filter(|title| !title.is_empty())) {
+        (Some(idea), _) => format!("A plan for ◎ {idea}: {}.", summary.counts),
+        (None, Some(caller)) => format!("{caller}'s plan: {}.", summary.counts),
+        (None, None) => format!("A plan of {}.", summary.counts),
     };
-    let explanation = if summary.sessions.is_empty() {
-        format!("{from} Its tasks go to the backlog.")
-    } else {
-        format!("{from} Each session starts on its brief at once.")
+    let explanation = match (summary.sessions.is_empty(), idea.is_some()) {
+        (true, true) => format!("{from} Its tasks are parked under the idea."),
+        (true, false) => format!("{from} Its tasks go to the backlog."),
+        (false, true) => format!("{from} Each session starts on its brief at once, under the orchestrator."),
+        (false, false) => format!("{from} Each session starts on its brief at once."),
     };
     rows.body
         .extend(fit_row(&text(explanation, muted), content_width, Wrap::Wrap));
@@ -345,7 +351,12 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
     }
     if !summary.tasks.is_empty() {
         rows.body.push(Vec::new());
-        rows.body.push(text("Backlog", TextStyle::fg(THEME.accent).bold(true)));
+        let heading = if idea.is_some() {
+            "Parked under the idea"
+        } else {
+            "Backlog"
+        };
+        rows.body.push(text(heading, TextStyle::fg(THEME.accent).bold(true)));
         for task in &summary.tasks {
             rows.body.extend(fit_row(
                 &text(format!("☐ {}", task.title), TextStyle::fg(THEME.accent_soft)),
@@ -357,6 +368,23 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
                 rows.body
                     .extend(fit_row(&text(format!("  {details}"), muted), content_width, Wrap::Wrap));
             }
+        }
+    }
+    if let Some(brief) = summary.brief.as_deref().filter(|brief| !brief.trim().is_empty()) {
+        rows.body.push(Vec::new());
+        rows.body
+            .push(text("The idea's brief", TextStyle::fg(THEME.accent).bold(true)));
+        let lines: Vec<&str> = brief.trim_end().lines().collect();
+        for line in lines.iter().take(BRIEF_ROWS) {
+            rows.body
+                .extend(fit_row(&text(*line, muted), content_width, Wrap::Wrap));
+        }
+        if lines.len() > BRIEF_ROWS {
+            let more = lines.len() - BRIEF_ROWS;
+            rows.body.push(text(
+                format!("… {more} more {}", if more == 1 { "line" } else { "lines" }),
+                muted,
+            ));
         }
     }
     rows.footer.push(Vec::new());
@@ -785,6 +813,48 @@ mod tests {
         let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
         assert!(lines[1].starts_with("A plan of 3 sessions, 1 task."), "{lines:#?}");
         assert_eq!(lines.last().map(String::as_str), Some("Creating…"));
+    }
+
+    #[test]
+    fn an_orchestrators_plan_says_its_idea_parks_its_tasks_under_it_and_shows_its_brief() {
+        let (mut app, _rx) = app(AppProps::default());
+        let mut plan = pending("p1", 0);
+        plan.caller_title = Some("Rework auth".to_owned());
+        plan.summary.idea = Some("Rework auth".to_owned());
+        plan.summary.brief = Some(
+            "Problem: tokens sit in plain text.\nApproach: an encrypted store.\nDecided: keep the API.\n\
+             Ruled out: SSO.\nOpen: key rotation.\nOpen: the CLI.\n"
+                .to_owned(),
+        );
+        plan_pending(&mut app, plan);
+        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        assert_eq!(
+            lines[1..3],
+            [
+                "A plan for ◎ Rework auth: 3 sessions, 1 task. Each session starts on its brief at once,",
+                "under the orchestrator."
+            ]
+        );
+        assert_eq!(lines[8], "Parked under the idea");
+        let brief = lines
+            .iter()
+            .position(|line| line == "The idea's brief")
+            .unwrap_or_default();
+        assert_eq!(
+            lines[brief + 1..brief + 6],
+            [
+                "Problem: tokens sit in plain text.",
+                "Approach: an encrypted store.",
+                "Decided: keep the API.",
+                "Ruled out: SSO.",
+                "… 2 more lines",
+            ]
+        );
+        assert_pane("67-confirm-plan-idea", &drawn(&props(&app, at(1.5)), 98, 31, 0));
+        // Tasks only: they are parked under the idea.
+        app.plans.queue[0].summary.sessions.clear();
+        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        assert!(lines[1].ends_with("Its tasks are parked under the idea."), "{lines:#?}");
     }
 
     #[test]

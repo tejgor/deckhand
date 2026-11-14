@@ -19,7 +19,7 @@ use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
     AttachTarget, AttentionState, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord,
-    SessionRole, SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
+    SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
 };
 use deckhand_protocol::records::{AppConfig, SessionFilter, SessionView};
 use deckhand_sys::desktop::open_in_editor;
@@ -123,7 +123,7 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("O")],
-        action: "the repository's orchestrator: attach, or start it",
+        action: "a new orchestrator for an idea: what do you want to do?",
         help: HelpRef::Topic("Sessions"),
     },
     Binding {
@@ -417,7 +417,7 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         return;
     }
     if text == "O" {
-        open_orchestrator(app);
+        crate::app::modes::idea::open_prompt(app);
         return;
     }
     if text == "R" {
@@ -1556,63 +1556,6 @@ pub fn open_selected(app: &mut App, input: &Input) {
     app.attach_to(&session, target);
 }
 
-/// Not in the TS: the repository's live orchestrator (role `orchestrator`, not exited), when there is one.
-fn running_orchestrator(app: &App) -> Option<SessionRecord> {
-    app.data
-        .repo_sessions
-        .iter()
-        .find(|session| session.role == Some(SessionRole::Orchestrator) && session.status != SessionStatus::Exited)
-        .cloned()
-}
-
-/// Not in the TS: O: the repository's orchestrator. A running one is selected and attached; one still starting is
-/// selected; without one, the daemon starts it (`open-orchestrator`) and it is selected, as `n` leaves a new session
-/// (`enter` attaches once it runs).
-pub fn open_orchestrator(app: &mut App) {
-    let Some(client) = app.client() else {
-        app.set_error(Some("still connecting to daemon".to_owned()));
-        return;
-    };
-    if let Some(session) = running_orchestrator(app) {
-        app.set_selected_id(Some(session.id.clone()));
-        if session.status == SessionStatus::Running {
-            app.attach_to(&session, AttachTarget::Agent);
-        } else {
-            app.set_status(Some(ORCHESTRATOR_STARTING.to_owned()));
-        }
-        return;
-    }
-    let layout = app.layout();
-    let reply = client.open_orchestrator(
-        &app.props.cwd,
-        None,
-        i64::from(layout.preview_cols),
-        i64::from(layout.preview_rows),
-    );
-    app.set_error(None);
-    app.set_busy(true);
-    drop(app.dispatch().spawn(reply, |app: &mut App, result| {
-        app.set_busy(false);
-        match result {
-            Ok(opened) => {
-                let session = opened.session.into_inner();
-                app.set_selected_id(Some(session.id.clone()));
-                app.upsert(session.clone());
-                if !opened.started && session.status == SessionStatus::Running {
-                    // Started meanwhile (another Deckhand, `deckhand do`): it runs already.
-                    app.attach_to(&session, AttachTarget::Agent);
-                } else {
-                    app.set_status(Some(ORCHESTRATOR_STARTING.to_owned()));
-                }
-            }
-            Err(error) => app.set_error(Some(error.to_string())),
-        }
-    }));
-}
-
-/// The status line while the orchestrator starts.
-const ORCHESTRATOR_STARTING: &str = "The orchestrator is starting · enter (or O) attaches once it runs";
-
 /// TS: Backspace on an exited session: archive it, or on an archived one ask to remove it for good.
 pub fn archive_or_remove(app: &mut App) {
     let Some(session) = app.selected_session() else {
@@ -1655,7 +1598,8 @@ pub(crate) mod tests {
     use deckhand_client::live::{LiveClient, LiveClientHandlers};
     use deckhand_core::key::Key;
     use deckhand_protocol::data::{
-        AgentActivityStatus, AttachTarget, ProgramKey, SessionAttention, SessionWorktreeRecord, UiExitResult,
+        AgentActivityStatus, AttachTarget, ProgramKey, SessionAttention, SessionRole, SessionWorktreeRecord,
+        UiExitResult,
     };
     use indexmap::IndexMap;
 
@@ -2966,82 +2910,139 @@ pub(crate) mod tests {
         });
     }
 
-    fn orchestrator(status: SessionStatus) -> SessionRecord {
-        let mut orchestrator = session("orch", "Orchestrator", status);
+    fn orchestrator(id: &str, title: &str, status: SessionStatus) -> SessionRecord {
+        let mut orchestrator = session(id, title, status);
         orchestrator.role = Some(SessionRole::Orchestrator);
         orchestrator
     }
 
-    #[test]
-    fn o_attaches_to_the_running_orchestrator() {
-        local(async {
-            let (mut app, _rx) = with_sessions(2);
-            let _daemon = Daemon::connect(&mut app);
-            // An exited orchestrator is not the one: the running one is.
-            let mut old = orchestrator(SessionStatus::Exited);
-            old.id = "old".to_owned();
-            app.data
-                .repo_sessions
-                .extend([old, orchestrator(SessionStatus::Running)]);
-            handle_browse(&mut app, &text("O"));
-            assert_eq!(app.browse.selected_id.as_deref(), Some("orch"));
-            assert!(
-                matches!(
-                    &app.connection.exit,
-                    Some(UiExitResult::Attach { session_id, target: AttachTarget::Agent, .. }) if session_id == "orch"
-                ),
-                "{:?}",
-                app.connection.exit
-            );
-        });
+    /// Types `idea` into `O`'s prompt and presses enter.
+    fn submit_idea(app: &mut App, idea: &str) {
+        handle_browse(app, &text("O"));
+        assert_eq!(app.mode, Mode::EnterIdea);
+        app.handle_input(&text(idea));
+        app.handle_input(&named(Key {
+            return_: true,
+            ..Key::NONE
+        }));
     }
 
     #[test]
-    fn o_starts_the_orchestrator_when_none_runs_and_selects_it() {
+    fn o_asks_what_you_want_to_do_and_starts_a_new_orchestrator_for_the_idea() {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
+            // One already runs: O asks for a new idea all the same (one orchestrator per idea).
+            app.data
+                .repo_sessions
+                .push(orchestrator("first", "Rework auth", SessionStatus::Running));
             handle_browse(&mut app, &text("O"));
+            assert_eq!(app.mode, Mode::EnterIdea);
+            assert_eq!(app.connection.exit, None);
+            app.handle_input(&text("Speed up"));
+            app.handle_input(&text(" the\nbuild"));
+            assert_eq!(app.browse.idea, "Speed up the build");
+            app.handle_input(&named(Key {
+                backspace: true,
+                ..Key::NONE
+            }));
+            app.handle_input(&text("d"));
+            app.handle_input(&named(Key {
+                return_: true,
+                ..Key::NONE
+            }));
+            assert_eq!(app.mode, Mode::Browse);
             assert!(app.messages.busy);
             let request = daemon.next().await;
             assert_eq!(request["type"], "open-orchestrator");
             assert_eq!(request["cwd"], "/repo");
-            assert!(request.get("prompt").is_none_or(Value::is_null), "{request}");
+            assert_eq!(request["prompt"], "Speed up the build");
             let layout = app.layout();
             assert_eq!(request["cols"], layout.preview_cols);
             assert_eq!(request["rows"], layout.preview_rows);
-            let started = json_of(&orchestrator(SessionStatus::Starting));
+            let started = json_of(&orchestrator("second", "Speed up the build", SessionStatus::Starting));
             daemon
-                .ok(
-                    &request,
-                    json!({"session": started, "started": true, "delivered": false}),
-                )
+                .ok(&request, json!({"session": started, "lineId": "ab12cd34"}))
                 .await;
             apply(&mut app, &mut rx).await;
             assert!(!app.messages.busy);
-            assert_eq!(app.browse.selected_id.as_deref(), Some("orch"));
-            assert!(app.data.repo_sessions.iter().any(|session| session.id == "orch"));
+            assert_eq!(app.browse.selected_id.as_deref(), Some("second"));
+            assert!(app.data.repo_sessions.iter().any(|session| session.id == "second"));
             assert_eq!(app.connection.exit, None);
-            assert_eq!(app.messages.status_message.as_deref(), Some(ORCHESTRATOR_STARTING));
-            // Still starting: O selects it and says so again; it attaches once it runs.
-            app.set_status(None);
-            handle_browse(&mut app, &text("O"));
-            assert_eq!(app.messages.status_message.as_deref(), Some(ORCHESTRATOR_STARTING));
-            assert_eq!(app.connection.exit, None);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("◎ Speed up the build is starting · enter attaches once it runs")
+            );
+            assert_eq!(app.browse.idea, "");
         });
     }
 
     #[test]
-    fn o_says_why_the_orchestrator_could_not_start() {
+    fn an_enter_read_with_the_typing_submits_and_a_pasted_line_break_is_a_space() {
+        local(async {
+            let (mut app, _rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("O"));
+            app.handle_input(&text("\u{1b}[200~Rework auth\r\nfor tokens\r\u{1b}[201~"));
+            assert_eq!(
+                (app.mode, app.browse.idea.as_str()),
+                (Mode::EnterIdea, "Rework auth for tokens ")
+            );
+            app.handle_input(&text(" now\r"));
+            assert_eq!(app.mode, Mode::Browse);
+            let request = daemon.next().await;
+            assert_eq!(request["prompt"], "Rework auth for tokens  now");
+        });
+    }
+
+    #[test]
+    fn esc_cancels_the_idea_and_enter_on_nothing_starts_nothing() {
+        local(async {
+            let (mut app, _rx) = with_sessions(1);
+            let _daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("O"));
+            app.handle_input(&named(Key {
+                return_: true,
+                ..Key::NONE
+            }));
+            assert_eq!(app.mode, Mode::EnterIdea);
+            assert!(!app.messages.busy);
+            app.handle_input(&text("Half a thought"));
+            app.handle_input(&named(Key {
+                escape: true,
+                ..Key::NONE
+            }));
+            assert_eq!((app.mode, app.browse.idea.as_str()), (Mode::Browse, ""));
+            assert!(!app.messages.busy);
+        });
+    }
+
+    #[test]
+    fn the_prompt_shows_the_end_of_a_long_idea() {
+        assert_eq!(
+            crate::app::modes::idea::prompt_line("Rework auth", 80),
+            "What do you want to do? Rework auth▏ • enter start • esc cancel"
+        );
+        let line = crate::app::modes::idea::prompt_line(&format!("{}the end", "x".repeat(80)), 60);
+        assert!(line.starts_with("What do you want to do? …"), "{line}");
+        assert!(line.ends_with("the end▏ • enter start • esc cancel"), "{line}");
+        assert!(crate::primitives::string_width(&line) <= 60, "{line}");
+    }
+
+    #[test]
+    fn o_says_why_the_orchestrator_could_not_start_and_keeps_the_idea() {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
-            handle_browse(&mut app, &text("O"));
+            submit_idea(&mut app, "Rework auth");
             let request = daemon.next().await;
             daemon.fail(&request, "claude is not installed").await;
             apply(&mut app, &mut rx).await;
             assert!(!app.messages.busy);
             assert_eq!(app.messages.error.as_deref(), Some("claude is not installed"));
+            // O again offers what was typed.
+            handle_browse(&mut app, &text("O"));
+            assert_eq!((app.mode, app.browse.idea.as_str()), (Mode::EnterIdea, "Rework auth"));
         });
     }
 }

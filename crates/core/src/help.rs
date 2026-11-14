@@ -102,7 +102,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "O",
-                text: "Orchestrator (◎): describe a problem; it plans sessions",
+                text: "Orchestrator (◎) for a new idea; it plans sessions",
             },
             HelpLine::Note {
                 note: "A fork copies the conversation as saved then, not a turn in progress.",
@@ -136,7 +136,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "↳ ⑂  ◎",
-                text: "Clean / forked sub-session · the orchestrator (O)",
+                text: "Clean / forked sub-session · an orchestrator (O)",
             },
             HelpLine::Key {
                 keys: "▶",

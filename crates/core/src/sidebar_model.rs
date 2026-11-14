@@ -1146,8 +1146,9 @@ fn details<S: SessionLike>(
             THEME.muted,
         )]);
     }
-    // Not in the TS: the orchestrator says what it is for; a session it (or another session) started says who did.
-    if let Some(role) = role_line(session, all_sessions, width)
+    // Not in the TS: the orchestrator says what it is for (the sessions it started are its sub-sessions: their parent
+    // line names it).
+    if let Some(role) = role_line(session, width)
         && room(&lines) >= 1
     {
         lines.push(role);
@@ -1246,42 +1247,20 @@ fn target_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
     Some(cut_parts(&line, width))
 }
 
-/// Not in the TS: `◎ orchestrator · plans and dispatches sessions` for the orchestrator; `◎ started by <title>` for a
-/// session the orchestrator started (`started by <title>` when another session's `deckhand new` did), while the
-/// starter is known and is not its parent (the parent line names that one). Cut to `width`.
-fn role_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], width: usize) -> Option<DetailLine> {
-    let width = jnum(width);
-    if session.role == Some(SessionRole::Orchestrator) {
-        let line = vec![
-            detail(format!("{ORCHESTRATOR_MARKER} "), THEME.accent_soft),
-            detail("orchestrator · plans and dispatches sessions", THEME.muted),
-        ];
-        return Some(cut_parts(&line, width));
+/// Not in the TS: `◎ orchestrator · plans and dispatches sessions` for an orchestrator, cut to `width`.
+fn role_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
+    if session.role != Some(SessionRole::Orchestrator) {
+        return None;
     }
-    let starter_id = session
-        .spawned_by_session_id
-        .as_deref()
-        .filter(|id| !id.is_empty() && session.parent_session_id.as_deref() != Some(*id))?;
-    let starter = all_sessions
-        .iter()
-        .map(SessionLike::session)
-        .find(|candidate| candidate.id == starter_id)?;
-    let mut name = display_session_title(starter, all_sessions);
-    if name.is_empty() {
-        name = "(untitled)".to_owned();
-    }
-    let head = if starter.role == Some(SessionRole::Orchestrator) {
-        format!("{ORCHESTRATOR_MARKER} started by ")
-    } else {
-        "started by ".to_owned()
-    };
-    let room = (width - jlen(&head)).max(1);
-    let line = vec![detail(head, THEME.muted), detail(cut(&name, room), THEME.accent_soft)];
-    Some(cut_parts(&line, width))
+    let line = vec![
+        detail(format!("{ORCHESTRATOR_MARKER} "), THEME.accent_soft),
+        detail("orchestrator · plans and dispatches sessions", THEME.muted),
+    ];
+    Some(cut_parts(&line, jnum(width)))
 }
 
 /// Not in the TS: `↳ sub-session of <parent> · <its state>` (`⑂ fork of` for a fork), the parent's name cut to
-/// fit, its state dropped when even a short name would not. A top-level fork names the session it forked, while that
+/// fit (`◎ <idea>` for an orchestrator), its state dropped when even a short name would not. A top-level fork names the session it forked, while that
 /// is listed; other top-level sessions have none.
 fn parent_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], width: usize) -> Option<DetailLine> {
     let find = |id: &str| {
@@ -1305,6 +1284,9 @@ fn parent_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], widt
     let mut name = display_session_title(parent, all_sessions);
     if name.is_empty() {
         name = "(untitled)".to_owned();
+    }
+    if parent.role == Some(SessionRole::Orchestrator) {
+        name = format!("{ORCHESTRATOR_MARKER} {name}");
     }
     let state = status_words(parent);
     let width = jnum(width);
@@ -2307,21 +2289,19 @@ mod tests {
     }
 
     #[test]
-    fn details_say_what_the_orchestrator_is_for_and_who_started_a_session() {
-        let orchestrator = sess("o", json!({"title": "Orchestrator", "role": "orchestrator"}));
-        let started = sess("s", json!({"title": "Auth rework", "spawnedBySessionId": "o"}));
-        let by_agent = sess("t", json!({"title": "Tests", "spawnedBySessionId": "s"}));
-        // Started by its parent: the parent line says it already.
+    fn details_say_what_the_orchestrator_is_for_and_its_sessions_name_it_as_their_parent() {
+        let orchestrator = sess("o", json!({"title": "Rework auth", "role": "orchestrator"}));
         let child = sess(
             "c",
-            json!({"title": "Token storage", "parentSessionId": "s", "subSessionKind": "clean", "spawnedBySessionId": "s"}),
+            json!({"title": "Token storage", "parentSessionId": "o", "subSessionKind": "clean", "spawnedBySessionId": "o"}),
         );
-        let unknown = sess("u", json!({"title": "Orphan", "spawnedBySessionId": "gone"}));
-        let list = [orchestrator, started, by_agent, child, unknown];
+        // Started by a command, top-level: who started it is a record only, not a details line.
+        let started = sess("s", json!({"title": "Tests", "spawnedBySessionId": "c"}));
+        let list = [orchestrator, child, started];
         let all = refs(&list);
         let of = |id: &str, width: usize| -> Vec<String> {
             let session = all.iter().copied().find(|session| session.id == id);
-            line_texts(&session_details(session, &all, width, 10, NOW, None, None))
+            line_texts(&session_details_with_parent(session, &all, width, 10, NOW, None, None))
         };
         assert!(
             of("o", 48).contains(&"◎ orchestrator · plans and dispatches sessions".to_owned()),
@@ -2334,23 +2314,13 @@ mod tests {
             of("o", 20)
         );
         assert!(
-            of("s", 48).contains(&"◎ started by Orchestrator".to_owned()),
+            of("c", 48)
+                .iter()
+                .any(|line| line.starts_with("↳ sub-session of ◎ Rework auth · ")),
             "{:?}",
-            of("s", 48)
+            of("c", 48)
         );
-        // Cut to fit, the starter's name last.
-        assert!(
-            of("s", 20).contains(&"◎ started by Orches…".to_owned()),
-            "{:?}",
-            of("s", 20)
-        );
-        // Another session's `deckhand new`: no orchestrator mark.
-        assert!(
-            of("t", 48).contains(&"started by Auth rework".to_owned()),
-            "{:?}",
-            of("t", 48)
-        );
-        for id in ["c", "u"] {
+        for id in ["c", "s"] {
             assert!(
                 !of(id, 48).iter().any(|line| line.contains("started by")),
                 "{id}: {:?}",

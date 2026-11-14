@@ -1,4 +1,4 @@
-//! Not in the TS: the sidebar's default view, sessions in sections by state (the orchestrator, needs you, unread,
+//! Not in the TS: the sidebar's alternative view, sessions in sections by state (orchestrators, needs you, unread,
 //! working, idle, exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
 //! parent by the latest of it and the sub-sessions under it); Working and Exited keep your order (`sidebarOrder`,
 //! `J`/`K`). The time order is only how the view lists them: your order stays as it is. A sub-session sits under its
@@ -16,8 +16,8 @@ pub use deckhand_protocol::records::SessionView;
 /// A section of the sidebar's state view, in the order they are listed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SessionSection {
-    /// The repository's orchestrator while it runs, whatever its state: it plans and dispatches sessions rather than
-    /// being one piece of the work, so it stays in one place at the top instead of moving between the sections below.
+    /// Orchestrators while they run (one per idea), whatever their state: they plan and dispatch sessions rather than
+    /// being one piece of the work, so they stay in one place at the top instead of moving between the sections below.
     Orchestrator,
     /// Running and blocked on you: a question or permission, a failure or a usage limit.
     NeedsYou,
@@ -372,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn the_running_orchestrator_has_its_own_section_first_whatever_its_state() {
+    fn running_orchestrators_have_their_own_section_first_whatever_their_state() {
         let asks = json!({"state": "needs-input", "event": "Notification", "at": "2026-10-02T00:00:00.000Z"});
         for fields in [
             json!({}),
@@ -384,19 +384,22 @@ mod tests {
             fields["role"] = json!("orchestrator");
             assert_eq!(session_section(&session("o", fields)), SessionSection::Orchestrator);
         }
-        // Exited, it is listed with the other exited sessions; the sessions it started keep their own sections.
+        // Exited, it is listed with the other exited sessions; its sub-sessions keep their own sections. Several run
+        // at once, one per idea, in your order.
         let exited = session("o", json!({"role": "orchestrator", "status": "exited"}));
         assert_eq!(session_section(&exited), SessionSection::Exited);
         let list = vec![
-            session("w", json!({"agentStatus": "active", "spawnedBySessionId": "o"})),
+            session("w", json!({"agentStatus": "active", "parentSessionId": "o"})),
             session("i", json!({})),
             session("o", json!({"role": "orchestrator"})),
+            session("o2", json!({"role": "orchestrator", "status": "starting"})),
+            session("x", json!({"role": "orchestrator", "status": "exited"})),
         ];
         let ids: Vec<&str> = order_by_section(&list)
             .into_iter()
             .map(|item| item.id.as_str())
             .collect();
-        assert_eq!(ids, ["o", "w", "i"]);
+        assert_eq!(ids, ["o", "o2", "w", "i", "x"]);
         assert_eq!(SessionSection::ALL[0].label(), "Orchestrator");
     }
 }

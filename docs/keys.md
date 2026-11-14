@@ -43,7 +43,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note you last worked on) |
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
-| `O` | The repository's orchestrator (`◎`): attach to it when it runs; otherwise start it and select it (`enter` or `O` attaches once it runs). See [Plan confirmation](#plan-confirmation) |
+| `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: asks *What do you want to do?* in a one-line prompt (`enter` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
@@ -130,7 +130,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session on
 | `▾` / `▸` | Parent with sub-sessions, expanded / collapsed (`c`) |
 | `↳` | Clean sub-session |
 | `⑂` | Forked sub-session |
-| `◎` | Before the status: the repository's orchestrator (`O`). Its details say `◎ orchestrator · plans and dispatches sessions`; a session it started says `◎ started by Orchestrator` |
+| `◎` | Before the status: an orchestrator (`O`), named after its idea. Its details say `◎ orchestrator · plans and dispatches sessions`; its sub-sessions' say `↳ sub-session of ◎ <idea>`, and in sections by state they sit under a line naming it (`◎ Rework auth ┄┄┄`) |
 | `· name` | After a sub-session's title: its parent, when it isn't listed right above it (another section, a search); cut first when narrow |
 | `▶` | After the title: the worktree's Dev command runs (on its first row; muted on the worktree's other rows, which share it) |
 | `▣` | After the title: archived |
@@ -182,11 +182,11 @@ When an orchestrator's plan waits for your answer, Deckhand detaches by itself t
 
 ## Plan confirmation
 
-An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand. The dialog shows the sessions it would create as a tree, its backlog tasks and when it expires unanswered (15 minutes). It opens on the session list and while you type to an agent or a shell (typing resumes after the answer), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ Plan waiting` in the header. Several plans are shown one at a time, oldest first.
+An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand. The dialog shows the idea it is for, the sessions it would create as a tree, its parked work (backlog tasks, for a plan run by hand), the start of the idea's brief and when it expires unanswered (15 minutes). It opens on the session list and while you type to an agent or a shell (typing resumes after the answer), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ Plan waiting` in the header. Several plans are shown one at a time, oldest first.
 
 | Key | Action |
 | --- | --- |
-| `enter` | Create the plan: its sessions start on their briefs, its tasks go to the backlog |
+| `enter` | Create the plan: its sessions start on their briefs (the orchestrator's sub-sessions), its tasks are parked under the idea's line (by hand: the backlog) |
 | `esc` | Cancel the plan: nothing is created |
 | `J` / `K` | Scroll a plan that does not fit (`pgdn` / `pgup` too) |
 

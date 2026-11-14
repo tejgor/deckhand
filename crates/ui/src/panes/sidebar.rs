@@ -13,10 +13,10 @@ use deckhand_core::display::{THEME as INK_THEME, display_session_title, truncate
 use deckhand_core::session_features::{SESSION_FILTERS, SessionFilterCounts, session_needs_attention};
 use deckhand_core::session_sections::{SessionSection, session_section};
 use deckhand_core::sidebar_model::{
-    DetailLine, DetailTask, RowPart, RowRole, SidebarHeaderInput, SidebarRow, SidebarRowsInput, filter_menu_lines,
-    section_parents, session_details_with_parent, sidebar_header, sidebar_rows,
+    DetailLine, DetailTask, ORCHESTRATOR_MARKER, RowPart, RowRole, SidebarHeaderInput, SidebarRow, SidebarRowsInput,
+    filter_menu_lines, section_parents, session_details_with_parent, sidebar_header, sidebar_rows,
 };
-use deckhand_protocol::data::SessionRecord;
+use deckhand_protocol::data::{SessionRecord, SessionRole};
 use deckhand_protocol::records::SessionFilter;
 
 use crate::primitives::{
@@ -176,10 +176,14 @@ fn window_lines(
 }
 
 /// The line naming the parent a run of sub-sessions sits under in the state view: muted, where a top-level row's
-/// status glyph goes (its sub-sessions' `↳` one level in), then a dotted rule to the edge.
+/// status glyph goes (its sub-sessions' `↳` one level in), then a dotted rule to the edge. An orchestrator's sessions
+/// sit under `◎ <idea>`.
 fn parent_line_row(parent: &SessionRecord, all_sessions: &[&SessionRecord], number_width: usize, width: usize) -> Row {
     let indent = " ".repeat(number_width + 3);
-    let title = display_session_title(parent, all_sessions);
+    let mut title = display_session_title(parent, all_sessions);
+    if parent.role == Some(SessionRole::Orchestrator) {
+        title = format!("{ORCHESTRATOR_MARKER} {title}");
+    }
     let used = indent.chars().count() + string_width(&title) + 1;
     let row = vec![
         Seg::plain(indent),
@@ -1112,6 +1116,56 @@ mod tests {
         assert!(
             lines.iter().any(|line| line.contains("› 17   ↳ ● child 15")),
             "{lines:#?}"
+        );
+    }
+
+    #[test]
+    fn an_orchestrators_sessions_sit_under_its_idea_in_the_state_view() {
+        let list = vec![
+            session("o", 0, json!({"title": "Rework auth", "role": "orchestrator"})),
+            session(
+                "t",
+                1,
+                json!({"title": "Token storage", "parentSessionId": "o", "subSessionKind": "clean",
+                    "agentStatus": "active", "attention": {"state": "working", "event": "PreToolUse", "at": ago(1)}}),
+            ),
+            session(
+                "u",
+                2,
+                json!({"title": "Login UI", "parentSessionId": "o", "subSessionKind": "clean",
+                    "agentStatus": "active", "attention": {"state": "working", "event": "PreToolUse", "at": ago(1)}}),
+            ),
+            session("p", 3, json!({"title": "Speed up the build", "role": "orchestrator"})),
+        ];
+        let everyone = refs(&list);
+        let ordered: Vec<&SessionRecord> = deckhand_core::session_sections::order_by_section(&everyone)
+            .into_iter()
+            .copied()
+            .collect();
+        let mut props = props(&ordered, "t", SessionFilter::All);
+        props.all_sessions = &everyone;
+        props.sectioned = true;
+        let lines = render(&props, 40, 24);
+        let at = |text: &str| lines.iter().position(|line| line.contains(text));
+        // Both orchestrators in their section, then their sessions in theirs, under the line naming the idea.
+        let shown = [
+            "Orchestrator 2 ──",
+            "◎ ● Rework auth",
+            "◎ ● Speed up the build",
+            "Working 2 ──",
+            "◎ Rework auth ┄┄",
+            "↳ ⠋ Token storage",
+            "↳ ⠋ Login UI",
+        ];
+        let positions: Vec<Option<usize>> = shown.iter().map(|text| at(text)).collect();
+        assert!(positions.iter().all(Option::is_some), "{lines:#?}");
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{lines:#?}");
+        deckhand_testkit::assert_snapshot(
+            "fixtures/ui/panes/66-sidebar-ideas.txt",
+            &lines.join(
+                "
+",
+            ),
         );
     }
 

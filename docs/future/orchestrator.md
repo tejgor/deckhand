@@ -1,6 +1,6 @@
 # Orchestrator, stacked sub-sessions and sidebar depth
 
-**Status:** built: part 1 (stacked sub-sessions, protocol v58), part 2 (sidebar depth) and part 3 (the orchestrator, protocol v59). Designed, not built: 3b, one orchestrator per idea, after `work-items.md`. What parts 1 and 2 do is in `docs/features.md` (*Stacked sub-sessions*, *Merging and done*); what is below for them is the design record. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
+**Status:** built: part 1 (stacked sub-sessions, protocol v58), part 2 (sidebar depth), part 3 (the orchestrator, protocol v59) and 3b (one orchestrator per idea, protocol v61, on the work-items model of `work-items.md`); *3b as built* below says how and where it differs. What parts 1 and 2 do is in `docs/features.md` (*Stacked sub-sessions*, *Merging and done*); what is below for them is the design record. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
 
 ## Why
 
@@ -90,7 +90,7 @@ It never relies on remembering what it made. Asked to "add a sub-session to the 
 - **Placement.** Its sessions are real top-level sessions (with a small *from orchestrator* marker), not its sub-sessions, so it does not become the parent of everything.
 - **`deckhand plan apply <json>`.** Validates the whole tree (parents, worktree modes, targets, agents, tasks) before creating anything, then creates it, instead of a run of `new` calls that can fail halfway. The natural place for a confirmation in the TUI too.
 
-## 3b. The orchestrator, reworked: one per idea (designed 2026-11-14, not built)
+## 3b. The orchestrator, reworked: one per idea (designed 2026-11-14, built)
 
 What is built (one long-lived orchestrator per repository, its sessions top-level) turned out wrong in use: the natural unit is **an idea**, which begins (you describe it), is refined (the tree), and ends (the plan is applied), and a per-repository conversation makes you clear it by hand between ideas. The rework builds on the work-items redesign (`work-items.md`) and comes after it.
 
@@ -101,6 +101,17 @@ What is built (one long-lived orchestrator per repository, its sessions top-leve
 - **Briefs.** When it applies a plan, what was agreed (the problem, approach, decisions, what was ruled out) becomes the idea's line's brief, and each session's brief is kept as its line's brief (`work-items.md`, *Briefs*), apart from the notes.
 - **Done.** The idea ticks when every line under it is ticked; it can be reopened.
 - **Unchanged:** `plan check` / `plan apply`, the confirmation and auto-detach, stacking, the merge dialog, the Orchestrator section.
+
+### 3b as built (protocol v61)
+
+- **`O`** opens a one-line prompt in the footer, `What do you want to do? <idea>▏ • enter start • esc cancel` (a new mode, `enter-idea`, `crates/ui/src/app/modes/idea.rs`, after the search's footer pattern). `enter` sends `open-orchestrator {cwd, prompt}`; the new orchestrator is selected and the status line says `◎ <idea> is starting · enter attaches once it runs` (as `n` leaves a new session: no automatic attach). A pasted line break is a space; an enter read with the typing still submits. A failed start keeps the text for the next `O`.
+- **`open-orchestrator`** always starts a new one (`prompt` required: `Say what you want to do: …`). Its title is `deckhand_core::plan::idea_title`: the first line with text, controls dropped, spaces collapsed, past 64 characters cut at a word (when that keeps half) and ended with `…`; numbered ` 2`, ` 3`… (`numbered_title`) while an active session of the repository has it. The idea is its first message; then `ensure_session_line` makes its line: top-level, the same title, the orchestrator on it. The answer is `OrchestratorResult {session, lineId}` (`started` and `delivered` are gone). `deckhand do` prints `Started an orchestrator <id> for your idea: ◎ <idea>.` Gone with delivering: `Daemon::deliver_prompt`, `SUBMIT_AFTER_PASTE`, `running_orchestrator`, and the one-per-repository refusals of `create` and `restart`.
+- **Plans** (`crates/core/src/plan.rs`, `crates/daemon/src/plans.rs`): `PlanContext::orchestrator` is the caller when it is an orchestrator (any other caller checks as by hand). Its plan's entries without a parent stay parentless in the validated plan; `create_plan` puts them under the orchestrator (flat, as `stack_target` decides for a main-checkout parent), so `ensure_session_line` puts their lines under the idea's line. Name clashes are checked on `<idea> / <title>`. Tasks become lines under the idea's line (`add` with `parent`), their details their notes. The plan's optional `brief` (at most `MAX_NOTES_CHARS`, 50 000; a problem in a plan without an orchestrator) is written first, as the idea's line's brief from `◎ <idea>`; a later plan's replaces it. The idea's line is made if the orchestrator has none (an older orchestrator, or its line removed). A plan of only a brief is valid. `Plan` gained `brief`; `PlanSummary` gained `idea` and `brief`. `plan check` prints `Under ◎ <idea>:` first, `☐ Parked: …` for tasks and `✎ The idea's brief (N lines)`; the confirmation says `A plan for ◎ <idea>: …`, heads the tasks *Parked under the idea* and shows the brief's first four lines.
+- **Permissions** (`Daemon::descendants_of`, replacing `started_by`): `--parent`, `kill` and `remove` from a session act on the sessions under it by parent links, at any depth. `spawnedBySessionId` is still recorded, a record only: a session a command started `--top-level`, or a plan put under a session outside the caller's tree, is outside it. The agents' guide says *under one below you* / *end a session below you*.
+- **Sidebar**: the `◎ started by` details line is gone; a sub-session's parent line names an orchestrator `↳ sub-session of ◎ <idea> · <state>`, and in sections by state the line naming the parent is `◎ <idea> ┄┄┄`. The Orchestrator section already listed every running orchestrator.
+- **Lifecycle**: nothing ends an orchestrator after a plan; `s` resumes one whatever else runs. The idea ticks by the list's roll-up (`auto=lines`) when every line under it is ticked, and reopens with one of them (tested through the daemon and `deckhand task done`).
+- **Guide** (`crates/core/src/orchestrator_guide.rs`, 3 600-byte budget kept): one idea per conversation (press `O` for an unrelated one), `null` parent = its own sub-session (flat), tasks parked under the idea's line, the plan's `brief`, and reading `deckhand ls` / `deckhand task list` (its sub-sessions, its idea's line and the lines under it) to extend the idea later.
+- **Left as it was**: `features.md` *Organizing and inspecting sessions* still describes the Orchestrator section as "the repository's orchestrator" (it was outside what this step edited).
 
 ## Decided (2026-11-13)
 
@@ -119,3 +130,4 @@ What is built (one long-lived orchestrator per repository, its sessions top-leve
 2. ~~Stacked sub-sessions (part 1)~~ built (protocol v58). Left out: undoing a retarget when a merge is unmarked; a deeper "working" guard (a session waiting on input does not count as working).
 3. ~~`--parent`, `spawnedBy` and `plan apply`~~ built.
 4. ~~The orchestrator role, entry points and guide~~ built (`O`, `deckhand do`). Not yet checked against the real `claude`: that the `Bash(deckhand:*)` rule lets the orchestrator run `deckhand plan apply - <<'EOF'` without a permission prompt.
+5. ~~3b, one orchestrator per idea~~ built (protocol v61).

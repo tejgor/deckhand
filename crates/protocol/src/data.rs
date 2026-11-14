@@ -470,10 +470,10 @@ pub struct SessionRecord {
     /// offer to resume it is dismissed (what it was doing then). Projected by the daemon and never saved.
     pub interrupted_while: Option<InterruptedWhile>,
     /// Not in the TS: the session whose `deckhand` command (or applied plan) started this one. Set by the daemon from
-    /// the authenticated caller, never from a client's input; persisted. It decides what that session may later do to
-    /// this one (`--parent`, `kill`, `remove`), apart from where it sits in the tree (`parent_session_id`).
+    /// the authenticated caller, never from a client's input; persisted. A record only: what a session may do to
+    /// others (`--parent`, `kill`, `remove`) follows the tree (`parent_session_id`).
     pub spawned_by_session_id: Option<String>,
-    /// Not in the TS: the session's role (the repository's orchestrator); persisted.
+    /// Not in the TS: the session's role (an orchestrator, one per idea); persisted.
     pub role: Option<SessionRole>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]
@@ -931,8 +931,8 @@ pub struct CreateSessionInput {
     /// the launch checkout) instead of stacked on its parent's worktree branch; absent: the daemon decides (stacked
     /// where it can be).
     pub stacked: Option<bool>,
-    /// Not in the TS: the session's role. An orchestrator is a top-level Claude session without a worktree, one running
-    /// per repository; its title defaults to `Orchestrator`.
+    /// Not in the TS: the session's role. An orchestrator is a top-level Claude session without a worktree, one per
+    /// idea; its title defaults to `Orchestrator`.
     pub role: Option<SessionRole>,
 }
 
@@ -1449,7 +1449,7 @@ pub struct PlanSession {
     pub task: Option<String>,
 }
 
-/// One backlog task of an orchestrator plan.
+/// One line of parked work in an orchestrator plan: under the idea's line (in a plan run by hand, the backlog).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1465,6 +1465,9 @@ pub struct PlanTask {
 pub struct Plan {
     pub sessions: Vec<PlanSession>,
     pub tasks: Vec<PlanTask>,
+    /// What was agreed in the planning chat (the problem, the approach, decisions, what was ruled out): the idea's
+    /// line's brief. Only in an orchestrator's plan.
+    pub brief: Option<String>,
 }
 
 /// One session of a plan as the confirmation shows it, in tree order (each under its parent).
@@ -1506,6 +1509,11 @@ pub struct PlanSummary {
     pub tasks: Vec<PlanTask>,
     /// `3 sessions, 1 task`.
     pub counts: String,
+    /// The idea the plan goes under: the orchestrator applying it (its title). Its top-level sessions become the
+    /// orchestrator's sub-sessions, its tasks lines under the idea's line. Absent in a plan run by hand.
+    pub idea: Option<String>,
+    /// The plan's brief, for the idea's line.
+    pub brief: Option<String>,
 }
 
 /// A plan waiting for the user's answer in Deckhand (`plan-pending`).
@@ -1569,16 +1577,15 @@ pub struct PlanCreatedSession {
     pub session: Ordered<SessionRecord>,
 }
 
-/// `open-orchestrator`'s answer: the repository's orchestrator, and whether it was started now or given the prompt.
+/// `open-orchestrator`'s answer: the new orchestrator (the idea its first message, its title from the idea) and the
+/// idea's line it is on.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrchestratorResult {
     pub session: Ordered<SessionRecord>,
-    /// Started by this request (the prompt, if any, is its first message).
-    pub started: bool,
-    /// The prompt was typed into the running orchestrator and submitted.
-    pub delivered: bool,
+    /// The idea's line (a new top-level line); absent when making it failed (the orchestrator runs anyway).
+    pub line_id: Option<String>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

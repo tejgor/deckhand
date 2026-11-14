@@ -68,11 +68,13 @@ pub enum Mode {
     ConfirmResume,
     /// Not in the TS: an orchestrator's plan waits for `enter` (create it) or `esc` (cancel it).
     ConfirmPlan,
+    /// Not in the TS: `O`'s one-line prompt, "What do you want to do?": a new orchestrator for the idea.
+    EnterIdea,
 }
 
 impl Mode {
     /// Every mode, in the TS union's order (then the port's own).
-    pub const ALL: [Mode; 27] = [
+    pub const ALL: [Mode; 28] = [
         Mode::Browse,
         Mode::PreviewFocus,
         Mode::ChangesFocus,
@@ -100,6 +102,7 @@ impl Mode {
         Mode::TerminalFocus,
         Mode::ConfirmResume,
         Mode::ConfirmPlan,
+        Mode::EnterIdea,
     ];
 
     /// The TS name (`'preview-focus'`, ...).
@@ -132,6 +135,7 @@ impl Mode {
             Mode::TerminalFocus => "terminal-focus",
             Mode::ConfirmResume => "confirm-resume",
             Mode::ConfirmPlan => "confirm-plan",
+            Mode::EnterIdea => "enter-idea",
         }
     }
 
@@ -151,6 +155,7 @@ impl Mode {
                 | Mode::NotesFocus
                 | Mode::Search
                 | Mode::PickFilter
+                | Mode::EnterIdea
         )
     }
 
@@ -284,6 +289,8 @@ pub struct BrowseState {
     /// Not in the TS: the state view's Exited section is folded (`c`): its sessions are hidden but the selected one.
     pub exited_collapsed: bool,
     pub session_query: String,
+    /// Not in the TS: what `O`'s prompt holds (kept after a failed start, so `O` offers it again).
+    pub idea: String,
     pub collapsed_session_ids: IndexSet<String>,
     pub hidden_exited_session_ids: IndexSet<String>,
     pub selected_id: Option<String>,
@@ -720,6 +727,7 @@ impl App {
                 session_view: props.initial_session_view.unwrap_or(SessionView::Order),
                 exited_collapsed: props.initial_exited_collapsed.unwrap_or(false),
                 session_query: props.initial_session_query.clone().unwrap_or_default(),
+                idea: String::new(),
                 collapsed_session_ids: props.initial_collapsed_session_ids.iter().flatten().cloned().collect(),
                 hidden_exited_session_ids: props
                     .initial_hidden_exited_session_ids
@@ -855,7 +863,8 @@ mod tests {
                 "worktrees",
                 "terminal-focus",
                 "confirm-resume",
-                "confirm-plan"
+                "confirm-plan",
+                "enter-idea"
             ]
         );
         for mode in Mode::ALL {
