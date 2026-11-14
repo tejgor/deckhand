@@ -12,7 +12,7 @@ pub const COMMAND_WORDS: &[&str] = &["new", "ls", "task", "note", "kill", "remov
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
 Usage: deckhand new [--prompt <text>] [--draft] [--agent claude|codex|pi] [--title <title>] [--task <id>]
-                    [--worktree new|same|none|<path>] [--base <branch>] [--top-level] [--fork] [--json]
+                    [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--json]
 
 Starts a session. Run inside a Deckhand session, it is a sub-session of that session in a new worktree; run
 elsewhere, a top-level session of the current repository.
@@ -26,7 +26,11 @@ elsewhere, a top-level session of the current repository.
                       prompt, if any, replaces the task's text; without one the task's text is typed as a draft)
   --worktree <where>  new: a new worktree (the default); same: this session's worktree; none: no worktree,
                       in the repository's checkout; <path>: an existing worktree
-  --base <branch>     The branch a new worktree starts from (default: the repository's setting)
+  --base <branch>     The branch a new worktree starts from (default: a sub-session's is stacked on this
+                      session's worktree branch, starting from it and merging into it; else the repository's
+                      setting)
+  --flat              A sub-session's new worktree is not stacked: it starts from the base above and merges
+                      into the repository's checkout
   --top-level         A top-level session instead of a sub-session of this one
   --fork              Copy this session's conversation (same agent; Codex forks stay in this worktree)
   --json              Print the new session's record as JSON";
@@ -139,6 +143,7 @@ pub struct NewArgs {
     pub task: Option<String>,
     pub worktree: Option<WorktreeChoice>,
     pub base: Option<String>,
+    pub flat: bool,
     pub top_level: bool,
     pub fork: bool,
 }
@@ -342,6 +347,7 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
         ("--task", Kind::Value),
         ("--worktree", Kind::Value),
         ("--base", Kind::Value),
+        ("--flat", Kind::Switch),
         ("--top-level", Kind::Switch),
         ("--fork", Kind::Switch),
     ];
@@ -358,6 +364,7 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
         task: scanned.value("--task"),
         worktree: scanned.value("--worktree").as_deref().map(parse_worktree).transpose()?,
         base: scanned.value("--base").filter(|base| !base.is_empty()),
+        flat: scanned.switch("--flat"),
         top_level: scanned.switch("--top-level"),
         fork: scanned.switch("--fork"),
     };
@@ -369,6 +376,9 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
     }
     if new.base.is_some() && !matches!(new.worktree, None | Some(WorktreeChoice::New)) {
         return Err(usage_error("--base applies only to a new worktree", NEW_USAGE));
+    }
+    if new.flat && !matches!(new.worktree, None | Some(WorktreeChoice::New)) {
+        return Err(usage_error("--flat applies only to a new worktree", NEW_USAGE));
     }
     Ok(Invocation {
         action: Action::New(new),
@@ -481,6 +491,7 @@ mod tests {
             "--worktree",
             "new",
             "--base=main",
+            "--flat",
             "--top-level",
         ]);
         assert_eq!(
@@ -493,6 +504,7 @@ mod tests {
                 task: Some("ab12".into()),
                 worktree: Some(WorktreeChoice::New),
                 base: Some("main".into()),
+                flat: true,
                 top_level: true,
                 fork: false,
             }
@@ -527,6 +539,7 @@ mod tests {
         assert!(refused(&["new", "--draft"]).starts_with("--draft needs --prompt\nUsage: deckhand new"));
         assert!(refused(&["new", "--task", "a", "--fork"]).starts_with("--task and --fork cannot be combined"));
         assert!(refused(&["new", "--base", "main", "--worktree", "same"]).starts_with("--base applies only"));
+        assert!(refused(&["new", "--flat", "--worktree", "none"]).starts_with("--flat applies only"));
         assert!(refused(&["new", "--prompt"]).starts_with("--prompt needs a value"));
         assert!(refused(&["new", "--title", "a", "--title", "b"]).starts_with("--title is given twice"));
         assert!(refused(&["new", "--fork=yes"]).starts_with("--fork takes no value"));

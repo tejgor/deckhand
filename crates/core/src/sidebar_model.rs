@@ -693,6 +693,13 @@ pub fn status_words(session: &SessionRecord) -> &'static str {
     }
 }
 
+/// Not in the TS: the agent is taking its turn, what the sidebar reads as `working` (a running session whose last
+/// signal says it works, or whose screen changes without a turn having ended). Waiting for you, an ended turn and
+/// background work after a read reply are not. A merge into a worktree waits for its agents to stop working.
+pub fn agent_working(session: &SessionRecord) -> bool {
+    status_words(session) == "working"
+}
+
 /// TS: sidebarModel.ts statusSince (when the state statusWords describes began: the attention signal while running,
 /// else the last activity change, set on exit too).
 pub fn status_since(session: &SessionRecord) -> Option<&str> {
@@ -1234,6 +1241,26 @@ mod tests {
         replay("sidebarModel/statusWords", |case: &Case| {
             Ok::<_, String>(status_words(&partial_session(case.arg(0))?))
         });
+    }
+
+    #[test]
+    fn an_agent_is_working_only_while_it_takes_its_turn() {
+        let working = |value: Value| agent_working(&partial_session(&value).unwrap());
+        assert!(working(
+            serde_json::json!({"attention": {"state": "working", "event": "e", "at": "t"}})
+        ));
+        assert!(working(serde_json::json!({"agentStatus": "active"})));
+        // An ended turn (read or not), a question and an idle or exited agent are not working.
+        assert!(!working(serde_json::json!({
+            "agentStatus": "active", "attention": {"state": "response-ended", "event": "e", "at": "t"}, "replyRead": true,
+        })));
+        assert!(!working(serde_json::json!({
+            "agentStatus": "active", "attention": {"state": "needs-input", "event": "e", "at": "t"},
+        })));
+        assert!(!working(serde_json::json!({"agentStatus": "idle"})));
+        assert!(!working(serde_json::json!({
+            "status": "exited", "attention": {"state": "working", "event": "e", "at": "t"},
+        })));
     }
 
     #[test]

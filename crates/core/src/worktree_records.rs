@@ -70,6 +70,12 @@ pub const MERGE_MARKERS: [WorktreeMarker; 7] = [
     WorktreeMarker::MergeDetected,
 ];
 
+/// Not in the TS: the JSON keys of a worktree's target (where it integrates, see `WorktreeRecord::target_worktree_id`).
+/// The daemon projects them from the record into its sessions and strips them before saving, as it does the markers,
+/// but they are not markers: they describe intent, not what happened, so the marker spreads (merging, `M`,
+/// [`without_markers`]) neither clear nor copy them. Projected before the markers, in this order.
+pub const WORKTREE_TARGET_KEYS: [&str; 3] = ["targetWorktreeId", "targetBranch", "retargetedFrom"];
+
 /// The daemon's worktree records by ID (TS `ReadonlyMap<string, WorktreeRecord>`).
 pub type WorktreeRecords = IndexMap<String, Ordered<WorktreeRecord>>;
 
@@ -127,6 +133,27 @@ fn has_marker(markers: &WorktreeMarkers, marker: WorktreeMarker) -> bool {
         WorktreeMarker::MergeDetected => markers.merge_detected.is_some(),
         WorktreeMarker::DeletedAt => markers.deleted_at.is_some(),
     }
+}
+
+/// Sets the target keys of `target` to the record's (none without a record).
+fn copy_target(target: &mut SessionWorktreeRecord, record: Option<&WorktreeRecord>) {
+    target.target_worktree_id = record.and_then(|record| record.target_worktree_id.clone());
+    target.target_branch = record.and_then(|record| record.target_branch.clone());
+    target.retargeted_from = record.and_then(|record| record.retargeted_from.clone());
+}
+
+/// The target keys set on `worktree`, in [`WORKTREE_TARGET_KEYS`] order.
+fn target_keys_set(worktree: &SessionWorktreeRecord) -> Vec<&'static str> {
+    let set = [
+        worktree.target_worktree_id.is_some(),
+        worktree.target_branch.is_some(),
+        worktree.retargeted_from.is_some(),
+    ];
+    WORKTREE_TARGET_KEYS
+        .iter()
+        .zip(set)
+        .filter_map(|(key, set)| set.then_some(*key))
+        .collect()
 }
 
 /// TS: worktreeRecords.ts withoutMarkers (a copy without `keys`; callers pass `&WORKTREE_MARKERS` for the default).
@@ -228,9 +255,13 @@ pub fn project_worktree(session: &Ordered<SessionRecord>, records: &WorktreeReco
     let Some(id) = worktree_id(session) else {
         return session.clone();
     };
-    let markers = records.get(id).map(|record| record.markers()).unwrap_or_default();
+    let record = records.get(id).map(|record| &**record);
+    let markers = record.map(WorktreeRecord::markers).unwrap_or_default();
     let mut projected = (**session).clone();
+    let mut targets = Vec::new();
     if let Some(worktree) = projected.worktree.as_mut() {
+        copy_target(worktree, record);
+        targets = target_keys_set(worktree);
         for marker in WORKTREE_MARKERS {
             copy_marker(worktree, &markers, marker);
         }
@@ -240,7 +271,11 @@ pub fn project_worktree(session: &Ordered<SessionRecord>, records: &WorktreeReco
         session,
         |_| {},
         |keys| {
+            drop_keys(keys, &WORKTREE_TARGET_KEYS);
             drop_keys(keys, &marker_names(&WORKTREE_MARKERS));
+            for key in targets {
+                push_key(keys, key);
+            }
             for marker in WORKTREE_MARKERS {
                 if has_marker(&markers, marker) {
                     push_key(keys, marker.as_str());
@@ -250,7 +285,7 @@ pub fn project_worktree(session: &Ordered<SessionRecord>, records: &WorktreeReco
     )
 }
 
-/// TS: worktreeRecords.ts storedSession (the session as persisted: projected markers dropped).
+/// TS: worktreeRecords.ts storedSession (the session as persisted: projected markers, and the projected target, dropped).
 pub fn stored_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRecord> {
     if worktree_id(session).is_none() {
         return session.clone();
@@ -258,13 +293,44 @@ pub fn stored_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRecord
     let mut stored = (**session).clone();
     if let Some(worktree) = stored.worktree.as_mut() {
         *worktree = without_markers(worktree, &WORKTREE_MARKERS);
+        copy_target(worktree, None);
     }
     reorder(
         stored,
         session,
         |_| {},
-        |keys| drop_keys(keys, &marker_names(&WORKTREE_MARKERS)),
+        |keys| {
+            drop_keys(keys, &WORKTREE_TARGET_KEYS);
+            drop_keys(keys, &marker_names(&WORKTREE_MARKERS));
+        },
     )
+}
+
+/// Not in the TS: the directory of the worktree `worktree` targets (its `targetWorktreeId`), from the sessions in it:
+/// one with that worktree of its own, else one launched in it without a worktree of its own (its launch root). None
+/// for a flat worktree, or when no session is in its target any more. A merge into the target runs there.
+pub fn target_worktree_path<'a, I>(sessions: I, worktree: &SessionWorktreeRecord) -> Option<String>
+where
+    I: IntoIterator<Item = &'a SessionRecord>,
+{
+    let target = worktree.target_worktree_id.as_deref().filter(|id| !id.is_empty())?;
+    let mut launched_in = None;
+    for session in sessions {
+        if worktree_id(session) != Some(target) {
+            continue;
+        }
+        if let Some(root) = own_worktree_path(session.worktree.as_ref()) {
+            return Some(root);
+        }
+        if launched_in.is_none() {
+            launched_in = session
+                .launch_worktree_root
+                .as_deref()
+                .filter(|root| !root.is_empty())
+                .map(path::resolve);
+        }
+    }
+    launched_in
 }
 
 /// TS: worktreeRecords.ts time (`Date.parse`, 0 for a missing or invalid date).
@@ -405,6 +471,9 @@ pub fn migrate_worktree_records(
                     .unwrap_or_else(|| session.cwd.clone()),
                 created_at: session.created_at.clone(),
                 base_sha: None,
+                target_worktree_id: None,
+                target_branch: None,
+                retargeted_from: None,
                 merged_at: markers.merged_at,
                 merge_mode: markers.merge_mode,
                 merge_target_branch: markers.merge_target_branch,
@@ -488,6 +557,9 @@ pub fn migrate_worktree_records(
                         path: root.clone(),
                         created_at: created_at.unwrap_or_default().to_owned(),
                         base_sha: None,
+                        target_worktree_id: None,
+                        target_branch: None,
+                        retargeted_from: None,
                         merged_at: latest.and_then(|source| source.merged_at.clone()),
                         merge_mode: latest.and_then(|source| source.merge_mode),
                         merge_target_branch: latest.and_then(|source| source.merge_target_branch.clone()),
@@ -995,6 +1067,92 @@ mod tests {
             projected,
             r#"{"mode":"managed","path":"/wt","id":"w1","branch":"b","mergedAt":"m","deletedAt":"d"}"#
         );
+    }
+
+    #[test]
+    fn a_worktree_s_target_is_projected_before_its_markers_and_never_stored() {
+        let stored = session(
+            "a",
+            1,
+            json!({"mode": "managed", "path": "/wt", "id": "w1", "branch": "b", "targetBranch": "stale"}),
+            json!({}),
+        );
+        let records: WorktreeRecords = [(
+            "w1".to_owned(),
+            serde_json::from_value(json!({
+                "id": "w1", "path": "/wt", "createdAt": "x", "targetWorktreeId": "w0", "targetBranch": "lead",
+                "mergedAt": "m", "retargetedFrom": "old",
+            }))
+            .unwrap(),
+        )]
+        .into_iter()
+        .collect();
+        let projected = project_worktree(&stored, &records);
+        let worktree = projected.worktree.as_ref().unwrap();
+        assert_eq!(worktree.target_worktree_id.as_deref(), Some("w0"));
+        assert_eq!(worktree.target_branch.as_deref(), Some("lead"));
+        assert_eq!(worktree.retargeted_from.as_deref(), Some("old"));
+        let wire = serde_json::to_value(&projected).unwrap();
+        assert_eq!(
+            serde_json::to_string(&wire["worktree"]).unwrap(),
+            r#"{"mode":"managed","path":"/wt","id":"w1","branch":"b","targetWorktreeId":"w0","targetBranch":"lead","retargetedFrom":"old","mergedAt":"m"}"#
+        );
+
+        // Unmarking merged (the merge marker spreads) keeps the target; storing drops it with the markers.
+        let unmarked = without_markers(worktree, &MERGE_MARKERS);
+        assert_eq!(unmarked.merged_at, None);
+        assert_eq!(unmarked.target_branch.as_deref(), Some("lead"));
+        assert_eq!(
+            without_markers(worktree, &WORKTREE_MARKERS)
+                .target_worktree_id
+                .as_deref(),
+            Some("w0")
+        );
+        let saved = serde_json::to_value(stored_session(&projected)).unwrap();
+        assert_eq!(
+            serde_json::to_string(&saved["worktree"]).unwrap(),
+            r#"{"mode":"managed","path":"/wt","id":"w1","branch":"b"}"#
+        );
+
+        // A record without a target: a flat worktree, whatever the session held.
+        let flat: WorktreeRecords = [(
+            "w1".to_owned(),
+            serde_json::from_value(json!({"id": "w1", "path": "/wt", "createdAt": "x"})).unwrap(),
+        )]
+        .into_iter()
+        .collect();
+        let projected = project_worktree(&stored, &flat);
+        assert_eq!(projected.worktree.as_ref().unwrap().target_branch, None);
+    }
+
+    #[test]
+    fn a_target_worktree_is_found_where_its_sessions_run() {
+        let child = session(
+            "c",
+            1,
+            json!({"mode": "managed", "path": "/wt/c", "id": "w2", "targetWorktreeId": "w1"}),
+            json!({}),
+        );
+        let lead = session(
+            "a",
+            1,
+            json!({"mode": "managed", "path": "/wt/a/", "id": "w1"}),
+            json!({}),
+        );
+        let helper = session(
+            "b",
+            1,
+            json!({"mode": "none", "id": "w1"}),
+            json!({"launchWorktreeRoot": "/wt/a"}),
+        );
+        let worktree = child.worktree.clone().unwrap();
+        assert_eq!(
+            target_worktree_path([&*helper, &*lead, &*child], &worktree).as_deref(),
+            Some("/wt/a")
+        );
+        assert_eq!(target_worktree_path([&*helper], &worktree).as_deref(), Some("/wt/a"));
+        assert_eq!(target_worktree_path([&*child], &worktree), None);
+        assert_eq!(target_worktree_path([&*lead], &lead.worktree.clone().unwrap()), None);
     }
 
     /// fixtures/state/home-v45: the legacy records and markers a v45 daemon migrates on start (MIGRATIONS.md rows 4-12)

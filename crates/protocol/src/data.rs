@@ -212,7 +212,8 @@ pub struct WorktreeLinks {
 }
 
 /// types.ts SessionWorktreeRecord. Order: creation literal (git.ts), then baseRef and id as the daemon adds them,
-/// then the projected markers in WORKTREE_MARKERS order.
+/// then the projected target (`targetWorktreeId`, `targetBranch`, `retargetedFrom`), then the projected markers in
+/// WORKTREE_MARKERS order.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -228,6 +229,12 @@ pub struct SessionWorktreeRecord {
     pub links: Option<WorktreeLinks>,
     pub base_ref: Option<String>,
     pub id: Option<String>,
+    /// Not in the TS: projected from the worktree record (`WorktreeRecord::target_worktree_id`), never stored here.
+    pub target_worktree_id: Option<String>,
+    /// Not in the TS: projected from the worktree record (`WorktreeRecord::target_branch`), never stored here.
+    pub target_branch: Option<String>,
+    /// Not in the TS: projected from the worktree record (`WorktreeRecord::retargeted_from`), never stored here.
+    pub retargeted_from: Option<String>,
     pub merged_at: Option<String>,
     pub merge_mode: Option<WorktreeMergeMode>,
     pub merge_target_branch: Option<String>,
@@ -254,6 +261,9 @@ impl SessionWorktreeRecord {
             links: None,
             base_ref: None,
             id: None,
+            target_worktree_id: None,
+            target_branch: None,
+            retargeted_from: None,
             merged_at: None,
             merge_mode: None,
             merge_target_branch: None,
@@ -860,6 +870,10 @@ pub struct CreateSessionInput {
     pub prompt: Option<String>,
     /// Not in the TS: `false` types `prompt` into the agent's input without sending it, as a task's text is; absent: sent.
     pub submit: Option<bool>,
+    /// Not in the TS: `false` keeps a sub-session in a new worktree flat (it starts from the usual base and merges into
+    /// the launch checkout) instead of stacked on its parent's worktree branch; absent: the daemon decides (stacked
+    /// where it can be).
+    pub stacked: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

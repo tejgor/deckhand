@@ -62,7 +62,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `changes-diff` | 2 | 0 |
 | c2d | - | `close-terminal` | 0 | 1 |
 | c2d | - | `create-pr` | 2 | 0 |
-| c2d | - | `create` | 14 | 0 |
+| c2d | - | `create` | 14 | 1 |
 | c2d | - | `delete-worktree` | 8 | 0 |
 | c2d | - | `detach` | 0 | 1 |
 | c2d | - | `dev-detach` | 0 | 1 |

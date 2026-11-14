@@ -2,8 +2,8 @@
 //!
 //! Merging a session's linked worktree into a target checkout (merge or squash, optionally committing first), keeping
 //! or aborting a conflicted merge Deckhand started, marking a worktree merged by hand, and detecting merges done
-//! outside Deckhand (the branch tip now in the default branch, or its PR merged). Merge markers live on the worktree
-//! record, so every session of the worktree changes together.
+//! outside Deckhand (the branch tip now in the default branch, or a stacked worktree's in its target branch, or its PR
+//! merged). Merge markers live on the worktree record, so every session of the worktree changes together.
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -268,6 +268,8 @@ impl Daemon {
         send_open_items: bool,
     ) -> Result<Ordered<WorktreeMergeResult>> {
         let MergeSource { session, worktree_path } = self.merge_source(session_id)?;
+        // Not in the TS: merging into a parent's worktree (stacked) changes files under its agent.
+        self.refuse_merge_while_working(target_cwd).await?;
         let options = MergeOptions {
             commit_first: commit_first.then(|| {
                 let path = self.session_path(&session);
@@ -529,7 +531,8 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.runMergeDetection: live, unmarked records Git still lists whose tip is in the default branch
-    /// beyond their base (bounded by MERGE_DETECT_MAX).
+    /// beyond their base (bounded by MERGE_DETECT_MAX). Not in the TS: a stacked record's target branch is checked
+    /// first, while its target is not deleted (stacking.rs).
     pub async fn run_merge_detection(&self, only_ids: Option<HashSet<String>>) -> Result<()> {
         // Records grouped by repository (a session's repoRoot): one worktree listing and default-branch lookup each.
         let mut repos: IndexMap<String, Vec<Ordered<WorktreeRecord>>> = IndexMap::new();
@@ -612,23 +615,39 @@ impl Daemon {
                     }
                 }
                 let Some(base_sha) = base_sha else { continue };
-                let check = AncestryCheck {
+                let mut check = AncestryCheck {
                     cwd: record.path.clone(),
                     tip: entry.head.clone(),
                     branch: entry.branch.clone(),
                     start: base_sha,
-                    defaults: defaults.clone(),
+                    defaults: Vec::new(),
                 };
-                if !merged_into_default(&check).await {
-                    continue;
+                // Not in the TS: a stacked worktree is merged once its tip is in its target's branch (its parent's);
+                // whether that reached the default branch is the parent's merge. Its base is the parent's branch, so
+                // the same rule (a commit of its own beyond its start) keeps a fresh one from counting.
+                let mut merged_into = None;
+                if let Some(target) = self.live_target_branch(&record) {
+                    check.defaults = vec![format!("refs/heads/{target}")];
+                    if merged_into_default(&check).await {
+                        merged_into = Some(target);
+                    }
                 }
+                if merged_into.is_none() {
+                    check.defaults = defaults.clone();
+                    if merged_into_default(&check).await {
+                        merged_into = Some(default_branch.clone());
+                    }
+                }
+                let Some(merged_into) = merged_into else {
+                    continue;
+                };
                 let source_ref = if entry.branch.is_empty() {
                     entry.head.clone()
                 } else {
                     entry.branch.clone()
                 };
                 let found = DetectedMerge {
-                    target_branch: Some(default_branch.clone()),
+                    target_branch: Some(merged_into),
                     source_ref,
                     source_sha: Some(entry.head.clone()),
                     tip: entry.head.clone(),
@@ -638,6 +657,18 @@ impl Daemon {
             }
         }
         Ok(())
+    }
+
+    /// Not in the TS: the branch a stacked worktree record targets, while that target is still a live record.
+    fn live_target_branch(&self, record: &WorktreeRecord) -> Option<String> {
+        let id = record.target_worktree_id.as_deref().filter(|id| !id.is_empty())?;
+        let live = self
+            .worktrees
+            .borrow()
+            .records
+            .get(id)
+            .is_some_and(|target| !truthy(target.deleted_at.as_deref()));
+        record.target_branch.clone().filter(|branch| live && !branch.is_empty())
     }
 
     /// TS: InkDaemon.detectMergeFromSummary: a merged PR marks the worktree merged; otherwise ancestry is checked.
@@ -703,7 +734,7 @@ impl Daemon {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::server::tests::{local, session, test_daemon};
     use serde_json::json;
@@ -711,13 +742,13 @@ mod tests {
     use std::sync::MutexGuard;
 
     /// DECKHAND_HOME = `dir` while this lives (persist writes state.json there).
-    struct Home {
+    pub(crate) struct Home {
         _guard: MutexGuard<'static, ()>,
         previous: Option<std::ffi::OsString>,
     }
 
     impl Home {
-        fn set(dir: &Path) -> Home {
+        pub(crate) fn set(dir: &Path) -> Home {
             let guard = crate::server::tests::env_lock();
             let previous = std::env::var_os(deckhand_sys::paths::HOME_ENV);
             // SAFETY: tests touching the environment hold server::tests::env_lock.
@@ -742,13 +773,13 @@ mod tests {
     }
 
     /// A daemon without a notes store (the notes projection belongs to notes_tasks.rs).
-    fn daemon(dir: &Path) -> Daemon {
+    pub(crate) fn daemon(dir: &Path) -> Daemon {
         let daemon = test_daemon(dir);
         daemon.notes_tasks.borrow_mut().notes = None;
         daemon
     }
 
-    fn git(cwd: &Path, args: &[&str]) -> String {
+    pub(crate) fn git(cwd: &Path, args: &[&str]) -> String {
         let output = std::process::Command::new("git")
             .args(["-c", "user.name=Deckhand Test", "-c", "user.email=test@example.com"])
             .args(["-c", "commit.gpgsign=false"])
@@ -766,31 +797,31 @@ mod tests {
         String::from_utf8_lossy(&output.stdout).trim().to_owned()
     }
 
-    fn commit(cwd: &Path, file: &str, text: &str, message: &str) {
+    pub(crate) fn commit(cwd: &Path, file: &str, text: &str, message: &str) {
         std::fs::write(cwd.join(file), text).unwrap();
         git(cwd, &["add", file]);
         git(cwd, &["commit", "-q", "-m", message]);
     }
 
     /// A temp dir (canonical) with a repository `repo` (one commit on main) and a linked worktree `wt` on `feature`.
-    struct Fixture {
+    pub(crate) struct Fixture {
         _dir: tempfile::TempDir,
-        root: PathBuf,
-        repo: String,
-        linked: String,
+        pub(crate) root: PathBuf,
+        pub(crate) repo: String,
+        pub(crate) linked: String,
     }
 
     impl Fixture {
-        fn repo(&self) -> &Path {
+        pub(crate) fn repo(&self) -> &Path {
             Path::new(&self.repo)
         }
 
-        fn linked(&self) -> &Path {
+        pub(crate) fn linked(&self) -> &Path {
             Path::new(&self.linked)
         }
     }
 
-    fn fixture() -> Fixture {
+    pub(crate) fn fixture() -> Fixture {
         let dir = tempfile::tempdir().unwrap();
         let root = std::fs::canonicalize(dir.path()).unwrap();
         let repo = root.join("repo");
@@ -814,13 +845,13 @@ mod tests {
     }
 
     /// A session in `cwd` of `repo` with the given `worktree`.
-    fn in_worktree(id: &str, repo: &str, cwd: &str, worktree: Value) -> Ordered<SessionRecord> {
+    pub(crate) fn in_worktree(id: &str, repo: &str, cwd: &str, worktree: Value) -> Ordered<SessionRecord> {
         let mut value = session(id, repo, cwd).to_value().unwrap();
         value["worktree"] = worktree;
         serde_json::from_value(value).unwrap()
     }
 
-    fn insert(daemon: &Daemon, session: Ordered<SessionRecord>) {
+    pub(crate) fn insert(daemon: &Daemon, session: Ordered<SessionRecord>) {
         daemon
             .sessions
             .borrow_mut()
@@ -828,19 +859,19 @@ mod tests {
             .insert(session.id.clone(), session);
     }
 
-    fn record(value: Value) -> Ordered<WorktreeRecord> {
+    pub(crate) fn record(value: Value) -> Ordered<WorktreeRecord> {
         serde_json::from_value(value).unwrap()
     }
 
-    fn insert_record(daemon: &Daemon, record: Ordered<WorktreeRecord>) {
+    pub(crate) fn insert_record(daemon: &Daemon, record: Ordered<WorktreeRecord>) {
         daemon.worktrees.borrow_mut().records.insert(record.id.clone(), record);
     }
 
-    fn keys(value: &Value) -> Vec<String> {
+    pub(crate) fn keys(value: &Value) -> Vec<String> {
         value.as_object().unwrap().keys().cloned().collect()
     }
 
-    fn log_text(dir: &Path) -> String {
+    pub(crate) fn log_text(dir: &Path) -> String {
         std::fs::read_to_string(dir.join("daemon.log")).unwrap_or_default()
     }
 

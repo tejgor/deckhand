@@ -196,6 +196,58 @@ fn inside_a_session_new_starts_a_sub_session_it_may_end_and_note_add_adds_a_step
     stop(&mut daemon);
 }
 
+/// A sub-session's new worktree is stacked on its parent's: it starts from the parent's branch and targets it (its
+/// base, so changes and pull requests compare against the parent), unless `--flat`.
+#[test]
+fn a_sub_session_is_stacked_on_its_parent_s_worktree_unless_flat() {
+    let root = repo();
+    let sandbox = Sandbox::new("agent-cli-stacked");
+    let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
+    let bin = install_agents(&sandbox, fake_agent!());
+    let mut daemon = launch(&sandbox, &root_path, &bin);
+    ready(&sandbox.socket());
+
+    let lead = json_of(&cli(
+        &sandbox,
+        &bin,
+        &root_path,
+        &["new", "--title", "Lead", "--json"],
+        &[],
+    ));
+    let lead_id = lead["id"].as_str().unwrap_or_default().to_owned();
+    let lead = running(&sandbox.socket(), &lead_id);
+    assert_eq!(lead["worktree"].get("targetBranch"), None, "{lead}");
+    let lead_cwd = PathBuf::from(lead["cwd"].as_str().unwrap_or_default());
+    let lead_branch = lead["worktree"]["branch"].as_str().unwrap_or_default().to_owned();
+    let identity = trace(&sandbox, &lead_id);
+    let (launch_id, token) = (
+        identity["launchId"].as_str().unwrap_or_default().to_owned(),
+        identity["token"].as_str().unwrap_or_default().to_owned(),
+    );
+    let env = [
+        ("DECKHAND_SESSION_ID", lead_id.as_str()),
+        ("DECKHAND_LAUNCH_ID", launch_id.as_str()),
+        ("DECKHAND_HOOK_TOKEN", token.as_str()),
+    ];
+    let as_lead = |args: &[&str]| cli(&sandbox, &bin, &lead_cwd, args, &env);
+
+    let stacked = json_of(&as_lead(&["new", "--title", "Stacked", "--json"]));
+    let stacked = running(&sandbox.socket(), stacked["id"].as_str().unwrap_or_default());
+    assert_eq!(stacked["worktree"]["targetBranch"], lead_branch.as_str(), "{stacked}");
+    assert_eq!(
+        stacked["worktree"]["targetWorktreeId"], lead["worktree"]["id"],
+        "{stacked}"
+    );
+    assert_eq!(stacked["worktree"]["baseRef"], lead_branch.as_str(), "{stacked}");
+
+    let flat = json_of(&as_lead(&["new", "--title", "Flat", "--flat", "--json"]));
+    let flat = running(&sandbox.socket(), flat["id"].as_str().unwrap_or_default());
+    assert_eq!(flat["worktree"].get("targetBranch"), None, "{flat}");
+    assert_eq!(flat["worktree"].get("targetWorktreeId"), None, "{flat}");
+
+    stop(&mut daemon);
+}
+
 /// `deckhand mcp` (Codex's MCP server) over real stdio, as Codex starts it for a session: its environment holds the
 /// session's identity and Deckhand home (Codex forwards them by name), and its tool runs the same commands.
 #[test]

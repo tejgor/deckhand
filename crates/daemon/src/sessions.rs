@@ -920,6 +920,7 @@ impl Daemon {
             fork_from_session_id: id("forkFromSessionId"),
             prompt: text("prompt"),
             submit: field("submit").and_then(Value::as_bool),
+            stacked: field("stacked").and_then(Value::as_bool),
         };
         self.create_session_checked(input, checks).await
     }
@@ -1235,6 +1236,7 @@ impl Daemon {
         // deckhand.json never blocks none/existing sessions. The repository config is the main checkout's.
         let mut launch_project: Option<LoadedProject> = None;
         let mut project_error: Option<String> = None;
+        let mut stack = None;
         if requested_worktree_mode == WorktreeMode::New {
             match load_project_config(&launch_cwd, None).await {
                 Ok(project) => launch_project = Some(project),
@@ -1245,13 +1247,24 @@ impl Daemon {
             let worktree_settings = resolve_settings(launch_project.as_ref(), &app_config, &config_dir)
                 .ok()
                 .and_then(|settings| settings.worktree.clone());
+            // Not in the TS: a stacked sub-session starts from its parent's branch (stacking.rs).
+            stack = self.stack_target(parent_of(&starting_session), &input).await;
+            let base_branch = match stack.as_ref() {
+                Some(stack) => Some(stack.branch.as_str()),
+                None => input.base_branch.as_deref().filter(|base| !base.is_empty()),
+            };
             let created = create_worktree_for_session(
                 &worktree_title_for_path(&path_names),
                 &launch_cwd,
                 worktree_settings.as_ref(),
-                input.base_branch.as_deref().filter(|base| !base.is_empty()),
+                base_branch,
             )
             .await?;
+            // Stacked only when its branch was made here from the parent's: a directory or branch of that name that
+            // already existed started somewhere else.
+            stack = stack.filter(|stack| {
+                created.origin == WorktreeOrigin::Created && created.base_ref.as_deref() == Some(stack.branch.as_str())
+            });
             if let Some(links) = created.links.as_ref().filter(|links| !links.notes.is_empty()) {
                 self.log(&format!(
                     "worktree links for {}: {}",
@@ -1401,9 +1414,14 @@ impl Daemon {
             return Ok(());
         }
         // No await from joining the incarnation until the session that references it is set.
-        let joined = linked_root
-            .as_deref()
-            .map(|root| self.join_worktree(root, worktree.origin == Some(WorktreeOrigin::Created), base_sha.clone()));
+        let joined = linked_root.as_deref().map(|root| {
+            self.join_worktree(
+                root,
+                worktree.origin == Some(WorktreeOrigin::Created),
+                base_sha.clone(),
+                stack.clone(),
+            )
+        });
         if let Some(joined) = joined.as_ref()
             && let Some(prepared) = prepared_session.worktree.as_mut()
         {

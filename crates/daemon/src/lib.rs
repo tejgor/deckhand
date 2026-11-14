@@ -12,6 +12,7 @@ pub mod merge;
 pub mod notes_tasks;
 pub mod server;
 pub mod sessions;
+pub mod stacking;
 pub mod worker_channel;
 pub mod workspaces;
 pub mod worktrees;

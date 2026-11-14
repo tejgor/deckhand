@@ -120,6 +120,8 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
             .map(|caller| caller.id.clone()),
         prompt: args.prompt.clone(),
         submit: args.draft.then_some(false),
+        // Absent: the daemon stacks a sub-session's new worktree on its parent's where it can.
+        stacked: (args.flat && worktree_mode == WorktreeMode::New).then_some(false),
     })
 }
 
@@ -342,6 +344,7 @@ mod tests {
                 fork_from_session_id: None,
                 prompt: Some("Write the tests.\nThen run them.".into()),
                 submit: None,
+                stacked: None,
             }
         );
     }
@@ -425,6 +428,19 @@ mod tests {
         let input = create_input(&args, &cx(Some(&caller), &[])).expect("input");
         assert_eq!(input.submit, Some(false));
         assert_eq!(input.base_branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn flat_asks_for_an_unstacked_worktree_and_the_default_leaves_it_to_the_daemon() {
+        let caller = in_worktree("lead", "claude");
+        let flat = NewArgs {
+            flat: true,
+            ..NewArgs::default()
+        };
+        let input = create_input(&flat, &cx(Some(&caller), &[])).expect("input");
+        assert_eq!(input.stacked, Some(false));
+        let input = create_input(&NewArgs::default(), &cx(Some(&caller), &[])).expect("input");
+        assert_eq!(input.stacked, None);
     }
 
     #[test]

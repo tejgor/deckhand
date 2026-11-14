@@ -33,6 +33,7 @@ use crate::dispatch::{as_given, repo_root_cwd};
 use crate::merge::default_branch_refs;
 use crate::server::ClientHandle;
 use crate::sessions::KillOptions;
+use crate::stacking::StackTarget;
 
 /// TS: daemon.ts WORKTREE_OVERVIEW_MAX: at most this many linked worktrees get Git details per overview.
 pub const WORKTREE_OVERVIEW_MAX: usize = 60;
@@ -180,7 +181,7 @@ pub(crate) async fn git_checkout_of(session: &SessionRecord) -> String {
 
 impl Daemon {
     /// TS `liveWorktreeRecord(this.worktrees.values(), worktreePath)`: the live record at the path, as held.
-    fn live_record(&self, worktree_path: &str) -> Option<Ordered<WorktreeRecord>> {
+    pub(crate) fn live_record(&self, worktree_path: &str) -> Option<Ordered<WorktreeRecord>> {
         let worktrees = self.worktrees.borrow();
         let found = live_worktree_record(worktrees.records.values().map(|record| &**record), worktree_path)?;
         worktrees
@@ -242,7 +243,9 @@ impl Daemon {
             .find_map(|session| worktree_branch(session).map(str::to_owned));
         self.sync_worktree_tasks(before.as_deref(), &record, branch.as_deref())
             .await;
-        Ok(())
+        // Every change of a record passes here, so whichever way it was merged or deleted, the worktrees stacked on it
+        // move up now.
+        self.retarget_children(&record).await
     }
 
     /// TS: InkDaemon.joinWorktree: the live incarnation at the path, or (created, or none) a new one; synchronous so
@@ -250,7 +253,16 @@ impl Daemon {
     ///
     /// A live incarnation still recorded at a path Deckhand just created a worktree at was removed outside Deckhand: it
     /// is marked deleted at once (the caller saves and broadcasts it), so there is never a second live record there.
-    pub fn join_worktree(&self, worktree_path: &str, created: bool, base_sha: Option<String>) -> JoinedWorktree {
+    ///
+    /// Not in the TS: a new record takes `target` (a stacked sub-session's worktree, see stacking.rs); joining a live
+    /// one leaves its target as it is.
+    pub fn join_worktree(
+        &self,
+        worktree_path: &str,
+        created: bool,
+        base_sha: Option<String>,
+        target: Option<StackTarget>,
+    ) -> JoinedWorktree {
         let live = self.live_record(worktree_path);
         if let Some(live) = &live
             && !created
@@ -265,6 +277,9 @@ impl Daemon {
             path: path::resolve(worktree_path),
             created_at: now_iso(),
             base_sha: base_sha.filter(|sha| !sha.is_empty()),
+            target_worktree_id: target.as_ref().map(|target| target.worktree_id.clone()),
+            target_branch: target.map(|target| target.branch),
+            retargeted_from: None,
             merged_at: None,
             merge_mode: None,
             merge_target_branch: None,
@@ -1365,7 +1380,7 @@ mod tests {
     fn joining_a_worktree_reuses_the_live_incarnation_unless_deckhand_created_it() {
         let dir = tempfile::tempdir().unwrap();
         let daemon = daemon(dir.path());
-        let first = daemon.join_worktree("/repo/wt/", false, Some("abc".to_owned()));
+        let first = daemon.join_worktree("/repo/wt/", false, Some("abc".to_owned()), None);
         assert!(first.superseded.is_none());
         let created = daemon.worktrees.borrow().records.get(&first.id).cloned().unwrap();
         assert_eq!(created.path, "/repo/wt");
@@ -1382,7 +1397,7 @@ mod tests {
         );
 
         // Another session there joins it.
-        let joined = daemon.join_worktree("/repo/wt", false, None);
+        let joined = daemon.join_worktree("/repo/wt", false, None, None);
         assert_eq!(
             joined,
             JoinedWorktree {
@@ -1392,7 +1407,7 @@ mod tests {
         );
 
         // Created again at the path: a new incarnation, the old one marked deleted at once.
-        let again = daemon.join_worktree("/repo/wt", true, Some(String::new()));
+        let again = daemon.join_worktree("/repo/wt", true, Some(String::new()), None);
         assert_ne!(again.id, first.id);
         let superseded = again.superseded.clone().unwrap();
         assert_eq!(superseded.id, first.id);
@@ -1416,9 +1431,46 @@ mod tests {
         );
 
         // Nothing live there: created or not, a new one.
-        let elsewhere = daemon.join_worktree("/repo/other", false, None);
+        let elsewhere = daemon.join_worktree("/repo/other", false, None, None);
         assert!(elsewhere.superseded.is_none());
         assert_eq!(daemon.worktrees.borrow().records.len(), 3);
+
+        // A stacked sub-session's new worktree records its target after its base; joining it later keeps it.
+        let target = StackTarget {
+            worktree_id: first.id.clone(),
+            branch: "lead".to_owned(),
+        };
+        let stacked = daemon.join_worktree("/repo/child", true, Some("def".to_owned()), Some(target));
+        let record = daemon.worktrees.borrow().records.get(&stacked.id).cloned().unwrap();
+        assert_eq!(
+            record
+                .to_value()
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>(),
+            ["id", "path", "createdAt", "baseSha", "targetWorktreeId", "targetBranch"]
+        );
+        assert_eq!(record.target_branch.as_deref(), Some("lead"));
+        let other = StackTarget {
+            worktree_id: "x".to_owned(),
+            branch: "x".to_owned(),
+        };
+        assert_eq!(
+            daemon.join_worktree("/repo/child", false, None, Some(other)).id,
+            stacked.id
+        );
+        assert_eq!(
+            daemon
+                .worktrees
+                .borrow()
+                .records
+                .get(&stacked.id)
+                .unwrap()
+                .target_worktree_id,
+            Some(first.id.clone())
+        );
     }
 
     #[test]

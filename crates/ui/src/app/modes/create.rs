@@ -585,6 +585,8 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
         fork_from_session_id: fork_from_id,
         prompt: None,
         submit: None,
+        // The daemon decides (stacked on a parent's worktree where it can be).
+        stacked: None,
     };
     let reply = client.create_session(input);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {

@@ -34,7 +34,8 @@ pub fn to_ts_file_text<T: Serialize + ?Sized>(value: &T) -> serde_json::Result<S
 }
 
 /// types.ts WorktreeRecord: one incarnation of a linked worktree (state.json `worktrees`). Order: the creation
-/// literal (`{id, path, createdAt, baseSha?}`), then markers as they are set; carried as `Ordered<WorktreeRecord>`.
+/// literal (`{id, path, createdAt, baseSha?, targetWorktreeId?, targetBranch?}`), then markers (and `retargetedFrom`)
+/// as they are set; carried as `Ordered<WorktreeRecord>`.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,6 +44,15 @@ pub struct WorktreeRecord {
     pub path: String,
     pub created_at: String,
     pub base_sha: Option<String>,
+    /// Not in the TS: the worktree this one integrates into (a stacked sub-session's: its parent's worktree record).
+    /// Absent: flat, merged into whichever checkout the merge names (the launch checkout). Unlike the merge markers it
+    /// describes intent, so marking or unmarking merged never touches it; it moves up when that target is merged or
+    /// deleted (retargeting).
+    pub target_worktree_id: Option<String>,
+    /// Not in the TS: the branch of [`Self::target_worktree_id`] (set with it), which merges and merged detection use.
+    pub target_branch: Option<String>,
+    /// Not in the TS: the branch this worktree targeted before its target was merged or deleted and it moved up.
+    pub retargeted_from: Option<String>,
     pub merged_at: Option<String>,
     pub merge_mode: Option<WorktreeMergeMode>,
     pub merge_target_branch: Option<String>,
