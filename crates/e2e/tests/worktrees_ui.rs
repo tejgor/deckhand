@@ -79,20 +79,7 @@ fn w_merged_worktrees_grouped_x_deletes_and_delete_overrides_data_loss() {
     fs::write(scratch.join("notes.txt"), "only here\n").expect("notes.txt");
     fs::write(scratch.join("README.md"), "changed here\n").expect("README.md");
 
-    // Its worktree note has an open item left (Notes tab, o to edit, Ctrl+T adds an item).
-    ui.press("a");
-    ui.screen("enter edit notes");
-    ui.press("\r");
-    ui.screen("esc done");
-    ui.press("\x14");
-    ui.screen("- [ ]");
-    ui.press("Follow up on perf");
-    ui.screen("Follow up on perf");
-    ui.press("\x1b");
-    ui.screen("enter edit notes");
-
     // The session list's footer lists it.
-    ui.press("\x1b[A");
     ui.screen("W worktrees");
     ui.press("W");
     ui.screen("⎇ Worktrees");
@@ -100,7 +87,6 @@ fn w_merged_worktrees_grouped_x_deletes_and_delete_overrides_data_loss() {
     ui.screen("Main checkout");
     ui.screen("scratch");
     ui.screen("not from Deckhand");
-    ui.screen("☐1");
     // The selection starts on the selected session's worktree; its details say why it can go.
     ui.screen("Clean: deleting it and its branch loses nothing");
     ui.press("k");
@@ -109,14 +95,10 @@ fn w_merged_worktrees_grouped_x_deletes_and_delete_overrides_data_loss() {
     ui.screen("Delete 1 merged worktree?");
     ui.screen("Stops the session running there first: shipped");
     ui.screen("Stop 1 session, delete 1 worktree and their branches");
-    // Its note's open item goes to the backlog first; space would keep it in the note.
-    ui.screen("☑ 1 open note item → backlog first: Follow up on perf");
-    ui.press(" ");
-    ui.screen("☐ 1 open note item stay in the (read-only) note");
-    ui.press(" ");
-    ui.screen("☑ 1 open note item → backlog first");
+    // Deleting sends nothing anywhere: no toggle.
+    ui.screen("enter choose • esc cancel");
     ui.press("\r");
-    ui.screen("Deleted 1 worktree and 1 branch · stopped 1 session · 1 open note item to the backlog");
+    ui.screen("Deleted 1 worktree and 1 branch · stopped 1 session");
     wait_for(|| worktree.exists(), |exists| !exists, UI_WAIT);
     assert!(
         !git(&sandbox_repo, &["branch", "--list", &branch]).contains(&branch),
