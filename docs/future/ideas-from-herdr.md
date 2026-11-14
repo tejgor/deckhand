@@ -83,7 +83,7 @@ herdr's `agent prompt <name> "text" --wait --until idle|done|blocked`:
 - fails with `agent_prompt_stalled` when no working state appears within 5 seconds;
 - submits the text and Enter as one ordered step, with bracketed paste.
 
-For Deckhand: `deckhand send` refuses on needs-input the same way, `wait` takes `--until idle|ended|waiting`, and `read --screen` stays the visible screen (history comes from transcripts, as `deckhand-cli.md` says).
+For Deckhand: `deckhand send` (built in protocol v62) holds the message in a queue instead of refusing while the target waits on a question or approval, so nothing is typed into a dialog; `send --wait` returns early saying what the target waits on, and reports a message after which no turn started within 10 s, never retyping it. Text and Enter go in as one bracketed paste and then Enter. Still open: `wait` takes `--until idle|ended|waiting`, and `read --screen` stays the visible screen (history comes from transcripts, as `deckhand-cli.md` says).
 
 ## Not adopting
 

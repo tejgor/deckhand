@@ -438,6 +438,9 @@ An agent in a Deckhand session can take Deckhand actions when you ask it to: "st
 | `deckhand task move <id> --to backlog\|<session id>\|<line id>` | Moves a line to the backlog (taking its session off), under a line, or onto a session by the rules of `w` on the board (see [Tasks](#tasks)) |
 | `deckhand step add <text>`, `step done\|reopen <id>`, `step list` | The calling session's steps: lines under its line (made on demand) |
 | `deckhand note add <text>` | Adds a paragraph to the calling session's line note (its line is made on demand) |
+| `deckhand send <id> <message> [--wait [--timeout <time>]]` | Sends a message to another session, typed into its agent once it is idle; `--wait` prints the first reply. See [Messages between sessions](#messages-between-sessions) |
+| `deckhand send --cancel <message id>` | Cancels a message the calling session sent that is still queued (by hand: any) |
+| `deckhand reply <message id> <answer>` | Answers a message sent to the calling session: to the sender's waiting `--wait`, else queued to the sender |
 | `deckhand kill <id>` | Ends a running session. Its worktree and branch are kept |
 | `deckhand plan check\|apply [<file>\|-]` | Checks a plan of sessions, or creates it once you confirm it in Deckhand; see [The orchestrator](#the-orchestrator) |
 | `deckhand do <idea>` | Starts a new [orchestrator](#the-orchestrator) for the idea, every time; for you, not for agents |
@@ -454,7 +457,8 @@ A command run inside a session acts for that session, the **caller**. It finds i
 - **Starting sessions**: from a session, a new session's parent can be the caller or a session under it (`--parent`): *A deckhand command starts sessions only under the session it runs in, or under one of its sub-sessions*. It forks or hands off only the caller. A session started by a command records who started it (`spawnedBySessionId`), as a record only: a top-level session it started (`--top-level`) is not in its tree.
 - **Ending sessions**: from a session, `kill` and `remove` act only on the sessions under the caller. Anything else is refused: *Only the sessions under this session (its sub-sessions, at any depth) can be stopped or removed from it*. `kill` never deletes a worktree or branch, and `remove` doesn't send a note's open items to the backlog first (the choice `backspace`'s confirmation offers).
 - **Left to you**: merging, deleting worktrees and branches, and anything on sessions outside the caller's tree. There are no commands for them.
-- **Run by hand**, outside a session, there is no caller: `new` starts a top-level session of the current repository, `kill` and `remove` act on any session, and `note add`, `new --fork` and `new --worktree same` refuse.
+- **Messages** reach further: a caller may send to every session under the same top-level session as itself (see [Messages between sessions](#messages-between-sessions)).
+- **Run by hand**, outside a session, there is no caller: `new` starts a top-level session of the current repository, `kill`, `remove` and `send` act on any session, and `note add`, `reply`, `new --fork` and `new --worktree same` refuse.
 
 ### Starting a session from a command
 
@@ -474,9 +478,31 @@ Inside a session, `deckhand new` starts a **sub-session of the caller in a new w
 
 A new worktree runs setup as usual. A command can't review `deckhand.json` for you: when the repository's `deckhand.json` sets a `setupCommand` and is not trusted, setup doesn't run and the agent doesn't start. Select the session and press `s` to review the file and retry (see [Setup and actions](#setup-and-actions)).
 
+### Messages between sessions
+
+A session can ask another one something, or give it an instruction, without you relaying it: `deckhand send <id> "<message>"` (the message can also come from stdin with `-`, as a quoted heredoc). It returns at once with the message's ID; the message is typed into the other session's agent later, under a header saying who sent it:
+
+```
+[Message 7a3f01 from "Login UI", which wants an answer.
+ Reply once you have it: deckhand reply 7a3f01 "<answer>"]
+Which token store does the login form read from?
+```
+
+Without `--wait` the header is `[Message 7a3f01 from "Login UI" via deckhand]` (it may still be answered), sent by hand `[Message 7a3f01 from you (the user) via deckhand]`, and an answer arrives as `[Reply from "Token storage" to your message 7a3f01]`.
+
+- **Who to**: from a session, any session in its tree, every session under the same top-level session (for an orchestrator's idea, the orchestrator and everything under it), never itself (*A session sends messages only to the sessions in its tree*). By hand, any session. A session that has exited is refused: nothing is sent.
+- **One queue per session**: messages, replies and notices to a session arrive one at a time, in the order sent. A message is **held** while that session starts, works on a turn, waits on a question or permission (it is never typed into a dialog) or shows a menu, has a task draft waiting, or while you are typing into it (and for 3 s after a key) or have typed text into it you have not sent: Enter, `ctrl+c` or `ctrl+u` releases it. It is typed once the agent is idle at its input with its screen settled, as one bracketed paste, then Enter submits it. The next one waits for the turn it starts to end.
+- **Checking it started**: for an agent that reports turn signals (Claude, Codex with hooks), a turn must start within 10 s of the Enter. If none does, the message is marked so, a waiting `--wait` returns, and that session's queue stops until a turn starts there or you press Enter in it: nothing is typed again blindly. Without signals, the screen's activity stands in.
+- **`--wait`** waits for the first reply (9 minutes unless `--timeout 90s|5m|1h`) and prints it; that reply is not also typed into the sender. It returns early, with its own exit status, when the other session waits on a question or permission (`Token storage is waiting on: wants to run: …`, 3), ends its turn without replying (4, only with turn signals), exits (5) or did not start a turn (6); after the timeout it exits with 2. Later replies then reach the sender as ordinary queued messages, so nothing is lost. An agent runs it with a long tool timeout (Claude: `Bash` timeout 600000; Codex's `deckhand` tool allows it up to 9½ minutes).
+- **Replies**: `deckhand reply <id> "<answer>"` answers only a message sent to the session it runs in, as often as needed. Each reply goes to the sender: to its waiting `--wait`, else into its queue. A reply to a message you sent by hand comes back to you (shown in Deckhand). The guide tells agents to answer a message that asks for an answer even though they otherwise act only when you ask.
+- **Exits**: a session that exits with messages still held drops them; each sender is told, its waiting `--wait` returns, or a notice `[Not delivered: "Token storage" exited]` with the start of the message goes into its queue. A session Deckhand stops and resumes at once (restarting it on a new agent version) keeps them, and so does one the daemon left behind when it stopped (see **Kept**).
+- **Cancelling**: `deckhand send --cancel <id>` cancels a held message the calling session sent (by hand, any).
+- **Size**: at most 20 KB a message. For more, put it in your line's note (`deckhand note add`) and point at it.
+- **Kept**: the held messages and the last 50 of each session (sent or received, with their status: held, delivered, answered, cancelled, dropped, returned; and the IDs of their replies) are kept in `messages.json` in the state directory, so held messages wait through a daemon restart and are delivered once their session runs and is idle again. A waiting `--wait` ends with the daemon; later replies are queued to its sender. Messages between sessions never post a desktop notification.
+
 ### What agents are told
 
-At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent about these commands, keeping what stays in its context small, since most sessions never use them. Always loaded is a sentence or two: use the commands only when the user asks for a Deckhand action, and read the guide once per conversation, unless it is still in context. The guide itself, `deckhand guide`, costs context only when the agent first reads it. It lists the commands and tells the agent never to start sessions, move tasks or end sessions on its own, to write a sub-session's prompt as a complete brief and to park work it is told to leave for later with `task add`.
+At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent about these commands, keeping what stays in its context small, since most sessions never use them. Always loaded is a sentence or two: use the commands only when the user asks for a Deckhand action, and read the guide once per conversation, unless it is still in context. The guide itself, `deckhand guide`, costs context only when the agent first reads it. It lists the commands and tells the agent never to start sessions, move tasks or end sessions on its own, with one exception: a message that asks for an answer is answered with `deckhand reply`. It also says to write a sub-session's prompt as a complete brief and to park work it is told to leave for later with `task add`.
 
 - **Claude** gets a plugin with a `deckhand` skill (`--plugin-dir`). Claude keeps only a skill's name and description in context until it uses it, and the skill's body is the guide. Without `--plugin-dir`, the short instruction goes in with `--append-system-prompt`.
 - **Pi** gets the same skill (`--skill`), else the short instruction with `--append-system-prompt`.
@@ -500,7 +526,7 @@ To have Claude ask before each `deckhand` command, and Codex before each call of
 
 ## The orchestrator
 
-An orchestrator is a session whose job is to split one idea into sessions. You say what you want to do; it reads the code as far as it needs to, proposes a tree of sessions in its chat, and you revise it there. When you agree, it hands Deckhand the plan, Deckhand asks you to confirm, and the sessions are created, each starting on its brief at once. The further work happens in those sessions, with you: the orchestrator never watches or follows up on them. There is one orchestrator per idea, so each starts with a clean conversation, and several can run at once.
+An orchestrator is a session whose job is to split one idea into sessions. You say what you want to do; it reads the code as far as it needs to, proposes a tree of sessions in its chat, and you revise it there. When you agree, it hands Deckhand the plan, Deckhand asks you to confirm, and the sessions are created, each starting on its brief at once. The further work happens in those sessions, with you: the orchestrator never watches or waits on them, though when you ask it can send them instructions (`deckhand send`, see [Messages between sessions](#messages-between-sessions)). There is one orchestrator per idea, so each starts with a clean conversation, and several can run at once.
 
 - **Starting one**: `O` in the session list asks *What do you want to do?* in a one-line prompt at the bottom of the screen (`enter` starts it, `esc` cancels; a pasted line break is a space). Every idea starts a new orchestrator, even while others run; it is selected, and `enter` attaches once it runs. From a terminal in the repository, `deckhand do "<idea>"` does the same. If starting fails, `O` offers what you typed again.
 - **What it is**: a Claude session (only Claude for now), top-level, in the main checkout without a worktree, marked `◎` in the sidebar. It is named after the idea's first line (cut at a word past 64 characters, numbered ` 2`, ` 3`… while an active session has the name), and the idea is its first message. It cannot edit files (it is launched with `--disallowedTools Edit Write NotebookEdit` when Claude supports it) and is told its job at launch (`--append-system-prompt`). Only you start one: a `deckhand` command from a session can't.
