@@ -56,6 +56,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
+| `e` | Show the selected session's [messages](#messages): what it sent and was sent, and the answers to messages you sent it by hand |
 | `i` | Show the worktree's Git summary and PR lookups ([inspecting](features.md#organizing-and-inspecting-sessions)) |
 | `b` | Open the repository's list ([Tasks](#tasks)) |
 | `W` | Open the Worktrees screen ([Worktrees](#worktrees)) |
@@ -70,7 +71,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 **Ctrl and letters**: outside a text field, `ctrl` plus a letter never does what the letter does (`ctrl+x` doesn't stop a session, `ctrl+a` doesn't open Notes). The exceptions are `ctrl+d` / `ctrl+u`, which page wherever `pgdn` / `pgup` do, since a laptop has no page keys without `fn`.
 
-**Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list) and in [Tasks](#tasks), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged.
+**Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list), in [Tasks](#tasks) and in [Messages](#messages), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged.
 
 **In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic (while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` scroll the matches), `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`, `space`) scroll and `esc` closes.
 
@@ -133,6 +134,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session on
 | `◎` | Before the status: an orchestrator (`O`), named after its idea. Its details say `◎ orchestrator · plans and dispatches sessions`; its sub-sessions' say `↳ sub-session of ◎ <idea>`, and in sections by state they sit under a line naming it (`◎ Rework auth ┄┄┄`) |
 | `· name` | After a sub-session's title: its parent, when it isn't listed right above it (another section, a search); cut first when narrow |
 | `▶` | After the title: the worktree's Dev command runs (on its first row; muted on the worktree's other rows, which share it) |
+| `✉N` | After the title: N [messages](features.md#messages-between-sessions) wait to be typed into it once it is idle (`e` lists them) |
 | `▣` | After the title: archived |
 | `!` | After the title: cleanup error |
 | `✓` | After the title: merged (by `m`, `M` or found merged elsewhere) |
@@ -150,7 +152,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session on
 
 The sketch shows your own order, the default. With `V` the rows sit under section headers instead, **Orchestrator**, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent when both are in the same section, and otherwise under a muted line naming its parent (`auth refactor ┄┄┄`) at the head of its run. `c` folds **Exited** to its header (`Exited 4 ▸`). While you type to an agent or shell, every row but the selected one is dimmed.
 
-Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
+Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then its messages (`✉ 2 waiting · last from Login UI 3m (answered)`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
 
 ## Typing to the agent
 
@@ -191,6 +193,18 @@ An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer 
 | `J` / `K` | Scroll a plan that does not fit (`pgdn` / `pgup` too) |
 
 No other key acts while it shows, and keys typed on as it opens are ignored until you pause for 0.75 s, so a sentence you were typing to the agent can't answer it. Answered in another Deckhand, or expired, it closes by itself.
+
+## Messages
+
+`e` shows the selected session's [messages](features.md#messages-between-sessions), newest first: what it sent (`→`) and was sent (`←`), each with the other end (`you` for a message you sent by hand, and for the answer to one), how long ago, its status (held, delivered, answered, cancelled, dropped, returned), its ID and its replies' IDs, then its text. The selected message shows whole; the others show their first three lines. A reply to a message you sent by hand comes back to you (`returned`): this is where you read it, in the messages of the session that answered. Nothing is sent from here: type to the agent.
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous message |
+| `g`, `home` / `G`, `end` | Newest / oldest message |
+| `x` `x` | Cancel the selected message while it is held (not yet typed into its session) |
+| `J` / `K` | Scroll a long message (`pgdn` / `pgup` too) |
+| `esc`, `h`, `←` | Back |
 
 ## Notes editor
 
