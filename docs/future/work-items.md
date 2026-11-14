@@ -70,12 +70,19 @@ Notes are separate from the list. They are prose, never ticked, never counted. T
 
 | Note | Belongs to | For | Lives |
 |---|---|---|---|
-| **Line note** | a line | thinking about the work: context, the approach, decisions, findings, the brief | as long as the line |
+| **Line note** | a line | thinking about the work: context, the approach, decisions, findings | as long as the line |
 | **Session note** | a session | reminders and observations about this conversation or attempt | as long as the session |
 | **Scratchpad** | the repository (shared by its checkouts) | loose thoughts not tied to any work yet | always |
 
-- **A line note exists before anyone works on the line**, so you can jot thoughts on parked work. Whoever takes the line on is given its note.
-- **Briefs.** A session started by an orchestrator's plan gets its brief recorded at the top of its line's note (marked as the brief): exactly what it was told. The idea's line note gets what was agreed in the planning chat (the problem, the approach, decisions, what was ruled out), written by the orchestrator when it applies the plan.
+- **A line note exists before anyone works on the line**, so you can jot thoughts on parked work. Whoever takes the line on is given its brief and its note.
+
+### Briefs
+
+A brief is not a note: it is **what the line was set up to be**, written once at the start, while a note grows as the work goes on. Kept apart, the note stays yours and the brief doesn't bloat it.
+
+- **A line can have a brief**, its own text in its own file. An orchestrator's plan writes one for each line it puts a session on (exactly what that session was told, its first message) and one for the idea's line (what was agreed in the planning chat: the problem, the approach, decisions, what was ruled out). You can write one for a line you set up yourself.
+- **Shown collapsed**: the Notes tab shows `▸ Brief · from ◎ Rework auth · 14 Nov` above the line's note, and a key expands it. It can be edited, as a record rather than a contract.
+- **Passed on**: a session taking the line on (a retry, say) is given the brief and the note. Handoffs include it; the Tasks board marks lines that have one (`✎`) and shows it in the line's details.
 - **Agents write to line notes.** `deckhand note add <text>` appends to the note of the caller's line: findings for whoever works on it next. The session note is yours; agents don't write to it.
 - **Session notes** hold things like "review its diff of crypto.rs before merging" or "told it to keep refresh tokens out of scope". When a session is removed, Deckhand offers to move what is still open in its note into its line's note.
 - **Checkboxes in any note are text** you tick in place. `ctrl+p` on one promotes it to a line: under the note's line (from a line or session note), or into the backlog (from the scratchpad).
@@ -93,6 +100,7 @@ Notes are separate from the list. They are prose, never ticked, never counted. T
 
 - **The list:** one file per repository, today's `notes/tasks/<hash>.md` extended. It is already a nested Markdown checklist with `<!-- dh:… -->` bookkeeping per line: a line's ID (`t=`), who is on it (`s=` a session ID; `wt=` goes), its parent comes from indentation, done/added/tried/from as today. Hand edits in an editor keep working: each change is applied to the file as it is on disk.
 - **Line notes:** a file per line, `notes/lines/<line id>.md`. Indented detail lines under a list line (today's task details) become the start of its note.
+- **Briefs:** a file per line that has one, `notes/briefs/<line id>.md`, with who wrote it and when in its first line's bookkeeping comment.
 - **Session notes:** `notes/sessions/<session id>.md`, as today for main-checkout sessions, now for every session.
 - **Scratchpad:** `notes/repos/<hash>.md`.
 
