@@ -1,6 +1,6 @@
 # Orchestrator, stacked sub-sessions and sidebar depth
 
-**Status:** discussed 2026-11-13; parts 1 (stacked sub-sessions, protocol v58) and 2 (sidebar depth) built, part 3 (the orchestrator) not. What parts 1 and 2 do is in `docs/features.md` (*Stacked sub-sessions*, *Merging and done*); what is below for them is the design record. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
+**Status:** built: part 1 (stacked sub-sessions, protocol v58), part 2 (sidebar depth) and part 3 (the orchestrator, protocol v59). What parts 1 and 2 do is in `docs/features.md` (*Stacked sub-sessions*, *Merging and done*); what is below for them is the design record. Three parts that build on each other: sub-sessions that branch from and merge into their parent (1), a sidebar that shows how deep they nest (2), and an orchestrator that turns a described problem into a tree of sessions (3). 1 and 2 are useful without 3.
 
 ## Why
 
@@ -105,5 +105,5 @@ It never relies on remembering what it made. Asked to "add a sub-session to the 
 
 1. ~~Sidebar depth (part 2)~~ built.
 2. ~~Stacked sub-sessions (part 1)~~ built (protocol v58). Left out: undoing a retarget when a merge is unmarked; a deeper "working" guard (a session waiting on input does not count as working).
-3. `--parent`, `spawnedBy` and `plan apply`. **M**.
-4. The orchestrator role, entry points and guide. **S–M**.
+3. ~~`--parent`, `spawnedBy` and `plan apply`~~ built.
+4. ~~The orchestrator role, entry points and guide~~ built (`O`, `deckhand do`). Not yet checked against the real `claude`: that the `Bash(deckhand:*)` rule lets the orchestrator run `deckhand plan apply - <<'EOF'` without a permission prompt.

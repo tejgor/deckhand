@@ -409,6 +409,8 @@ An agent in a Deckhand session can take Deckhand actions when you ask it to: "st
 | `deckhand task move <id> --to backlog\|<session id>` | Moves a task to the backlog, or onto a session's work by the rules of `w` in the task list (see [Tasks](#tasks)): it becomes that work's task, or a step in its note when the work has a task already |
 | `deckhand note add <item>` | Adds `- [ ] <item>` at the end of the calling session's note: its worktree's note, or in the main checkout the session's own |
 | `deckhand kill <id>` | Ends a running session. Its worktree and branch are kept |
+| `deckhand plan check\|apply [<file>\|-]` | Checks a plan of sessions, or creates it once you confirm it in Deckhand; see [The orchestrator](#the-orchestrator) |
+| `deckhand do <request>` | Starts the repository's orchestrator with your request, or sends it to the running one; for you, not for agents |
 | `deckhand remove <id>` | Removes an exited session from the list |
 | `deckhand guide` | Prints the guide agents read (see [What agents are told](#what-agents-are-told)) |
 
@@ -418,8 +420,8 @@ Every command takes `--json` for machine-readable output, and `deckhand <command
 
 A command run inside a session acts for that session, the **caller**. It finds it from the `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN` Deckhand gives every agent it launches, and the daemon checks them as it checks [agent signal callbacks](#lifecycle-signals-and-notifications): a wrong token, an earlier launch or an exited session is refused with *Stale or unauthorized deckhand caller*.
 
-- **Starting sessions**: from a session, a new session's parent (or the session it forks) can only be the caller: *A deckhand command starts sessions only from the session it runs in*.
-- **Ending sessions**: from a session, `kill` and `remove` act only on the caller's own sub-sessions, those it started. Anything else is refused: *Only sub-sessions this session started can be stopped or removed from it*. `kill` never deletes a worktree or branch, and `remove` doesn't send a note's open items to the backlog first (the choice `backspace`'s confirmation offers).
+- **Starting sessions**: from a session, a new session's parent can be the caller or a session the caller started, or one under those (`--parent`): *A deckhand command starts sessions only under the session it runs in, or under a session it started (or one under those)*. It forks or hands off only the caller. A session started by a command records who started it, and its details say `started by <session>`.
+- **Ending sessions**: from a session, `kill` and `remove` act only on sessions the caller started, its sub-sessions, and the sessions under those. Anything else is refused: *Only sessions this session started, and the sessions under them, can be stopped or removed from it*. `kill` never deletes a worktree or branch, and `remove` doesn't send a note's open items to the backlog first (the choice `backspace`'s confirmation offers).
 - **Left to you**: merging, deleting worktrees and branches, and anything on sessions the caller didn't start. There are no commands for them.
 - **Run by hand**, outside a session, there is no caller: `new` starts a top-level session of the current repository, `kill` and `remove` act on any session, and `note add`, `new --fork` and `new --worktree same` refuse.
 
@@ -436,6 +438,7 @@ Inside a session, `deckhand new` starts a **sub-session of the caller in a new w
 - **`--title <title>`**: the name, at most 64 characters. By default the task's title, else the prompt's first line, else the agent's name (`fork` for a fork), with ` 2`, ` 3`… added while an active session of the same name and parent has it.
 - **`--base <branch>`**: where the new worktree's branch starts, instead of `worktree.branchFrom`. Only for a new worktree.
 - **`--flat`**: a new worktree that is not [stacked](#stacked-sub-sessions) on the caller's, starting from `worktree.branchFrom` and merging into the launch checkout. Only for a new worktree.
+- **`--parent <id>`**: a sub-session of that session instead of the caller: one the caller started, or one under those. Run by hand, any session of the repository. Not with `--top-level` or `--fork`.
 - **`--task <id>`**: starts on a task from `deckhand task list` and links it, as `n` in the task list does, so merging or finishing the work ticks it. A prompt replaces the task's text as what the agent receives; without one, the task's text is typed as a draft, as usual. Only a top-level session or a sub-session in a new worktree can start from a task, so with any other `--worktree` the session is top-level. `--task` and `--fork` can't be combined.
 
 A new worktree runs setup as usual. A command can't review `deckhand.json` for you: when the repository's `deckhand.json` sets a `setupCommand` and is not trusted, setup doesn't run and the agent doesn't start. Select the session and press `s` to review the file and retry (see [Setup and actions](#setup-and-actions)).
@@ -463,6 +466,18 @@ To have Claude ask before each `deckhand` command, and Codex before each call of
   "allow_deckhand_commands": false
 }
 ```
+
+## The orchestrator
+
+The orchestrator is a session whose job is to split a problem into sessions. You describe what you want; it reads the code as far as it needs to, proposes a tree of sessions and sub-sessions in its chat, and you revise it there. When you agree, it hands Deckhand the plan, Deckhand asks you to confirm, and the sessions are created, each starting on its brief at once. Then it steps away: the further work happens in those sessions, with you. It never watches or follows up on them, so it stays small and serves one idea after another.
+
+- **Opening it**: `O` in the session list attaches to the repository's orchestrator, starting one first if none runs (select it and press `enter` once it has started). From a terminal in the repository, `deckhand do "<request>"` starts it with your request as its first message, or sends the request to the running one when it is idle at its input (it refuses, sending nothing, while it is busy or waiting on you).
+- **What it is**: a Claude session (only Claude for now), top-level, in the main checkout without a worktree, titled **Orchestrator** and marked `◎` in the sidebar. One runs per repository at a time. It cannot edit files (it is launched with `--disallowedTools Edit Write NotebookEdit` when Claude supports it) and is told its job at launch (`--append-system-prompt`). Only you start one: a `deckhand` command from a session can't.
+- **Stateless**: each time, it reads `deckhand ls` and `deckhand task list` rather than remembering, so clearing its conversation loses nothing. To add to existing work, it uses existing sessions as parents.
+- **The plan**: sessions for work that can run in parallel, backlog tasks for work that must wait for other work (their details say what for). Sub-sessions in new worktrees are [stacked](#stacked-sub-sessions) on their parent unless flat. A plan's parent may be another entry or an existing session.
+- **Confirming**: `deckhand plan apply` checks the whole plan first (every problem at once, nothing created), then waits for you. Deckhand shows **Create this plan?** with the tree, the backlog tasks and when it expires: `enter` creates, `esc` cancels, `J`/`K` scroll a long plan. If you are attached to a session (the orchestrator, usually), Deckhand detaches to show it and attaches you again once it is answered. In a form or another screen, the header says `◎ Plan waiting` and the dialog opens when you close it; nothing you typed is touched. Several plans wait their turn. Unanswered, a plan expires after 15 minutes. Only the orchestrator, or you by hand, can apply a plan.
+- **Creating**: parents first, waiting for each parent's worktree so its children can stack on it; then the backlog tasks. The sessions are real top-level sessions and sub-sessions, not the orchestrator's, and their details say `◎ started by Orchestrator`. If one fails, creation stops there; what was created is kept and the output says what failed.
+- **`deckhand plan check`** validates a plan and prints its tree without asking anything. Plans are JSON (`deckhand guide` and the orchestrator's instructions describe it): `sessions` with `key`, `title`, `prompt`, and optional `agent`, `parent`, `worktree` (`new`, `same` or `none`), `base`, `flat` and `task`; `tasks` with `title` and `details`.
 
 ## Agent identity
 
