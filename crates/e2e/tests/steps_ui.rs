@@ -1,5 +1,5 @@
-//! Checklist steps in worktree notes, the Tasks board and A (send open items), in a real PTY driving the isolated dev
-//! launcher.
+//! Steps are lines under a session's line: added and ticked on the Tasks board, made on demand for a session started
+//! from the sidebar, and a backlog line moved onto a session (w), in a real PTY driving the isolated dev launcher.
 
 use std::fs;
 use std::path::PathBuf;
@@ -31,162 +31,117 @@ fn only_note(directory: PathBuf) -> String {
     }
 }
 
-/// `text` contains `prefix` + 8 lowercase hex digits + `suffix`.
-fn has_hex8(text: &str, prefix: &str, suffix: &str) -> bool {
-    text.match_indices(prefix).any(|(at, _)| {
-        let rest = &text[at + prefix.len()..];
-        rest.len() >= 8
-            && rest.as_bytes()[..8]
-                .iter()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
-            && rest[8..].starts_with(suffix)
-    })
+/// A session started from the sidebar, named `name`, in a new worktree.
+fn start_from_sidebar(ui: &mut Ui, name: &str) {
+    ui.press("n");
+    ui.screen("Choose an agent");
+    ui.press("\r");
+    ui.screen("Workspace: new worktree");
+    ui.press(name);
+    ui.screen(&format!("Name: {name}"));
+    ui.press("\r");
+    ui.screen("fake agent ready");
 }
 
-// ported from tests/stepsUi.test.ts: steps: the worktree note's checklist under its task on the board (space ticks one), A sends a note's open items at once
+// A session started from the sidebar has no line until it needs one: v on the board offers to add a step, which makes
+// its line (named after it) with the step under it; space ticks the step, and its line rolls up.
 #[test]
-fn steps_checklist_under_its_task_on_the_board_and_a_sends_open_items() {
+fn a_step_on_the_board_makes_the_sessions_line_and_space_ticks_it() {
     let sandbox = Sandbox::new("ui");
     let home = sandbox.dev_home();
     let mut ui = launch_with_agents(&sandbox);
-    let worktree_note = || only_note(home.join("notes/worktrees"));
+    let list = || only_note(home.join("notes/tasks"));
     ui.screen("DEV (isolated)");
     ui.screen("● ready");
-    // A task, and a session started for it in a new worktree.
-    ui.press("b");
-    ui.screen("No tasks yet · a adds one");
-    ui.press("a");
-    ui.screen("New task");
-    ui.press("Ship parser");
-    ui.screen("Ship parser");
-    ui.press("\r");
-    ui.screen("Added to the backlog");
-    ui.press("n");
-    ui.screen("Choose an agent");
-    ui.press("\r");
-    ui.screen("Workspace: new worktree");
-    ui.press("\r");
-    ui.screen("fake agent ready");
-    // Its worktree note gets a checklist (Notes tab, o to edit; Enter continues the list).
-    ui.press("a");
-    ui.screen("enter edit notes");
-    ui.press("\r");
-    ui.screen("esc done");
-    ui.press("\x14");
-    ui.screen("- [ ]");
-    ui.press("Read the spec");
-    ui.screen("Read the spec");
-    ui.press("\r");
-    ui.screen("- [ ] ");
-    ui.press("Write tests");
-    ui.screen("Write tests");
-    ui.press("\x1b");
-    // Wait for editing to end, not only for the file (the debounced save may already have written it): a key sent
-    // in the same read as the Esc would arrive as Alt+key.
-    ui.screen("enter edit notes");
-    wait_for(&worktree_note, |text| text.contains("- [ ] Write tests"), UI_WAIT);
+    start_from_sidebar(&mut ui, "flaky");
 
-    // The board: the steps under the task, counted; space on one ticks it in the note.
     ui.press("b");
-    ui.screen("◆ Ship parser");
-    ui.screen("0/2");
-    ui.screen("☐ Read the spec");
-    ui.screen("☐ Write tests");
-    ui.press("j");
-    ui.screen("A step: a checklist item in the note of");
-    ui.screen("space tick");
-    ui.press(" ");
-    ui.screen("Ticked: Read the spec");
-    ui.screen("1/2");
-    ui.screen("☑ Read the spec");
-    wait_for(&worktree_note, |text| text.contains("- [x] Read the spec"), UI_WAIT);
-    // The session's Notes tab banner counts them too.
-    ui.press("\x1b");
-    ui.screen("1/2 steps");
-
-    // The Notes view: A sends every open item of the selected note to Tasks; the note keeps a ↗ link each.
-    ui.press("b");
-    ui.screen("◆ Ship parser");
-    ui.press("\t");
-    ui.screen("✎ Notes");
-    ui.screen("A send all");
-    ui.press("A");
-    ui.screen("Sent 1 item to Tasks");
-    ui.screen("↗ Write tests · in Tasks");
-    assert!(
-        has_hex8(&worktree_note(), "- ↗ Write tests <!-- dh:t=", " -->"),
-        "note: {}",
-        worktree_note()
-    );
-    // Its task is in the backlog (work of its own); ticking it shows · done on the ↗ line.
-    ui.press("\t");
-    ui.screen("BACKLOG · 1");
-    ui.press("G");
-    ui.screen("› ○ Write tests");
-    ui.press(" ");
-    ui.screen("Done: Write tests");
-    ui.press("\t");
-    ui.screen("↗ Write tests · done");
-}
-
-// ported from tests/stepsUi.test.ts: w onto a session started from the sidebar makes the task its own (◆, with steps); a there then adds a step
-#[test]
-fn w_onto_a_sidebar_session_makes_the_task_its_own_and_a_adds_a_step() {
-    let sandbox = Sandbox::new("ui");
-    let mut ui = launch_with_agents(&sandbox);
-    ui.screen("DEV (isolated)");
-    ui.screen("● ready");
-    // A session started from the sidebar, in a new worktree, with a checklist in its note: no task yet.
-    ui.press("n");
-    ui.screen("Choose an agent");
-    ui.press("\r");
-    ui.screen("Workspace: new worktree");
-    ui.press("flaky");
-    ui.screen("Name: flaky");
-    ui.press("\r");
-    ui.screen("fake agent ready");
+    ui.screen("No lines yet · a adds one");
+    ui.press("v");
+    ui.screen("No line for this session yet · a adds a step (it gets its line)");
     ui.press("a");
-    ui.screen("enter edit notes");
-    ui.press("\r");
-    ui.screen("esc done");
-    ui.press("\x14");
-    ui.screen("- [ ]");
+    ui.screen("a step of the session's line (made now)");
     ui.press("Reproduce it");
     ui.screen("Reproduce it");
-    ui.press("\x1b");
-    ui.screen("enter edit notes");
+    ui.press("\r");
+    ui.screen("Added a step to the session's line");
+    ui.screen("☐ flaky");
+    ui.screen("  ☐ Reproduce it");
+    ui.screen("0/1");
+    let text = wait_for(
+        &list,
+        |text| text.contains("\n  - [ ] Reproduce it <!-- dh:t="),
+        UI_WAIT,
+    );
+    assert!(text.starts_with("- [ ] flaky <!-- dh:t="), "list: {text:?}");
+    assert!(
+        text.lines().next().is_some_and(|line| line.contains(" s=")),
+        "list: {text:?}"
+    );
 
-    // A task written afterwards, moved there with w: as the work's own task by default (the row says so).
-    ui.press("b");
-    ui.screen("No tasks yet · a adds one");
+    // space ticks the step; the last step ticked ticks its line too (it can be reopened).
+    ui.screen("›   ☐ Reproduce it");
+    ui.screen("space ✓");
+    ui.press(" ");
+    ui.screen("Done: Reproduce it");
+    ui.screen("☑ Reproduce it");
+    ui.screen("1/1");
+    wait_for(&list, |text| text.contains("- [x] Reproduce it"), UI_WAIT);
+    // The session's Notes tab banner counts its line's lines.
+    ui.press("\x1b");
+    ui.screen("x stop");
     ui.press("a");
-    ui.screen("New task");
+    ui.screen("1/1 steps");
+}
+
+// w moves a backlog line onto a session without a line (it becomes its line, ◆) and then a adds a step under it.
+#[test]
+fn w_onto_a_session_makes_the_line_its_own_and_a_adds_a_step() {
+    let sandbox = Sandbox::new("ui");
+    let home = sandbox.dev_home();
+    let mut ui = launch_with_agents(&sandbox);
+    let list = || only_note(home.join("notes/tasks"));
+    ui.screen("DEV (isolated)");
+    ui.screen("● ready");
+    start_from_sidebar(&mut ui, "flaky");
+
+    // A line written afterwards, moved there with w: the session's own line, the row says so.
+    ui.press("b");
+    ui.screen("No lines yet · a adds one");
+    ui.press("a");
+    ui.screen("New line");
     ui.press("Fix flaky test");
     ui.screen("Fix flaky test");
     ui.press("\r");
     ui.screen("Added to the backlog");
     ui.press("w");
     ui.screen("Move “Fix flaky test” to");
-    ui.screen("◆ its task");
+    ui.press("\t");
+    ui.screen("Sessions 1");
+    ui.screen("◆ its line");
+    ui.press("j");
+    ui.screen("› flaky");
     ui.press("\r");
-    ui.screen("Now the task of ⎇");
-    ui.screen("◆ Fix flaky test");
-    ui.screen("0/1");
-    ui.screen("☐ Reproduce it");
-    // The work has its task now: a adds a step to its note.
+    ui.screen("Now the line of flaky");
+    ui.screen("flaky ● idle");
+    wait_for(
+        &list,
+        |text| text.contains("- [ ] Fix flaky test <!-- dh:t=") && text.contains(" s="),
+        UI_WAIT,
+    );
+    // a under it: a step of that session's line.
     ui.press("a");
-    ui.screen("New step · the note of ⎇");
+    ui.screen("New line · under “Fix flaky test”");
     ui.press("Write docs");
     ui.screen("Write docs");
     ui.press("\r");
-    ui.screen("Added a step to");
-    ui.screen("☐ Write docs");
-    ui.screen("0/2");
-    // G: the empty backlog (selectable, so a adds there) is last; the last step is just above it.
-    ui.press("G");
-    ui.screen("› Nothing waiting");
-    ui.press("k");
-    ui.screen("›   ☐ Write docs");
-    ui.press("w");
-    ui.screen("A step from the note");
+    ui.screen("Added under “Fix flaky test”");
+    ui.screen("  ☐ Write docs");
+    ui.screen("0/1");
+    wait_for(&list, |text| text.contains("\n  - [ ] Write docs <!-- dh:t="), UI_WAIT);
+    // n on that step: a sub-session of flaky (the form says whose).
+    ui.press("n");
+    ui.screen("Choose an agent");
+    ui.press("\x1b");
+    ui.screen("☐ Tasks");
 }
