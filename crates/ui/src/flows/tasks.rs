@@ -1,38 +1,40 @@
-//! The Tasks board (b). The repository's task list in the right pane, grouped by the worktree (or main-checkout
-//! session) each open task is on, then the backlog; v narrows it to the work of the session it was opened from. Also
-//! the open note items not yet tasks (tab), a small editor for adding and editing a task (title, then body), and the w
-//! picker that moves a task to a worktree or a main-checkout session (two views, Tab switches; / searches, as in the
-//! sidebar), back to the backlog, or back to the note it was sent from. The daemon owns the file; every change is an op
-//! (deckhand_core::tasks) applied to the file as it is, so an editor's edits are never overwritten.
+//! The Tasks board (b): the repository's one list in the right pane, as the tree it is (`docs/future/work-items.md`).
+//! Any line can have lines under it and a session on it; the backlog is the top-level lines nobody is on. v narrows
+//! the board to the selected session's line (or its nearest ancestor's). Also the Notes view (tab: the scratchpad,
+//! line notes and session notes, for reading), a small editor (a line's title, then its note; or the scratchpad), and
+//! the w menu that moves a line: to the backlog, under another line, or onto a session (`deckhand task move`'s rules).
+//! The daemon owns the files; every change is an op (`deckhand_core::tasks`) or a revision-checked note save, applied
+//! to the file as it is, so an editor's edits are never overwritten.
 
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
-use std::sync::LazyLock;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use regex::Regex;
+use serde_json::{Value, json};
 
 use deckhand_client::live::{LiveClient, Reply};
 use deckhand_core::display::{
     HINT_SEPARATOR, HintPart, error_message, fit_hint, scrolled_list_top, strip_terminal_controls, truncate,
 };
-use deckhand_core::jsstr::{date, js_len, js_pad_end, js_slice, js_to_upper, js_trim, path};
+use deckhand_core::error::DhError;
+use deckhand_core::jsstr::{date, js_len, js_pad_end, js_slice, js_trim, path};
 use deckhand_core::key::{Input, Key};
-use deckhand_core::session_order::SessionLike;
-use deckhand_core::sidebar_model::attention_reason_lines;
-use deckhand_core::tasks::{MAX_TASK_BODY, MAX_TASK_TITLE, append_note_item, link_key, link_of_key};
-use deckhand_core::tasks_board::{
-    BoardRow, NoteItem, NoteLineStyle, NotesViewOptions, PickerView, StepCount, TaskGroup, WorkOption, WorkOptionKind,
-    WorkStep, block_items, board_rows, has_main_task, lead_session, note_group_label, note_steps, notes_view_rows,
-    picker_counts, picker_rows, picker_view_of, row_key, selectable_row, task_link_lookup, task_origin, task_sessions,
-    task_state, work_label, work_note, work_options, work_state,
+use deckhand_core::lines_board::{
+    BoardOptions, BoardRow, BoardScope, LineState, MoveChoice, MoveOption, MoveView, NoteLineStyle, NoteOf,
+    NotesViewOptions, Section, StartOn, board_rows, line_state, move_counts, move_options, move_plan, move_rows,
+    notes_view_rows, row_key, scope_root, selectable_row, start_on,
 };
+use deckhand_core::notes::{MAX_NOTES_CHARS, parse_checklist_line};
+use deckhand_core::sidebar_model::attention_reason_lines;
+use deckhand_core::task_list::{Line, MovePlan, TaskList};
+use deckhand_core::tasks::MAX_TASK_TITLE;
+use deckhand_core::tasks_board::{StepCount, task_state};
 use deckhand_core::text_editor::{EditOptions, EditorLine, EditorState, edit_text, wrap_rows, wrapped_editor_lines};
+use deckhand_core::work_notes::NoteMap;
 use deckhand_protocol::data::{
-    NoteSaveResult, NoteSection, PromoteNoteItemResult, SessionRecord, Task, TaskOp, TasksDoc,
+    NoteRef, NoteSaveResult, PromoteNoteItemResult, SessionRecord, Task, TaskOp, TasksDoc, WorkNoteKind,
 };
 
 use crate::app::state::App;
@@ -44,79 +46,96 @@ use crate::primitives::{
 };
 use crate::theme::{THEME, color};
 
-/// TS: useTasksFlow apply's `then`: runs with the new task list.
+/// TS: useTasksFlow apply's `then`: runs with the new list.
 pub type ApplyThen = Box<dyn FnOnce(&mut TasksFlow, &TasksDoc, &mut FlowCx<App, TasksFlow>)>;
 
-/// What moving work between the list and a note says since protocol 60, until the board shows the nested list.
-const NOTES_ARE_SEPARATE: &str = "The list and the notes are separate now: ctrl+p in a note makes a checkbox a line";
-
-/// TS: tasksFlow.tsx DETAIL_ROWS.
+/// The selected row's details under the list (at most).
 pub const DETAIL_ROWS: usize = 5;
 
-/// TS: tasksFlow.tsx EDITOR_BODY_ROWS.
+/// The editor's note rows (a line's note).
 pub const EDITOR_BODY_ROWS: usize = 4;
 
-/// TS: tasksFlow.tsx PICKER_ROWS.
+/// The editor's rows for the scratchpad.
+pub const SCRATCHPAD_ROWS: usize = 6;
+
+/// The w menu's rows.
 pub const PICKER_ROWS: usize = 8;
 
-/// TS: tasksFlow.tsx capitalize.
-pub fn capitalize(text: &str) -> String {
-    let mut chars = text.chars();
-    let Some(first) = chars.next() else {
-        return String::new();
-    };
-    // JS upper-cases the first UTF-16 unit: half of a surrogate pair stays as it is.
-    if first.len_utf16() > 1 {
-        return text.to_owned();
-    }
-    format!("{}{}", js_to_upper(first.encode_utf8(&mut [0; 4])), chars.as_str())
-}
-
-/// TS: tasksFlow.tsx TaskPicker: the w menu (the task, where it is now, the note it came from, the view, the search
-/// and the selected row).
+/// The w menu: the line moving, the list shown (tab), the search and the selected row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TaskPicker {
-    pub task_id: String,
+    pub line_id: String,
     pub title: String,
-    pub current: Option<String>,
-    pub origin: Option<String>,
-    pub view: PickerView,
+    pub view: MoveView,
     pub query: String,
     /// Typing the search (after /) until Enter keeps it or Esc clears it.
     pub typing: bool,
     pub index: usize,
 }
 
-/// TS: tasksFlow.tsx TaskEditor `kind`.
+/// What the editor edits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TaskEditorKind {
+    /// A new line (its title, and a note to start it with).
     Add,
+    /// A line's title and its note.
     Edit,
-    /// A new checklist item of `section`'s note (that work has its task already), title only.
-    Step,
+    /// The repository's scratchpad.
+    Scratchpad,
 }
 
-/// TS: tasksFlow.tsx TaskEditor `field`.
+/// The editor's field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TaskEditorField {
     Title,
-    Body,
+    Note,
 }
 
-/// TS: tasksFlow.tsx TaskEditor.
+/// The editor under the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TaskEditor {
     pub kind: TaskEditorKind,
+    /// Edit: the line.
     pub id: Option<String>,
-    /// A new task's work key (it becomes that work's task, ◆), or the work whose note a step goes into; none: the
-    /// backlog.
-    pub section: Option<String>,
+    /// Add: the line it goes under (none: the top level).
+    pub parent: Option<String>,
+    /// Add: under this session's line, made first (`v` on a session without one).
+    pub session: Option<String>,
     pub field: TaskEditorField,
     pub title: EditorState,
-    pub body: EditorState,
+    pub note: EditorState,
+    /// The note as it was when the editor opened (or last saved), and the revision a save names.
+    pub note_before: String,
+    pub revision: String,
 }
 
-/// TS: tasksFlow.tsx TITLE_OPTIONS.
+impl TaskEditor {
+    /// The note it edits (Edit: the line's, Scratchpad: the list's).
+    fn note_ref(&self, props: &TasksFlowProps<'_>) -> Option<NoteRef> {
+        match self.kind {
+            TaskEditorKind::Edit => self.id.clone().map(|id| NoteRef {
+                kind: WorkNoteKind::Line,
+                id,
+            }),
+            TaskEditorKind::Scratchpad => scratchpad_id(props).map(|id| NoteRef {
+                kind: WorkNoteKind::Scratchpad,
+                id,
+            }),
+            TaskEditorKind::Add => None,
+        }
+    }
+}
+
+/// The scratchpad's ID: the list's key.
+fn scratchpad_id(props: &TasksFlowProps<'_>) -> Option<String> {
+    props
+        .notes
+        .key()
+        .map(str::to_owned)
+        .or_else(|| props.doc.map(|doc| doc.key.clone()))
+}
+
+/// A line title's limits.
 pub fn title_options() -> EditOptions {
     EditOptions {
         select_all: Some(false),
@@ -128,45 +147,29 @@ pub fn title_options() -> EditOptions {
     }
 }
 
-/// TS: tasksFlow.tsx BODY_OPTIONS.
-pub fn body_options() -> EditOptions {
+/// A note's limits (as in the Notes tab).
+pub fn note_options() -> EditOptions {
     EditOptions {
         select_all: Some(false),
-        max_chars: Some(MAX_TASK_BODY),
-        limit_message: Some(format!("A task's details are at most {MAX_TASK_BODY} characters")),
+        max_chars: Some(MAX_NOTES_CHARS),
+        limit_message: Some(format!(
+            "A note is at most {} characters",
+            deckhand_core::notes::MAX_NOTES_LABEL
+        )),
         tab: Some(false),
         wrap_width: None,
         page_rows: None,
     }
 }
 
-/// parseAdded's `/<!--[ \t]*dh:t=([0-9a-f]+)/g`.
-static TASK_ID_MARK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<!--[ \t]*dh:t=([0-9a-f]+)").expect("TASK_ID_MARK is a valid regex"));
-
-/// TS: tasksFlow.tsx parseAdded: the ID of the task `next` has that `before` did not (the one just added).
+/// The ID of the line `next` has that `before` did not (the one just added).
 pub fn parse_added(next: &TasksDoc, before: &HashSet<String>) -> Option<String> {
-    TASK_ID_MARK
-        .captures_iter(&next.text)
-        .filter_map(|captures| captures.get(1))
-        .map(|id| id.as_str())
-        .find(|id| !before.contains(*id))
+    TaskList::parse(&next.text)
+        .lines()
+        .iter()
+        .map(|line| line.id.as_str())
+        .find(|id| !before.contains(*id) && !id.starts_with('~'))
         .map(str::to_owned)
-}
-
-/// TS: tasksFlow.tsx neighborInGroup: the task row next to `index` in `direction` within the same group (a
-/// worktree's, the backlog, done), if any.
-pub fn neighbor_in_group<'a>(rows: &'a [BoardRow], index: usize, direction: isize, section: &str) -> Option<&'a Task> {
-    let row = rows.get(index.checked_add_signed(direction)?)?;
-    match row {
-        BoardRow::Task { task, section: own, .. } if own == section => Some(task),
-        _ => None,
-    }
-}
-
-/// An Ink color name as a ratatui color.
-fn ink(name: &str) -> Option<Color> {
-    color(name)
 }
 
 /// A `<Text wrap="truncate-end">` of `segs` under `base`, cut to `width` columns.
@@ -174,7 +177,7 @@ fn line(segs: Row, base: TextStyle, width: usize) -> Row {
     truncate_row(&with_base(segs, base), width, Wrap::TruncateEnd)
 }
 
-/// A JS width difference, clamped at zero (`Math.max(0, a - b)`).
+/// A width difference, clamped at zero.
 fn minus(a: usize, b: usize) -> usize {
     a.saturating_sub(b)
 }
@@ -188,196 +191,193 @@ fn signed(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-/// The `selected ? '›' : ' '` marker of a board row.
+/// The `selected ? '›' : ' '` marker of a row.
 fn marker(selected: bool) -> &'static str {
     if selected { "›" } else { " " }
 }
 
-/// TS: tasksFlow.tsx BoardLine: one board row (`steps_hidden`: a task's steps are hidden, ▸ before their count).
+/// `n lines` / `1 line`.
+fn lines_count(count: usize) -> String {
+    format!("{count} line{}", if count == 1 { "" } else { "s" })
+}
+
+/// One board row (`sessions`: the repository's, for who is on a line).
 pub fn board_line(
     row: &BoardRow,
     selected: bool,
     width: usize,
     sessions: &[&SessionRecord],
     spinner_frame: &str,
-    steps_hidden: bool,
 ) -> Row {
-    let fold = if steps_hidden { "▸ " } else { "" };
     let mark = marker(selected);
     // A nested Text's color when not selected (selected rows take the bar's).
-    let unless_selected = |name: Option<Color>| TextStyle::default().color(if selected { None } else { name });
+    let unless_selected =
+        |name: Option<ratatui::style::Color>| TextStyle::default().color(if selected { None } else { name });
+    let bar = |selected: bool| {
+        TextStyle::default()
+            .inverse(selected)
+            .color(if selected { THEME.active } else { THEME.muted })
+    };
     match row {
         BoardRow::Heading { text, count } => {
             let mut segs = vec![Seg::new(text.clone(), TextStyle::fg(THEME.muted).bold(true))];
-            if let Some(count) = count.as_deref().filter(|count| !count.is_empty()) {
+            if let Some(count) = count {
                 segs.push(Seg::new(format!(" · {count}"), TextStyle::fg(THEME.muted)));
             }
             line(segs, TextStyle::default(), width)
         }
-        BoardRow::Empty { text, .. } => {
-            let base = TextStyle::default()
-                .inverse(selected)
-                .color(if selected { THEME.active } else { THEME.muted });
-            line(
-                vec![Seg::plain(js_pad_end(&format!("{mark} {text}"), width, " "))],
-                base,
-                width,
-            )
-        }
-        BoardRow::Work { section, count, label } => {
-            // The work's name and open count, its most urgent session's state on the right.
-            let work = (section != "main").then(|| work_state(section, sessions, spinner_frame, None));
-            let state = work
-                .as_ref()
-                .map_or(String::new(), |work| format!("{} {}", work.glyph, work.text));
-            let name = label.clone().unwrap_or_else(|| work_label(section, sessions));
-            let label = truncate(&name, minus(width, js_len(&state) + 8).max(4));
-            let mut left = vec![Seg::new(label, TextStyle::fg(THEME.accent_soft).bold(true))];
-            if *count > 0 {
-                left.push(Seg::new(format!(" · {count}"), TextStyle::fg(THEME.muted)));
-            }
-            let right = match &work {
-                Some(work) => vec![Seg::new(state.clone(), TextStyle::default().color(ink(work.color)))],
-                None => Vec::new(),
-            };
-            space_between(&left, &right, width)
-        }
+        BoardRow::Empty { text, .. } => line(
+            vec![Seg::plain(js_pad_end(&format!("{mark} {text}"), width, " "))],
+            bar(selected),
+            width,
+        ),
         BoardRow::Older { count, shown } => {
             let text = format!(
                 "{mark} {} {count} older done · enter {} them",
                 if *shown { '▾' } else { '▸' },
                 if *shown { "hides" } else { "shows" }
             );
+            line(vec![Seg::plain(js_pad_end(&text, width, " "))], bar(selected), width)
+        }
+        BoardRow::Line {
+            line: item,
+            section,
+            depth,
+            count,
+            folded,
+            brief,
+        } => {
+            let state = line_state(item, sessions, spinner_frame);
+            let count = count.map_or(String::new(), |count| {
+                format!("{}{}/{}", if *folded { "▸ " } else { "" }, count.ticked, count.total)
+            });
+            let brief = if *brief { "✎" } else { "" };
+            let tail: Vec<&str> = [count.as_str(), brief]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect();
+            let tail = if tail.is_empty() {
+                String::new()
+            } else {
+                format!("  {}", tail.join(" "))
+            };
+            // Who is on it: the session's name, its glyph and state; else how it ended or what it was. A step ticked
+            // by hand among the open lines says nothing more.
+            let ticked_step = item.done && *section == Section::Open && item.meta.auto.is_none();
+            let state_text = if ticked_step {
+                String::new()
+            } else if state.who.is_some() || item.done || state.text == "session not shown" {
+                format!("{} {}", state.glyph, state.text)
+            } else {
+                state.text.clone()
+            };
+            let room = minus(width / 2, js_len(&state_text) + js_len(&tail) + 1);
+            let who = state
+                .who
+                .as_deref()
+                .map(|who| truncate(who, room.max(4)))
+                .unwrap_or_default();
+            let right_len = js_len(&who) + usize::from(!who.is_empty()) + js_len(&state_text) + js_len(&tail);
+            let indent = "  ".repeat(*depth);
+            let tick = if item.done { "☑" } else { "☐" };
+            let lead = format!("{mark} {indent}");
+            let title_room = minus(width, js_len(&lead) + right_len + 4).max(1);
+            let title = truncate(&item.title, title_room);
             let base = TextStyle::default()
                 .inverse(selected)
-                .color(if selected { THEME.active } else { THEME.muted });
-            line(vec![Seg::plain(js_pad_end(&text, width, " "))], base, width)
-        }
-        // The Notes view: a note's name (and its open items), then its lines, indented under it.
-        BoardRow::NoteHead { block, open } => {
-            let right = if *open > 0 {
-                format!("{open} open")
+                .bold(selected)
+                .color(if selected {
+                    Some(THEME.active)
+                } else if item.done {
+                    Some(THEME.muted)
+                } else {
+                    None
+                });
+            let tick_color = if item.done { Some(THEME.success) } else { None };
+            let state_color = if state.who.is_some() || item.done {
+                color(state.color)
             } else {
-                String::new()
+                Some(THEME.muted)
             };
-            let right_len = js_len(&right);
+            let mut segs = vec![
+                Seg::plain(lead.clone()),
+                Seg::new(tick, unless_selected(tick_color)),
+                Seg::plain(js_pad_end(
+                    &format!(" {title}"),
+                    minus(width, js_len(&lead) + 1 + right_len),
+                    " ",
+                )),
+            ];
+            if !who.is_empty() {
+                segs.push(Seg::new(format!("{who} "), unless_selected(Some(THEME.accent_soft))));
+            }
+            segs.push(Seg::new(state_text, unless_selected(state_color)));
+            segs.push(Seg::new(tail, unless_selected(Some(THEME.muted))));
+            line(segs, base, width)
+        }
+        // The Notes view: a note's name, then its lines, indented under it.
+        BoardRow::NoteHead {
+            note,
+            label,
+            depth,
+            done,
+            brief,
+            empty,
+        } => {
+            let right = match note {
+                NoteOf::Scratchpad if *empty => "empty · enter writes in it",
+                NoteOf::Line(_) if *empty && *brief => "✎ brief · no note yet",
+                NoteOf::Line(_) if *empty => "no note yet",
+                NoteOf::Line(_) if *brief => "✎ brief",
+                NoteOf::Session(_) if *empty => "session · no note yet",
+                NoteOf::Session(_) => "session",
+                _ => "",
+            };
+            let right_len = js_len(right);
+            let tick = match note {
+                NoteOf::Line(_) if *done => "☑ ",
+                NoteOf::Line(_) => "☐ ",
+                _ => "",
+            };
             let head = format!(
-                "{mark} {}",
-                truncate(&capitalize(&block.label), minus(width, right_len + 4).max(1))
+                "{mark} {}{tick}{}",
+                "  ".repeat(*depth),
+                truncate(label, minus(width, right_len + 6 + depth * 2).max(1))
             );
-            let base = TextStyle::default().inverse(selected).bold(true).color(if selected {
-                THEME.active
-            } else {
-                THEME.accent_soft
-            });
+            let base = TextStyle::default()
+                .inverse(selected)
+                .bold(!*empty || selected)
+                .color(if selected {
+                    THEME.active
+                } else if *empty {
+                    THEME.muted
+                } else {
+                    THEME.accent_soft
+                });
             let segs = vec![
                 Seg::plain(js_pad_end(&head, minus(width, right_len), " ")),
                 Seg::new(right, unless_selected(Some(THEME.muted)).bold(false)),
             ];
             line(segs, base, width)
         }
-        BoardRow::NoteLine { text, style, .. } => {
+        BoardRow::NoteLine { text, style, depth, .. } => {
             let color = if selected {
                 Some(THEME.active)
+            } else if *style == NoteLineStyle::Done {
+                Some(THEME.muted)
             } else {
-                match style {
-                    NoteLineStyle::Done => Some(THEME.muted),
-                    NoteLineStyle::Link => Some(THEME.accent_soft),
-                    _ => None,
-                }
+                None
             };
             let base = TextStyle::default()
                 .inverse(selected)
                 .bold(selected || *style == NoteLineStyle::Heading)
                 .color(color);
-            let text = format!("{mark}   {}", truncate(text, minus(width, 4).max(1)));
-            line(vec![Seg::plain(js_pad_end(&text, width, " "))], base, width)
-        }
-        // A step: an item of the work's note, under the task it was started for.
-        BoardRow::Step { step, .. } => {
-            let color = if selected {
-                Some(THEME.active)
-            } else if step.done {
-                Some(THEME.muted)
-            } else {
-                None
-            };
-            let base = TextStyle::default().inverse(selected).bold(selected).color(color);
+            let indent = "  ".repeat(*depth);
             let text = format!(
-                "{mark}   {} {}",
-                if step.done { '☑' } else { '☐' },
-                truncate(&step.text, minus(width, 6).max(1))
+                "{mark}   {indent}{}",
+                truncate(text, minus(width, 4 + depth * 2).max(1))
             );
             line(vec![Seg::plain(js_pad_end(&text, width, " "))], base, width)
-        }
-        BoardRow::Task {
-            task,
-            group,
-            section,
-            steps,
-            heads_work,
-        } => {
-            if *heads_work == Some(true) {
-                // A work's only task heads its group: ◆ title, then the work's name, its most urgent session's state
-                // and the steps.
-                let work = work_state(section, sessions, spinner_frame, None);
-                let state = format!("{} {}", work.glyph, work.text);
-                let steps = steps.map_or(String::new(), |steps| format!("  {fold}{}/{}", steps.done, steps.total));
-                let label = truncate(
-                    &work_label(section, sessions),
-                    minus(width / 2, js_len(&state) + js_len(&steps) + 2).max(4),
-                );
-                let right_len = js_len(&format!("{label}  {state}{steps}"));
-                let title = truncate(&task.title, minus(width, right_len + 6).max(1));
-                let base = TextStyle::default()
-                    .inverse(selected)
-                    .bold(selected)
-                    .color(if selected { Some(THEME.active) } else { None });
-                let segs = vec![
-                    Seg::plain(format!("{mark} ")),
-                    Seg::new("◆", unless_selected(Some(THEME.accent_soft))),
-                    Seg::plain(js_pad_end(&format!(" {title}"), minus(width, right_len + 3), " ")),
-                    Seg::new(label, unless_selected(Some(THEME.accent_soft))),
-                    Seg::plain("  "),
-                    Seg::new(state, unless_selected(ink(work.color))),
-                    Seg::new(steps, unless_selected(Some(THEME.muted))),
-                ];
-                return line(segs, base, width);
-            }
-            // Under a work's heading (several tasks) the task is ◆, counting its steps (the work note's checklist).
-            let in_work = *group == TaskGroup::Progress;
-            let state = task_state(task, sessions, spinner_frame, None);
-            let (glyph, glyph_color) = if in_work {
-                ("◆".to_owned(), Some(THEME.accent_soft))
-            } else {
-                (state.glyph.clone(), ink(state.color))
-            };
-            let right = if in_work {
-                steps.map_or(String::new(), |steps| format!("{fold}{}/{}", steps.done, steps.total))
-            } else {
-                let parts: Vec<&str> = [state.where_.as_deref().unwrap_or(""), state.text.as_str()]
-                    .into_iter()
-                    .filter(|part| !part.is_empty())
-                    .collect();
-                truncate(&parts.join("  "), width / 2)
-            };
-            let right_len = js_len(&right);
-            let title = truncate(&task.title, minus(width, right_len + 6).max(1));
-            let color = if selected {
-                Some(THEME.active)
-            } else if task.done {
-                Some(THEME.muted)
-            } else {
-                None
-            };
-            let base = TextStyle::default().inverse(selected).bold(selected).color(color);
-            let segs = vec![
-                Seg::plain(format!("{mark} ")),
-                Seg::new(glyph, unless_selected(glyph_color)),
-                Seg::plain(js_pad_end(&format!(" {title}"), minus(width, right_len + 3), " ")),
-                Seg::new(right, unless_selected(Some(THEME.muted))),
-            ];
-            line(segs, base, width)
         }
     }
 }
@@ -390,129 +390,162 @@ fn wrapped(text: &str, width: usize) -> Vec<String> {
         .collect()
 }
 
-/// TS: tasksFlow.tsx detailLines: the selected row's details under the list (its title, where its work is, and its
-/// details text).
-pub fn detail_lines(
-    row: Option<&BoardRow>,
-    sessions: &[&SessionRecord],
-    spinner_frame: &str,
-    width: usize,
-) -> Vec<Row> {
+/// A brief's date as `14 Nov` (the ISO date when it is not one).
+fn brief_date(at: &str) -> String {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let day = js_slice(at, 8, Some(10));
+    let month = js_slice(at, 5, Some(7)).parse::<usize>().ok();
+    match (
+        day.parse::<u32>().ok(),
+        month.and_then(|month| MONTHS.get(month.wrapping_sub(1))),
+    ) {
+        (Some(day), Some(month)) => format!("{day} {month}"),
+        _ => at.to_owned(),
+    }
+}
+
+/// What the details say about who is on a line and what `n` / `o` do there.
+fn line_place(line: &Line, state: &LineState, props: &TasksFlowProps<'_>) -> String {
+    let parent = props.list.parent(&line.id);
+    let under = parent.map_or(String::new(), |parent| {
+        format!("Under “{}” · ", truncate(&parent.title, 30))
+    });
+    if line.done {
+        return format!("{under}{} · space reopens it", state.text);
+    }
+    if let Some(who) = state.who.as_deref() {
+        return format!("{under}{who} is on it ({}) · o selects it", state.text);
+    }
+    if line.is_taken() {
+        return format!("{under}Its session is not in this list (archived or filtered?)");
+    }
+    let start = match start_on(props.list, &line.id, props.sessions) {
+        StartOn::TopLevel => "n starts a session on it".to_owned(),
+        StartOn::SubSessionOf(id) => {
+            let name = props
+                .sessions
+                .iter()
+                .find(|session| session.id == id)
+                .map(|session| deckhand_core::display::display_session_title(session, props.sessions))
+                .unwrap_or_default();
+            format!("n starts a sub-session of {name}")
+        }
+    };
+    let marker = if state.text.is_empty() {
+        String::new()
+    } else {
+        format!("{} · ", state.text)
+    };
+    format!("{under}Nobody is on it · {marker}{start}")
+}
+
+/// The selected row's details under the list.
+pub fn detail_lines(row: Option<&BoardRow>, props: &TasksFlowProps<'_>, width: usize) -> Vec<Row> {
     let bold = TextStyle::default().bold(true);
     let muted = TextStyle::fg(THEME.muted);
     let text_line = |text: String, style: TextStyle| line(vec![Seg::plain(text)], style, width);
     match row {
-        Some(BoardRow::NoteHead { block, .. } | BoardRow::NoteLine { block, .. }) => {
-            let place = if block.section == NoteSection::Shared {
-                format!("The {}", block.label)
-            } else {
-                format!("The notes of {}", block.label)
+        Some(BoardRow::NoteHead { note, label, .. } | BoardRow::NoteLine { note, text: label, .. }) => {
+            let (title, about) = match (row, note) {
+                (Some(BoardRow::NoteHead { .. }), NoteOf::Scratchpad) => (
+                    "Scratchpad".to_owned(),
+                    "Loose thoughts for the repository · enter edits it · ctrl+p there makes a checkbox a line",
+                ),
+                (Some(BoardRow::NoteHead { .. }), NoteOf::Line(_)) => (
+                    label.clone(),
+                    "A line's note · enter edits it · E opens it in your editor",
+                ),
+                (Some(BoardRow::NoteHead { .. }), NoteOf::Session(_)) => (
+                    label.clone(),
+                    "A session's note · enter opens its Notes tab · E opens it in your editor",
+                ),
+                (_, NoteOf::Session(_)) => (js_trim(label).to_owned(), "enter opens the session's Notes tab"),
+                _ => (js_trim(label).to_owned(), "enter edits the note"),
             };
-            let place = format!("{place} · {}", note_group_label(&block.group, sessions));
-            match row {
-                Some(BoardRow::NoteLine { text, item, .. }) => {
-                    let trimmed = js_trim(text);
-                    let mut lines: Vec<Row> = wrapped(trimmed, minus(width, 2).max(1))
-                        .into_iter()
-                        .take(DETAIL_ROWS - 1)
-                        .map(|text| text_line(text, bold))
-                        .collect();
-                    let promote = if item.is_some() {
-                        "a adds it as a task (on that work), the note keeps a ↗ link · "
-                    } else {
-                        ""
-                    };
-                    lines.push(text_line(format!("{place} · {promote}enter opens the note"), muted));
-                    lines
-                }
-                Some(BoardRow::NoteHead { open, .. }) => {
-                    let count = if *open > 0 {
-                        format!("{open} open item{} · ", if *open == 1 { "" } else { "s" })
-                    } else {
-                        String::new()
-                    };
-                    vec![
-                        text_line(place, bold),
-                        text_line(format!("{count}enter opens it in its session’s Notes tab"), muted),
-                    ]
-                }
-                _ => Vec::new(),
-            }
+            let mut lines: Vec<Row> = wrapped(&title, minus(width, 2).max(1))
+                .into_iter()
+                .take(DETAIL_ROWS - 1)
+                .map(|text| text_line(text, bold))
+                .collect();
+            lines.push(text_line(about.to_owned(), muted));
+            lines
         }
-        Some(BoardRow::Step { section, step, .. }) => {
-            let work = work_label(section, sessions);
-            vec![
-                text_line(step.text.clone(), bold),
-                text_line(
-                    format!(
-                        "A step: a checklist item in the note of {work} · space {} it · enter opens the note to edit it",
-                        if step.done { "reopens" } else { "ticks" }
-                    ),
-                    muted,
-                ),
-            ]
-        }
-        Some(BoardRow::Task { task, group, .. }) => {
-            let state = task_state(task, sessions, spinner_frame, None);
-            let place = match group {
-                TaskGroup::Progress => format!(
-                    "The task of {}: merging or marking it done ticks it · o opens it",
-                    work_label(&link_key(&task.meta).unwrap_or_default(), sessions)
-                ),
-                TaskGroup::Backlog => format!(
-                    "{}n starts a session for it",
-                    if state.text.is_empty() {
-                        String::new()
-                    } else {
-                        format!("{} · ", state.text)
-                    }
-                ),
-                TaskGroup::Done => format!(
-                    "{}{} · space reopens it",
-                    state.text,
-                    state
-                        .where_
-                        .as_deref()
-                        .filter(|place| !place.is_empty())
-                        .map_or(String::new(), |place| format!(" {place}"))
-                ),
-            };
-            // Sent from a note that still links it: w can put it back there.
-            let back = task_origin(task, sessions)
-                .map_or(String::new(), |origin| format!(" · w: back to the note of {origin}"));
-            let body = if task.body.is_empty() {
-                Vec::new()
-            } else {
-                wrapped(&task.body, minus(width, 2).max(1))
-            };
-            // What its work's most urgent session asks or said (agent signals), before the body.
-            let lead = if *group == TaskGroup::Progress {
-                lead_session(&task_sessions(task, sessions)).map(|lead| lead.session().clone())
-            } else {
-                None
-            };
-            let reason = lead.and_then(|lead| {
-                attention_reason_lines(&lead, width, 1)
+        Some(BoardRow::Line { line: item, .. }) => {
+            let state = line_state(item, props.sessions, props.spinner_frame);
+            let mut lines = vec![
+                text_line(item.title.clone(), bold),
+                text_line(line_place(item, &state, props), muted),
+            ];
+            // What its session asks or said (agent signals).
+            let lead = state
+                .session_id
+                .as_deref()
+                .and_then(|id| props.sessions.iter().find(|session| session.id == id));
+            if let Some(reason) = lead.and_then(|lead| {
+                attention_reason_lines(lead, width, 1)
                     .into_iter()
                     .next()
                     .and_then(|parts| parts.into_iter().next())
-            });
-            let room = minus(DETAIL_ROWS - 2, usize::from(reason.is_some()));
-            let mut lines = vec![
-                text_line(task.title.clone(), bold),
-                line(vec![Seg::plain(place), Seg::plain(back)], muted, width),
-            ];
-            if let Some(reason) = reason {
-                let style = TextStyle::default().color(reason.color.and_then(ink));
+            }) {
+                let style = TextStyle::default().color(reason.color.and_then(color));
                 lines.push(text_line(reason.text, style));
             }
-            for (index, text) in body.iter().take(room).enumerate() {
-                let text = if index + 1 == room && body.len() > room {
-                    format!("{} …", js_slice(text, 0, Some(signed(minus(width, 6)))))
+            if let Some(brief) = props.notes.brief(&item.id) {
+                let from = [
+                    brief.from.clone().unwrap_or_default(),
+                    brief.at.as_deref().map(brief_date).unwrap_or_default(),
+                ]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join(" · ");
+                let first = brief
+                    .text
+                    .lines()
+                    .map(js_trim)
+                    .find(|text| !text.is_empty())
+                    .unwrap_or("");
+                let head = if from.is_empty() {
+                    "✎ Brief".to_owned()
                 } else {
-                    text.clone()
+                    format!("✎ Brief · {from}")
                 };
-                lines.push(text_line(format!("  {text}"), TextStyle::default()));
+                lines.push(line(
+                    vec![
+                        Seg::new(head, TextStyle::fg(THEME.accent)),
+                        Seg::plain(format!(": {first}")),
+                    ],
+                    TextStyle::default(),
+                    width,
+                ));
+            }
+            let room = minus(DETAIL_ROWS, lines.len());
+            match props.notes.line_note(&item.id) {
+                Some(note) => {
+                    let body: Vec<String> = note
+                        .text
+                        .lines()
+                        .filter(|text| !js_trim(text).is_empty())
+                        .flat_map(|text| wrapped(text, minus(width, 2).max(1)))
+                        .collect();
+                    for (index, text) in body.iter().take(room).enumerate() {
+                        let text = if index + 1 == room && body.len() > room {
+                            format!("{} …", js_slice(text, 0, Some(signed(minus(width, 6)))))
+                        } else {
+                            text.clone()
+                        };
+                        lines.push(text_line(format!("  {text}"), TextStyle::default()));
+                    }
+                }
+                None if room > 0 && !item.done => {
+                    lines.push(text_line(
+                        "  No note yet · enter, then tab, writes one".to_owned(),
+                        muted,
+                    ));
+                }
+                None => {}
             }
             lines
         }
@@ -520,20 +553,20 @@ pub fn detail_lines(
     }
 }
 
-/// TS: tasksFlow.tsx TaskBanner props: the Notes tab's first line for a session doing a task.
+/// The Notes tab's first line for a session on a line: its line, how many more are open (legacy), its lines ticked,
+/// its state, and the board's key.
 #[derive(Clone, Copy, Debug)]
 pub struct TaskBannerProps<'a> {
     pub task: &'a Task,
     /// More open tasks on its work.
     pub more: usize,
-    /// The work note's checklist, done of total (the started task's steps).
+    /// Its lines, ticked of total.
     pub steps: Option<StepCount>,
     pub sessions: &'a [&'a SessionRecord],
     pub spinner_frame: &'a str,
 }
 
-/// TS: tasksFlow.tsx TaskBanner's rows (the task line and a rule): the task, how many more are open on its work,
-/// its state, and the board's key.
+/// The banner's rows (the line and a rule).
 pub fn task_banner_rows(props: &TaskBannerProps<'_>, width: usize) -> Vec<Row> {
     let state = task_state(props.task, props.sessions, props.spinner_frame, None);
     let steps = match props.steps {
@@ -564,26 +597,29 @@ pub fn task_banner_rows(props: &TaskBannerProps<'_>, width: usize) -> Vec<Row> {
     ]
 }
 
-/// TS: tasksFlow.tsx TaskBanner.
+/// The banner, drawn.
 pub fn render_task_banner(props: &TaskBannerProps<'_>, buf: &mut Buffer, area: Rect) {
     let rows = task_banner_rows(props, usize::from(area.width));
     draw_rows(buf, area, &rows);
 }
 
-/// TS: tasksFlow.tsx TasksFlowOptions (values; the callbacks are effects: `onExit`, `onStart`, `onGoTo`,
-/// `onOpenNote`, `onDoc`, `onSession`, `setError`, `setStatusMessage`).
+/// The board's values (the callbacks are effects: exit, start, go to, open a note, the doc, a note, a session, the
+/// error and status lines).
 #[derive(Clone, Copy, Debug)]
 pub struct TasksFlowProps<'a> {
     pub client: Option<&'a Rc<LiveClient>>,
     pub repo_root: &'a str,
     pub doc: Option<&'a TasksDoc>,
-    pub tasks: &'a [Task],
+    /// The list as a tree.
+    pub list: &'a TaskList,
+    /// Its line notes, briefs and scratchpad.
+    pub notes: &'a NoteMap,
     /// Every session of the repository.
     pub sessions: &'a [&'a SessionRecord],
     pub spinner_frame: &'a str,
 }
 
-/// TS: tasksFlow.tsx the board's two views (tab).
+/// The board's two views (tab).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum TasksView {
     #[default]
@@ -591,7 +627,7 @@ pub enum TasksView {
     Notes,
 }
 
-/// TS: tasksFlow.tsx `selected`: the selected row's key, else its position among the selectable rows.
+/// The selected row's key, else its position among the selectable rows.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RowSelection {
     pub key: Option<String>,
@@ -599,39 +635,39 @@ pub struct RowSelection {
 }
 
 impl RowSelection {
-    /// `{key: 'task:<id>', index: 0}`.
-    fn task(id: &str) -> Self {
+    /// `{key: 'line:<id>', index: 0}`.
+    pub fn line(id: &str) -> Self {
         RowSelection {
-            key: Some(format!("task:{id}")),
+            key: Some(format!("line:{id}")),
             index: 0,
         }
     }
 }
 
-/// TS: tasksFlow.tsx useTasksFlow's state.
+/// The board's state.
 #[derive(Debug)]
 pub struct TasksFlow {
     pub view: TasksView,
     pub selected: RowSelection,
     pub show_older: bool,
     pub editor: Option<TaskEditor>,
-    /// The task whose deletion waits for a second x ([`PressAgain`]).
+    /// The line whose removal waits for a second x ([`PressAgain`]).
     pub pending_delete: PressAgain<String>,
-    /// The work the board was opened from (v shows it alone).
+    /// The session selected when the board opened (v shows its line).
     pub scope: Option<String>,
     pub scoped: bool,
     pub picker: Option<TaskPicker>,
-    /// The Notes view: only open checklist items (f).
-    pub items_only: bool,
-    /// The list's first shown row (TS `top` ref).
+    /// The Notes view: only notes with text (f).
+    pub with_text: bool,
+    /// The list's first shown row.
     pub top: usize,
-    /// An op in flight (TS `busy` ref): further ops are ignored.
+    /// An op in flight: further ops are ignored.
     pub busy: bool,
-    /// The editor body's wrap width at the last render (TS `bodyWidth`, 40 before one).
+    /// The editor note's wrap width at the last render (40 before one).
     pub body_width: usize,
-    /// Not in the TS: the list's rows at the last render, for PgDn / PgUp (and Ctrl+D / Ctrl+U): half of them.
+    /// The list's rows at the last render, for PgDn / PgUp (and Ctrl+D / Ctrl+U): half of them.
     pub list_rows: usize,
-    /// Not in the TS: the tasks whose steps are hidden (c), kept across attaches by the app's caller.
+    /// The lines whose lines are hidden (c), kept across attaches by the app's caller.
     pub collapsed_steps: Vec<String>,
 }
 
@@ -646,7 +682,7 @@ impl Default for TasksFlow {
             scope: None,
             scoped: false,
             picker: None,
-            items_only: false,
+            with_text: false,
             top: 0,
             busy: false,
             body_width: 40,
@@ -670,23 +706,23 @@ pub static KEYMAP: Keymap = &[
     board_key(&[KeySpec::Named(NamedKey::Down), KeySpec::Char("j")], "move down"),
     board_key(&[KeySpec::Char("g"), KeySpec::Named(NamedKey::Home)], "first row"),
     board_key(&[KeySpec::Char("G"), KeySpec::Named(NamedKey::End)], "last row"),
-    board_key(&[KeySpec::Char("v")], "only the selected session's work"),
-    board_key(&[KeySpec::Char("f")], "notes: only open items"),
-    board_key(
-        &[KeySpec::Char("a")],
-        "add here (a step on a work) / notes: send the item",
-    ),
-    board_key(&[KeySpec::Char("A")], "a backlog task / notes: send every open item"),
-    board_key(&[KeySpec::Char("E")], "the list in your editor"),
-    board_key(&[KeySpec::Char("n")], "start a session for it"),
+    board_key(&[KeySpec::Char("v")], "only the selected session's line"),
+    board_key(&[KeySpec::Char("f")], "notes: only notes with text"),
+    board_key(&[KeySpec::Char("a")], "add a line under the selected one"),
+    board_key(&[KeySpec::Char("A")], "add a top-level line (the backlog)"),
+    board_key(&[KeySpec::Char("E")], "its note in your editor"),
+    board_key(&[KeySpec::Char("n")], "start a session on it"),
     board_key(&[KeySpec::Char("w")], "move it"),
-    board_key(&[KeySpec::Char("o")], "open the session doing it"),
-    board_key(&[KeySpec::Char("x")], "delete (twice)"),
+    board_key(&[KeySpec::Char("o")], "select the session on it"),
+    board_key(&[KeySpec::Char("x")], "remove it and its lines (twice)"),
     board_key(&[KeySpec::Char("J"), KeySpec::Char("K")], "reorder"),
     board_key(&[KeySpec::Char(" ")], "tick or reopen"),
-    board_key(&[KeySpec::Char("c")], "hide or show its steps"),
-    board_key(&[KeySpec::Named(NamedKey::Return)], "edit it / open the note"),
-    board_key(&[KeySpec::Named(NamedKey::Tab)], "the notes view / back to tasks"),
+    board_key(&[KeySpec::Char("c")], "hide or show its lines"),
+    board_key(
+        &[KeySpec::Named(NamedKey::Return)],
+        "edit it (tab: its note) / open the note",
+    ),
+    board_key(&[KeySpec::Named(NamedKey::Tab)], "the notes view / back to the list"),
     board_key(
         &[
             KeySpec::Named(NamedKey::Escape),
@@ -697,11 +733,6 @@ pub static KEYMAP: Keymap = &[
     ),
 ];
 
-/// The picker row that is a work (a worktree or a main-checkout session).
-fn listed(option: &WorkOption) -> bool {
-    matches!(option.kind, WorkOptionKind::Worktree | WorkOptionKind::Session)
-}
-
 /// A hint part with a short form and a drop rank.
 fn hint(text: &str, short: Option<&str>, drop: Option<i32>) -> HintPart {
     HintPart {
@@ -711,15 +742,10 @@ fn hint(text: &str, short: Option<&str>, drop: Option<i32>) -> HintPart {
     }
 }
 
-/// A new, empty editor state.
-fn empty_state() -> EditorState {
-    EditorState::default()
-}
-
-/// What the flow's async continuations run with (TS: a `.then` callback of `run`).
+/// What the flow's async continuations run with.
 type RunThen<T> = Box<dyn FnOnce(&mut TasksFlow, T, &mut FlowCx<App, TasksFlow>)>;
 
-/// The lower part of the board (picker, editor or details): its nodes (what the TS counts) and their rows.
+/// The lower part of the board (picker, editor or details): its nodes and their rows.
 struct Lower {
     nodes: usize,
     rows: Vec<Row>,
@@ -734,9 +760,38 @@ impl Lower {
     }
 }
 
+/// What saving the editor did: the list after a retitle or an add, and the note save's answer.
+struct Saved {
+    doc: Option<TasksDoc>,
+    note: Option<NoteSaveResult>,
+}
+
+/// The ops of a move, in order (taking a session off its line first, for the backlog).
+fn move_ops(line_id: &str, plan: &MovePlan) -> Vec<Value> {
+    match plan {
+        MovePlan::Already => Vec::new(),
+        MovePlan::SessionOn { s } => vec![json!({"type": "session-on", "id": line_id, "s": s})],
+        MovePlan::MoveTo { parent, unhook } => {
+            let mut ops = Vec::new();
+            if let Some(s) = unhook {
+                ops.push(json!({"type": "session-off", "s": s}));
+            }
+            ops.push(json!({"type": "move-to", "id": line_id, "parent": parent}));
+            ops
+        }
+    }
+}
+
+/// The line the cursor is on (0-based).
+fn cursor_line(state: &EditorState) -> usize {
+    state
+        .text
+        .get(..state.cursor.min(state.text.len()))
+        .map_or(0, |before| before.matches('\n').count())
+}
+
 impl TasksFlow {
-    /// TS: TasksFlow.open (b): the board's task view, the selection on the first open task of `scope` (the selected
-    /// session's work, which v shows alone).
+    /// b: the board's list view, the selection on the line of `scope` (the selected session, which v shows alone).
     pub fn open(&mut self, scope: Option<&str>, props: &TasksFlowProps<'_>) {
         self.view = TasksView::Tasks;
         self.editor = None;
@@ -744,57 +799,55 @@ impl TasksFlow {
         self.pending_delete.clear();
         self.scope = scope.map(str::to_owned);
         self.scoped = false;
-        if let Some(first) = first_task_of(scope, props.tasks) {
-            self.selected = RowSelection::task(&first.id);
+        if let Some(root) = scope.and_then(|scope| scope_root(props.list, scope, props.sessions)) {
+            self.selected = RowSelection::line(&root.id);
         }
     }
 
-    /// Whether the task's steps are hidden (c).
-    fn steps_hidden(&self, task_id: &str) -> bool {
-        self.collapsed_steps.iter().any(|id| id == task_id)
+    /// What the board shows now: everything, or (v) the tree of the selected session's line.
+    fn board_scope<'a>(&'a self, props: &TasksFlowProps<'a>) -> BoardScope<'a> {
+        if !self.scoped {
+            return BoardScope::All;
+        }
+        match self
+            .scope
+            .as_deref()
+            .and_then(|scope| scope_root(props.list, scope, props.sessions))
+        {
+            Some(root) => BoardScope::Under(root.id.as_str()),
+            None => BoardScope::Nothing,
+        }
     }
 
-    /// v's work while the board is narrowed to it.
-    fn scoped_to(&self) -> Option<&str> {
-        if self.scoped { self.scope.as_deref() } else { None }
-    }
-
-    /// The board's rows as shown now (TS `rows`: the notes view or the task view).
+    /// The board's rows as shown now (the Notes view or the list).
     pub fn rows(&self, props: &TasksFlowProps<'_>) -> Vec<BoardRow> {
+        let scope = self.board_scope(props);
         match self.view {
-            TasksView::Notes => {
-                let lookup = props.doc.and_then(|_| task_link_lookup(Some(props.tasks)));
-                notes_view_rows(
-                    props.sessions,
-                    &NotesViewOptions {
-                        items_only: self.items_only,
-                        scope: self.scoped_to(),
-                        links: lookup.as_deref(),
-                    },
-                )
-            }
-            TasksView::Tasks => {
-                // A work's steps: its note's checklist (a worktree's note, a main-checkout session's own), under its
-                // task.
-                let steps_of = |section: &str| -> Vec<WorkStep> {
-                    let note = work_note(section, props.sessions);
-                    note_steps(note.as_ref().map(|note| note.text.as_str()))
-                };
-                let mut rows = board_rows(
-                    props.tasks,
-                    self.show_older,
-                    date::now_ms(),
-                    self.scoped_to(),
-                    Some(&steps_of),
-                );
-                rows.retain(|row| !matches!(row, BoardRow::Step { task_id, .. } if self.steps_hidden(task_id)));
-                rows
-            }
+            TasksView::Notes => notes_view_rows(
+                props.list,
+                props.notes,
+                props.sessions,
+                &NotesViewOptions {
+                    with_text: self.with_text,
+                    scope,
+                    session: if self.scoped { self.scope.as_deref() } else { None },
+                },
+            ),
+            TasksView::Tasks => board_rows(
+                props.list,
+                &BoardOptions {
+                    show_older: self.show_older,
+                    now_ms: date::now_ms(),
+                    scope,
+                    folded: &self.collapsed_steps,
+                    notes: props.notes,
+                },
+            ),
         }
     }
 
-    /// The selected row's index in `rows` (TS `current`, -1: none). The selection follows its row (by key) across
-    /// updates; a row that went keeps the position.
+    /// The selected row's index in `rows`. The selection follows its row (by key) across updates; a row that went
+    /// keeps the position.
     pub fn current(&self, rows: &[BoardRow]) -> Option<usize> {
         if let Some(key) = self.selected.key.as_deref()
             && let Some(index) = rows.iter().position(|row| row_key(row).as_deref() == Some(key))
@@ -806,7 +859,6 @@ impl TasksFlow {
         selectable.get(self.selected.index.min(last)).copied()
     }
 
-    /// TS `select(index)`.
     fn select(&mut self, rows: &[BoardRow], selectable: &[usize], index: usize) {
         self.selected = RowSelection {
             key: rows.get(index).and_then(row_key),
@@ -814,7 +866,6 @@ impl TasksFlow {
         };
     }
 
-    /// TS `move(direction)`.
     fn move_by(&mut self, rows: &[BoardRow], current: Option<usize>, direction: i64) {
         let selectable = selectable_indexes(rows);
         if selectable.is_empty() {
@@ -829,12 +880,12 @@ impl TasksFlow {
         }
     }
 
-    /// TS `run(work, then)`: one request at a time; a failure goes to the error line.
+    /// One request at a time; a failure goes to the error line.
     fn run<T: 'static>(
         &mut self,
         props: &TasksFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
-        work: impl FnOnce(&LiveClient) -> Reply<T>,
+        work: impl FnOnce(&Rc<LiveClient>) -> Reply<T>,
         then: RunThen<T>,
     ) {
         let Some(client) = props.client else {
@@ -855,10 +906,22 @@ impl TasksFlow {
         });
     }
 
-    /// TS: useTasksFlow run/apply: one op on the task list at a time; the new doc goes to the app, then `then`.
+    /// One op on the list; the new doc goes to the app, then `then`.
     pub fn apply(
         &mut self,
         op: TaskOp,
+        props: &TasksFlowProps<'_>,
+        cx: &mut FlowCx<App, Self>,
+        then: Option<ApplyThen>,
+    ) {
+        let op = serde_json::to_value(&op).unwrap_or(Value::Null);
+        self.apply_ops(vec![op], props, cx, then);
+    }
+
+    /// Ops (as JSON) on the list, one after the other; the doc after the last goes to the app, then `then`.
+    fn apply_ops(
+        &mut self,
+        ops: Vec<Value>,
         props: &TasksFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
         then: Option<ApplyThen>,
@@ -867,7 +930,16 @@ impl TasksFlow {
         self.run(
             props,
             cx,
-            move |client| client.task_op(&repo_root, op),
+            move |client| {
+                let client = Rc::clone(client);
+                Box::pin(async move {
+                    let mut last = None;
+                    for op in ops {
+                        last = Some(client.task_op_value(&repo_root, op).await?);
+                    }
+                    last.ok_or_else(|| DhError::msg("Nothing to change"))
+                })
+            },
             Box::new(move |flow, next: TasksDoc, cx| {
                 cx.emit(FlowEffect::TasksDoc(Box::new(next.clone())));
                 if let Some(then) = then {
@@ -877,70 +949,223 @@ impl TasksFlow {
         );
     }
 
-    /// TS: useTasksFlow save: the editor's task (added, edited, or a step).
+    /// The editor's line, scratchpad or new line, saved: a retitle and the note (revision-checked), or an add (with
+    /// its note).
     pub fn save(&mut self, state: TaskEditor, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         let title = js_trim(&state.title.text).to_owned();
-        if title.is_empty() {
-            cx.set_error(Some(
-                if state.kind == TaskEditorKind::Step {
-                    "A step needs some text"
-                } else {
-                    "A task needs a title"
-                }
-                .to_owned(),
-            ));
+        if state.kind != TaskEditorKind::Scratchpad && title.is_empty() {
+            cx.set_error(Some("A line needs a title".to_owned()));
             return;
         }
-        if state.kind == TaskEditorKind::Step {
-            let section = state.section.clone().unwrap_or_default();
-            self.add_step(&section, &title, props, cx, true);
-            return;
-        }
-        let before: HashSet<String> = props.tasks.iter().map(|task| task.id.clone()).collect();
-        let section = state.section.as_deref().filter(|section| !section.is_empty());
-        let link = section.and_then(link_of_key);
+        let repo_root = props.repo_root.to_owned();
+        let note_text = state.note.text.clone();
         match state.kind {
             TaskEditorKind::Add => {
-                let message = match section {
-                    Some(section) => format!("Added as the task of {} (◆)", work_label(section, props.sessions)),
+                let before: HashSet<String> = props.list.lines().iter().map(|line| line.id.clone()).collect();
+                let parent = state.parent.clone();
+                let session = state.session.clone();
+                let message = match parent.as_deref().and_then(|id| props.list.get(id)) {
+                    Some(parent) => format!("Added under “{}”", truncate(&parent.title, 40)),
+                    None if session.is_some() => "Added a step to the session's line".to_owned(),
                     None => "Added to the backlog".to_owned(),
                 };
-                let op = TaskOp::Add {
-                    title,
-                    body: Some(state.body.text.clone()),
-                    link,
-                    id: None,
-                    from: None,
-                    parent: None,
-                    at: None,
-                };
-                let then: ApplyThen = Box::new(move |flow, next, cx| {
-                    flow.editor = None;
-                    if let Some(added) = parse_added(next, &before) {
-                        flow.selected = RowSelection::task(&added);
-                    }
-                    cx.set_status(Some(message));
-                });
-                self.apply(op, props, cx, Some(then));
-            }
-            _ => {
-                if let Some(id) = state.id.clone() {
-                    let op = TaskOp::Edit {
-                        id,
-                        title,
-                        body: state.body.text.clone(),
-                    };
-                    let then: ApplyThen = Box::new(|flow, _, cx| {
+                self.run(
+                    props,
+                    cx,
+                    move |client| {
+                        let client = Rc::clone(client);
+                        Box::pin(async move {
+                            // `v` on a session without a line: its line first (lines on demand).
+                            let parent = match (parent, session) {
+                                (Some(parent), _) => Some(parent),
+                                (None, Some(s)) => {
+                                    let doc = client
+                                        .task_op_value(&repo_root, json!({"type": "session-line", "s": s}))
+                                        .await?;
+                                    TaskList::parse(&doc.text)
+                                        .line_of_session(&s)
+                                        .map(|line| line.id.clone())
+                                }
+                                (None, None) => None,
+                            };
+                            let mut op = json!({"type": "add", "title": title});
+                            if let Some(parent) = parent.clone() {
+                                op["parent"] = Value::String(parent);
+                            }
+                            if !js_trim(&note_text).is_empty() {
+                                op["note"] = Value::String(note_text);
+                            }
+                            let next = client.task_op_value(&repo_root, op).await?;
+                            Ok((next, parent))
+                        })
+                    },
+                    Box::new(move |flow, (next, parent): (TasksDoc, Option<String>), cx| {
                         flow.editor = None;
-                        cx.set_status(Some("Saved the task".to_owned()));
-                    });
-                    self.apply(op, props, cx, Some(then));
+                        // The session's line made on the way is not the line added.
+                        let mut before = before;
+                        before.extend(parent);
+                        if let Some(added) = parse_added(&next, &before) {
+                            flow.selected = RowSelection::line(&added);
+                        }
+                        cx.emit(FlowEffect::TasksDoc(Box::new(next)));
+                        cx.set_status(Some(message));
+                    }),
+                );
+            }
+            TaskEditorKind::Edit | TaskEditorKind::Scratchpad => {
+                let Some(note) = state.note_ref(props) else {
+                    self.editor = None;
+                    return;
+                };
+                let retitle = match (state.kind, state.id.as_deref().and_then(|id| props.list.get(id))) {
+                    (TaskEditorKind::Edit, Some(line)) if line.title != title => {
+                        Some(json!({"type": "retitle", "id": line.id, "title": title}))
+                    }
+                    _ => None,
+                };
+                let note_changed = note_text != state.note_before;
+                if retitle.is_none() && !note_changed {
+                    self.editor = None;
+                    return;
                 }
+                let revision = state.revision.clone();
+                let kind = state.kind;
+                self.run(
+                    props,
+                    cx,
+                    move |client| {
+                        let client = Rc::clone(client);
+                        Box::pin(async move {
+                            let doc = match retitle {
+                                Some(op) => Some(client.task_op_value(&repo_root, op).await?),
+                                None => None,
+                            };
+                            let note = if note_changed {
+                                Some(client.save_work_note(note, &note_text, &revision).await?)
+                            } else {
+                                None
+                            };
+                            Ok(Saved { doc, note })
+                        })
+                    },
+                    Box::new(move |flow, saved: Saved, cx| {
+                        if let Some(doc) = saved.doc {
+                            cx.emit(FlowEffect::TasksDoc(Box::new(doc)));
+                        }
+                        let Some(result) = saved.note else {
+                            flow.editor = None;
+                            cx.set_status(Some("Saved the line".to_owned()));
+                            return;
+                        };
+                        if let Some(session) = result.session {
+                            cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
+                        }
+                        let revision = result.note.revision.clone();
+                        let current = result.note.text.clone();
+                        cx.emit(FlowEffect::WorkNote(Box::new(result.note)));
+                        if result.saved {
+                            flow.editor = None;
+                            cx.set_status(Some(
+                                if kind == TaskEditorKind::Scratchpad {
+                                    "Saved the scratchpad"
+                                } else {
+                                    "Saved the line and its note"
+                                }
+                                .to_owned(),
+                            ));
+                            return;
+                        }
+                        // Changed elsewhere meanwhile: nothing was written. The editor keeps what was typed; saving
+                        // again replaces the note as it is now, knowingly.
+                        if let Some(editor) = flow.editor.as_mut() {
+                            editor.revision = revision;
+                            editor.note_before = current;
+                        }
+                        cx.set_error(Some(
+                            "The note changed meanwhile (nothing was saved): ctrl+s saves yours over it, esc after \
+                             clearing it keeps theirs"
+                                .to_owned(),
+                        ));
+                    }),
+                );
             }
         }
     }
 
-    /// TS: useTasksFlow editorInput: keys while the editor is open.
+    /// ctrl+p in a note: the checkbox under the cursor becomes a line (under the note's line; from the scratchpad, in
+    /// the backlog) and leaves the note. What was typed is saved first.
+    fn promote(&mut self, state: TaskEditor, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
+        let Some(note) = state.note_ref(props) else {
+            cx.set_status(Some("Save the line first (enter), then ctrl+p in its note".to_owned()));
+            return;
+        };
+        let at = cursor_line(&state.note);
+        let item = state
+            .note
+            .text
+            .split('\n')
+            .nth(at)
+            .and_then(parse_checklist_line)
+            .filter(|item| !item.checked && !js_trim(&item.text).is_empty());
+        let Some(item) = item else {
+            cx.set_status(Some(
+                "Put the cursor on an open checklist item (- [ ] …) to make it a line".to_owned(),
+            ));
+            return;
+        };
+        let title = truncate(js_trim(&item.text), 40);
+        let place = match (note.kind, state.id.as_deref().and_then(|id| props.list.get(id))) {
+            (WorkNoteKind::Line, Some(line)) => format!("under “{}”", truncate(&line.title, 30)),
+            _ => "in the backlog".to_owned(),
+        };
+        let text = state.note.text.clone();
+        let save_first = text != state.note_before;
+        let revision = state.revision.clone();
+        self.run(
+            props,
+            cx,
+            move |client| {
+                let client = Rc::clone(client);
+                Box::pin(async move {
+                    let mut revision = revision;
+                    if save_first {
+                        let saved = client.save_work_note(note.clone(), &text, &revision).await?;
+                        if !saved.saved {
+                            return Err(DhError::msg(
+                                "The note changed meanwhile (nothing was saved): ctrl+s saves yours over it first",
+                            ));
+                        }
+                        revision = saved.note.revision;
+                    }
+                    client.promote_work_note_item(note, signed(at), &revision).await
+                })
+            },
+            Box::new(move |flow, result: PromoteNoteItemResult, cx| {
+                cx.emit(FlowEffect::TasksDoc(Box::new(result.tasks)));
+                if let Some(session) = result.session {
+                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
+                }
+                if let Some(editor) = flow.editor.as_mut() {
+                    let text = result.note.text.clone();
+                    editor.note = EditorState {
+                        cursor: editor.note.cursor.min(text.len()),
+                        text: text.clone(),
+                        ..EditorState::default()
+                    };
+                    // Back on a char boundary after the text shrank.
+                    while !editor.note.text.is_char_boundary(editor.note.cursor) {
+                        editor.note.cursor -= 1;
+                    }
+                    editor.note_before = text;
+                    editor.revision = result.note.revision.clone();
+                }
+                cx.emit(FlowEffect::WorkNote(Box::new(result.note)));
+                cx.set_status(Some(format!("Now a line {place}: {title}")));
+            }),
+        );
+    }
+
+    /// Keys while the editor is open.
     pub fn editor_input(
         &mut self,
         input: &Input,
@@ -949,16 +1174,21 @@ impl TasksFlow {
         cx: &mut FlowCx<App, Self>,
     ) {
         let key = &input.key;
-        // Not in the TS: Esc keeps what was typed, as in the notes editor (it threw the title and details away). Nothing
-        // typed, or nothing changed, just closes.
+        // Esc saves what was typed, as in the notes editor; nothing typed, or nothing changed, just closes.
         if key.escape {
-            let untouched = js_trim(&state.title.text).is_empty()
-                || state.id.as_ref().is_some_and(|id| {
-                    props
-                        .tasks
-                        .iter()
-                        .any(|task| &task.id == id && task.title == state.title.text && task.body == state.body.text)
-                });
+            let untouched = match state.kind {
+                TaskEditorKind::Add => js_trim(&state.title.text).is_empty(),
+                TaskEditorKind::Scratchpad => state.note.text == state.note_before,
+                TaskEditorKind::Edit => {
+                    js_trim(&state.title.text).is_empty()
+                        || state.note.text == state.note_before
+                            && state
+                                .id
+                                .as_deref()
+                                .and_then(|id| props.list.get(id))
+                                .is_some_and(|line| line.title == js_trim(&state.title.text))
+                }
+            };
             if untouched {
                 self.editor = None;
             } else {
@@ -971,9 +1201,9 @@ impl TasksFlow {
             return;
         }
         if key.tab {
-            if state.kind != TaskEditorKind::Step {
+            if state.kind != TaskEditorKind::Scratchpad {
                 let field = if state.field == TaskEditorField::Title {
-                    TaskEditorField::Body
+                    TaskEditorField::Note
                 } else {
                     TaskEditorField::Title
                 };
@@ -1002,125 +1232,163 @@ impl TasksFlow {
             self.editor = Some(TaskEditor { title, ..state });
             return;
         }
+        if key.ctrl && input.input == "p" {
+            self.promote(state, props, cx);
+            return;
+        }
+        let rows = if state.kind == TaskEditorKind::Scratchpad {
+            SCRATCHPAD_ROWS
+        } else {
+            EDITOR_BODY_ROWS
+        };
         let options = EditOptions {
             wrap_width: Some(self.body_width),
-            page_rows: Some(EDITOR_BODY_ROWS),
-            ..body_options()
+            page_rows: Some(rows),
+            ..note_options()
         };
         let next = if key.return_ {
             let enter = Key {
                 return_: true,
                 ..Key::NONE
             };
-            edit_text(&state.body, "", &enter, &options)
+            edit_text(&state.note, "", &enter, &options)
         } else {
-            edit_text(&state.body, &input.input, key, &options)
+            edit_text(&state.note, &input.input, key, &options)
         };
         if let Some(message) = next.message.filter(|message| !message.is_empty()) {
             cx.set_error(Some(message));
             return;
         }
-        let body = EditorState {
+        let note = EditorState {
             text: next.text,
             cursor: next.cursor,
             ..EditorState::default()
         };
-        self.editor = Some(TaskEditor { body, ..state });
+        self.editor = Some(TaskEditor { note, ..state });
     }
 
-    /// A new step at the end of a work's note (revision-checked, as if typed in its Notes tab); `close_editor`: the
-    /// editor closes once it is saved.
-    fn add_step(
+    /// The editor on a line (its title, or its note with `field` Note).
+    fn edit_line(
         &mut self,
-        section: &str,
-        title: &str,
+        line: &Line,
+        field: TaskEditorField,
         props: &TasksFlowProps<'_>,
         cx: &mut FlowCx<App, Self>,
-        close_editor: bool,
     ) {
-        let Some(note) = work_note(section, props.sessions) else {
-            cx.set_status(Some("Its note is not in this list (archived or filtered?)".to_owned()));
-            return;
-        };
-        if note.read_only == Some(true) {
-            cx.set_status(Some("Its worktree was deleted: its note is read-only".to_owned()));
+        let note = props.notes.editable(WorkNoteKind::Line, &line.id);
+        if note.too_large == Some(true) {
+            cx.set_status(Some(
+                "Its note is too large to edit here; E opens it in your editor".to_owned(),
+            ));
             return;
         }
-        let message = format!(
-            "Added a step to {}: {}",
-            work_label(section, props.sessions),
-            truncate(title, 40)
-        );
-        let text = append_note_item(&note.text, title, "");
-        self.run(
-            props,
-            cx,
-            move |client| {
-                client.save_note(
-                    &note.session_id,
-                    note.section,
-                    &text,
-                    &note.revision,
-                    note.note_id.as_deref(),
-                )
+        self.editor = Some(TaskEditor {
+            kind: TaskEditorKind::Edit,
+            id: Some(line.id.clone()),
+            parent: None,
+            session: None,
+            field,
+            title: EditorState {
+                text: line.title.clone(),
+                cursor: line.title.len(),
+                ..EditorState::default()
             },
-            Box::new(move |flow, result: NoteSaveResult, cx| {
-                if let Some(session) = result.session {
-                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
-                }
-                if !result.saved {
-                    cx.set_status(Some("The note changed meanwhile; try again".to_owned()));
-                    return;
-                }
-                if close_editor {
-                    flow.editor = None;
-                }
-                cx.set_status(Some(message));
-            }),
-        );
+            note: EditorState {
+                text: note.text.clone(),
+                cursor: note.text.len(),
+                ..EditorState::default()
+            },
+            note_before: note.text,
+            revision: note.revision,
+        });
     }
 
-    /// The picker's rows for `state` (pickerRowsOf).
-    fn picker_rows_of(state: &TaskPicker, props: &TasksFlowProps<'_>) -> Vec<WorkOption> {
-        picker_rows(
-            &work_options(props.sessions, state.current.as_deref()),
+    /// The editor on the scratchpad.
+    fn edit_scratchpad(&mut self, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
+        let Some(id) = scratchpad_id(props) else {
+            cx.set_status(Some("The list is still loading".to_owned()));
+            return;
+        };
+        let note = props.notes.editable(WorkNoteKind::Scratchpad, &id);
+        if note.too_large == Some(true) {
+            cx.set_status(Some(
+                "The scratchpad is too large to edit here; E opens it in your editor".to_owned(),
+            ));
+            return;
+        }
+        self.editor = Some(TaskEditor {
+            kind: TaskEditorKind::Scratchpad,
+            id: None,
+            parent: None,
+            session: None,
+            field: TaskEditorField::Note,
+            title: EditorState::default(),
+            note: EditorState {
+                text: note.text.clone(),
+                cursor: note.text.len(),
+                ..EditorState::default()
+            },
+            note_before: note.text,
+            revision: note.revision,
+        });
+    }
+
+    /// A new line's editor: under `parent` (none: the top level), or under `session`'s line, made first.
+    fn add_line(&mut self, parent: Option<String>, session: Option<String>) {
+        self.editor = Some(TaskEditor {
+            kind: TaskEditorKind::Add,
+            id: None,
+            parent,
+            session,
+            field: TaskEditorField::Title,
+            title: EditorState::default(),
+            note: EditorState::default(),
+            note_before: String::new(),
+            revision: String::new(),
+        });
+    }
+
+    /// The w menu's rows for `state`.
+    fn picker_rows_of(state: &TaskPicker, props: &TasksFlowProps<'_>) -> Vec<MoveOption> {
+        move_rows(
+            &move_options(props.list, &state.line_id, props.sessions),
             state.view,
             &state.query,
-            state.origin.as_deref(),
         )
     }
 
-    /// Where the selection starts in a view: where the task is now (without a search), else the first listed match.
-    fn picker_start(state: &TaskPicker, props: &TasksFlowProps<'_>) -> usize {
-        let rows = Self::picker_rows_of(state, props);
-        let here = if state.query.is_empty() {
-            rows.iter()
-                .position(|option| listed(option) && option.section == state.current)
-        } else {
-            None
-        };
-        here.or_else(|| rows.iter().position(listed)).unwrap_or(0)
-    }
-
-    /// TS openPicker: the picker on `state`, its selection where it starts.
+    /// The w menu on `state`, the selection on the line's parent (in the lines) or the first row.
     fn open_picker(&mut self, state: TaskPicker, props: &TasksFlowProps<'_>) {
-        let index = Self::picker_start(
-            &TaskPicker {
-                index: 0,
-                ..state.clone()
-            },
-            props,
-        );
+        let rows = Self::picker_rows_of(&state, props);
+        let parent = props.list.parent(&state.line_id).map(|parent| parent.id.clone());
+        let index = parent
+            .filter(|_| state.query.is_empty())
+            .and_then(|parent| {
+                rows.iter()
+                    .position(|option| option.choice == MoveChoice::Line(parent.clone()))
+            })
+            .unwrap_or_else(|| usize::from(!state.query.is_empty() && rows.len() > 1));
         self.picker = Some(TaskPicker { index, ..state });
     }
 
-    /// TS becomesStep: onto work without a task, w makes the task that work's (◆); onto work with one, a step in its
-    /// note.
-    fn becomes_step(state: &TaskPicker, section: Option<&str>, tasks: &[Task]) -> bool {
-        section.is_some_and(|section| !section.is_empty() && has_main_task(section, tasks, Some(&state.task_id)))
+    /// What a w menu row would make of the line.
+    fn picker_role(state: &TaskPicker, option: &MoveOption, props: &TasksFlowProps<'_>) -> &'static str {
+        let Some(line) = props.list.get(&state.line_id) else {
+            return "";
+        };
+        match (
+            move_plan(props.list, line, &option.choice, props.sessions),
+            &option.choice,
+        ) {
+            (Some(MovePlan::Already), _) => "here",
+            (Some(MovePlan::SessionOn { .. }), _) => "◆ its line",
+            (Some(MovePlan::MoveTo { .. }), MoveChoice::Session(_)) => "→ a step of its line",
+            (Some(MovePlan::MoveTo { .. }), MoveChoice::Line(_)) => "→ under it",
+            _ => "",
+        }
     }
 
-    /// TS: useTasksFlow pickerInput: keys while the w picker is open.
+    /// Keys while the w menu is open.
     pub fn picker_input(
         &mut self,
         input: &Input,
@@ -1140,10 +1408,10 @@ impl TasksFlow {
         };
         let index = signed(state.index);
         let switched = || TaskPicker {
-            view: if state.view == PickerView::Worktrees {
-                PickerView::Sessions
+            view: if state.view == MoveView::Lines {
+                MoveView::Sessions
             } else {
-                PickerView::Worktrees
+                MoveView::Lines
             },
             ..state.clone()
         };
@@ -1151,7 +1419,7 @@ impl TasksFlow {
             self.open_picker(switched(), props);
             return;
         }
-        // Not in the TS: Ctrl+P / Ctrl+N and Ctrl+K / Ctrl+J move too, as in the sidebar's search.
+        // Ctrl+P / Ctrl+N and Ctrl+K / Ctrl+J move too, as in the sidebar's search.
         let (up, down) = crate::app::modes::typing_moves(input);
         if up {
             return to(self, index - 1);
@@ -1238,134 +1506,37 @@ impl TasksFlow {
         let Some(option) = rows.get(state.index).cloned() else {
             return;
         };
-        // The daemon no longer moves a line into a note (protocol 60): the list and the notes are separate.
-        if option.kind == WorkOptionKind::Note {
+        let Some(line) = props.list.get(&state.line_id) else {
             self.picker = None;
-            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
+            cx.set_status(Some("That line is not in the list any more".to_owned()));
             return;
-        }
-        if option.section == state.current {
-            self.picker = None;
-            cx.set_status(Some("It is already there".to_owned()));
+        };
+        let Some(plan) = move_plan(props.list, line, &option.choice, props.sessions) else {
+            cx.set_status(Some("That is not in the list any more".to_owned()));
             return;
-        }
-        if Self::becomes_step(&state, option.section.as_deref(), props.tasks) {
-            self.picker = None;
-            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
-            return;
-        }
-        let task_id = state.task_id.clone();
-        let section = option.section.as_deref().filter(|section| !section.is_empty());
-        let link = section.and_then(link_of_key);
-        let message = match section {
-            None => "Moved to the backlog".to_owned(),
-            Some(_) => format!(
-                "Now the task of {} (◆): its note's checklist shows as its steps, merging or finishing it ticks it",
+        };
+        let title = truncate(&line.title, 40);
+        let message = match (&plan, &option.choice) {
+            (MovePlan::Already, _) => {
+                self.picker = None;
+                cx.set_status(Some("It is already there".to_owned()));
+                return;
+            }
+            (MovePlan::SessionOn { .. }, _) => format!(
+                "Now the line of {} (merging or finishing that work ticks it): {title}",
                 option.label
             ),
+            (_, MoveChoice::Backlog) => format!("Moved to the backlog: {title}"),
+            (_, MoveChoice::Session(_)) => format!("Now a step of the line of {}: {title}", option.label),
+            (_, MoveChoice::Line(_)) => format!("Now under “{}”: {title}", truncate(&option.label, 40)),
         };
+        let line_id = state.line_id.clone();
         let then: ApplyThen = Box::new(move |flow, _, cx| {
             flow.picker = None;
-            flow.selected = RowSelection::task(&task_id);
+            flow.selected = RowSelection::line(&line_id);
             cx.set_status(Some(message));
         });
-        self.apply(
-            TaskOp::Assign {
-                id: state.task_id.clone(),
-                link,
-            },
-            props,
-            cx,
-            Some(then),
-        );
-    }
-
-    /// Space on a step: ticks it in its note (revision-checked, like typing in the Notes tab).
-    fn toggle_step(&mut self, section: &str, step: &WorkStep, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
-        let Some(note) = work_note(section, props.sessions) else {
-            cx.set_status(Some("Its note is not in this list (archived or filtered?)".to_owned()));
-            return;
-        };
-        if note.read_only == Some(true) {
-            cx.set_status(Some("Its worktree was deleted: its note is read-only".to_owned()));
-            return;
-        }
-        let Some(text) = deckhand_core::notes::toggle_checklist_line(&note.text, step.line) else {
-            cx.set_status(Some("That line of the note changed; try again".to_owned()));
-            return;
-        };
-        let done_message = if step.done {
-            format!("Reopened: {}", truncate(&step.text, 50))
-        } else {
-            format!("Ticked: {}", truncate(&step.text, 50))
-        };
-        self.run(
-            props,
-            cx,
-            move |client| {
-                client.save_note(
-                    &note.session_id,
-                    note.section,
-                    &text,
-                    &note.revision,
-                    note.note_id.as_deref(),
-                )
-            },
-            Box::new(move |_, result: NoteSaveResult, cx| {
-                if let Some(session) = result.session {
-                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
-                }
-                cx.set_status(Some(if result.saved {
-                    done_message
-                } else {
-                    "The note changed meanwhile; try again".to_owned()
-                }));
-            }),
-        );
-    }
-
-    /// TS: useTasksFlow promote: a note item becomes a task.
-    pub fn promote(&mut self, item: &NoteItem, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
-        let item = item.clone();
-        let message = format!("Sent to Tasks: {} (the note keeps a ↗ link)", truncate(&item.title, 40));
-        self.run(
-            props,
-            cx,
-            move |client| {
-                client.promote_note_item(
-                    &item.session_id,
-                    item.section,
-                    signed(item.line),
-                    &item.revision,
-                    item.note_id.as_deref(),
-                )
-            },
-            Box::new(move |_, result: PromoteNoteItemResult, cx| {
-                if let Some(session) = result.session {
-                    cx.emit(FlowEffect::Session(Box::new(session.into_inner())));
-                }
-                cx.emit(FlowEffect::TasksDoc(Box::new(result.tasks)));
-                cx.set_status(Some(message));
-            }),
-        );
-    }
-
-    /// TS addSection: a new task joins the group the selection is in (a worktree's, or the backlog); in the v view,
-    /// that work's. a in a work's group: a step in its note (it has its task), or its task when it has none;
-    /// elsewhere the backlog.
-    fn add_section(&self, current_row: Option<&BoardRow>) -> Option<String> {
-        if self.scoped {
-            return self.scope.clone();
-        }
-        match current_row {
-            Some(BoardRow::Task {
-                group: TaskGroup::Progress,
-                section,
-                ..
-            }) => Some(section.clone()),
-            Some(BoardRow::Step { section, .. }) => Some(section.clone()),
-            _ => None,
-        }
+        self.apply_ops(move_ops(&state.line_id, &plan), props, cx, Some(then));
     }
 
     /// The Notes view's keys (after the shared ones).
@@ -1384,79 +1555,85 @@ impl TasksFlow {
             return;
         }
         if text == "f" {
-            self.items_only = !self.items_only;
+            self.with_text = !self.with_text;
             self.selected = RowSelection::default();
             return;
         }
-        let line_item = match current_row {
-            Some(BoardRow::NoteLine { item, .. }) => item.as_ref(),
+        let note = match current_row {
+            Some(BoardRow::NoteHead { note, .. } | BoardRow::NoteLine { note, .. }) => Some(note.clone()),
             _ => None,
         };
-        let block = match current_row {
-            Some(BoardRow::NoteHead { block, .. } | BoardRow::NoteLine { block, .. }) => Some(Rc::clone(block)),
-            _ => None,
-        };
-        if text == "a" {
-            match line_item {
-                Some(item) => self.promote(item, props, cx),
-                None => cx.set_status(Some("Select an open checklist item (☐) to add it as a task".to_owned())),
+        if text == "E" {
+            match note {
+                Some(NoteOf::Scratchpad) => match scratchpad_id(props) {
+                    Some(id) => self.open_note_in_editor(WorkNoteKind::Scratchpad, id, props, cx),
+                    None => cx.set_status(Some("The list is still loading".to_owned())),
+                },
+                Some(NoteOf::Line(id)) => self.open_note_in_editor(WorkNoteKind::Line, id, props, cx),
+                Some(NoteOf::Session(id)) => self.open_note_in_editor(WorkNoteKind::Session, id, props, cx),
+                None => {}
             }
             return;
         }
-        // A: every open item of the selected note at once.
-        if text == "A" {
-            let Some(block) = block else {
-                cx.set_status(Some("Select a note first (j/k)".to_owned()));
-                return;
-            };
-            if block_items(&block, props.sessions).is_empty() {
-                cx.set_status(Some("No open items in this note".to_owned()));
-                return;
+        if !key.return_ {
+            if matches!(text, "a" | "A" | "n" | "w" | "x" | " ") {
+                cx.set_status(Some(
+                    "The notes are for reading here: enter edits one, tab goes back to the list".to_owned(),
+                ));
             }
-            cx.set_status(Some(NOTES_ARE_SEPARATE.to_owned()));
             return;
         }
-        if key.return_
-            && let Some(block) = block
-        {
-            cx.emit(FlowEffect::OpenNote(block.session_id.clone()));
+        match note {
+            Some(NoteOf::Scratchpad) => self.edit_scratchpad(props, cx),
+            Some(NoteOf::Line(id)) => match props.list.get(&id) {
+                Some(line) => self.edit_line(&line.clone(), TaskEditorField::Note, props, cx),
+                None => cx.set_status(Some("That line is not in the list any more".to_owned())),
+            },
+            Some(NoteOf::Session(id)) => cx.emit(FlowEffect::OpenNote(id)),
+            None => {}
         }
     }
 
-    /// E: the task list in the user's editor.
+    /// E: a note in the user's editor (`open-note` makes its file when missing).
+    fn open_note_in_editor(
+        &mut self,
+        kind: WorkNoteKind,
+        id: String,
+        props: &TasksFlowProps<'_>,
+        cx: &mut FlowCx<App, Self>,
+    ) {
+        let what = match kind {
+            WorkNoteKind::Scratchpad => "the scratchpad",
+            WorkNoteKind::Session => "the session's note",
+            _ => "the line's note",
+        };
+        self.run(
+            props,
+            cx,
+            move |client| client.open_work_note(NoteRef { kind, id }),
+            Box::new(move |_, file: String, cx| open_file(&file, what, cx)),
+        );
+    }
+
+    /// E with no line selected: the list's file in the user's editor.
     fn open_list_in_editor(&mut self, props: &TasksFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         let repo_root = props.repo_root.to_owned();
         self.run(
             props,
             cx,
             move |client| client.open_tasks(&repo_root),
-            Box::new(|_, file: String, cx| {
-                let errors = RefCell::new(Vec::new());
-                let label = deckhand_sys::desktop::open_in_editor(
-                    &file,
-                    &|message| errors.borrow_mut().push(format!("{message}; the task list is {file}")),
-                    None,
-                );
-                for error in errors.into_inner() {
-                    cx.set_error(Some(error));
-                }
-                if let Some(label) = label.filter(|label| !label.is_empty()) {
-                    cx.set_status(Some(format!(
-                        "Opened the task list in {label}; edits there show up here"
-                    )));
-                }
-            }),
+            Box::new(|_, file: String, cx| open_file(&file, "the list", cx)),
         );
     }
 
-    /// TS pickerLines: the w picker under the list.
+    /// The w menu under the list.
     fn picker_lines(state: &TaskPicker, props: &TasksFlowProps<'_>, width: usize) -> Vec<Row> {
-        let options = work_options(props.sessions, state.current.as_deref());
-        let rows = picker_rows(&options, state.view, &state.query, state.origin.as_deref());
-        let counts = picker_counts(&options, &state.query);
+        let options = move_options(props.list, &state.line_id, props.sessions);
+        let rows = move_rows(&options, state.view, &state.query);
+        let (lines_count_now, sessions_count) = move_counts(&options, &state.query);
         let start =
             to_index((signed(state.index) - signed(PICKER_ROWS) + 1).min(signed(rows.len()) - signed(PICKER_ROWS)));
-        let tab = |view: PickerView, text: String| {
+        let tab = |view: MoveView, text: String| {
             let on = state.view == view;
             Seg::new(
                 format!(" {text} "),
@@ -1466,17 +1643,17 @@ impl TasksFlow {
                     .color(if on { THEME.active } else { THEME.muted }),
             )
         };
-        let any_listed = rows.iter().any(listed);
+        let any_listed = rows.iter().any(|option| option.choice != MoveChoice::Backlog);
         let view_name = match state.view {
-            PickerView::Worktrees => "worktrees",
-            PickerView::Sessions => "sessions",
+            MoveView::Lines => "lines",
+            MoveView::Sessions => "sessions",
         };
         let none = if !state.query.is_empty() {
             format!("Nothing in {view_name} matches “{}”", state.query)
-        } else if state.view == PickerView::Worktrees {
-            "No worktrees".to_owned()
+        } else if state.view == MoveView::Lines {
+            "No other open lines".to_owned()
         } else {
-            "No sessions in the main checkout".to_owned()
+            "No sessions".to_owned()
         };
         let accent = TextStyle::fg(THEME.accent).bold(true);
         let mut lines = vec![line(
@@ -1498,9 +1675,9 @@ impl TasksFlow {
         let searching = !state.query.is_empty() || state.typing;
         lines.push(line(
             vec![
-                tab(PickerView::Worktrees, format!("Worktrees {}", counts.worktrees)),
+                tab(MoveView::Lines, format!("Lines {lines_count_now}")),
                 Seg::plain(" "),
-                tab(PickerView::Sessions, format!("Sessions {}", counts.sessions)),
+                tab(MoveView::Sessions, format!("Sessions {sessions_count}")),
                 Seg::new(
                     format!("   {search}"),
                     TextStyle::fg(if searching { THEME.active } else { THEME.muted }),
@@ -1511,30 +1688,18 @@ impl TasksFlow {
         ));
         for (offset, option) in rows.iter().skip(start).take(PICKER_ROWS).enumerate() {
             let selected = start + offset == state.index;
-            // Worktrees and sessions say what the task would be there: its task (◆), or a step in its note.
-            let role = if listed(option) && option.section != state.current {
-                if Self::becomes_step(state, option.section.as_deref(), props.tasks) {
-                    "→ a step in its note"
-                } else {
-                    "◆ its task"
-                }
-            } else {
-                ""
-            };
-            let parts: Vec<&str> = [option.note.as_str(), role]
-                .into_iter()
-                .filter(|part| !part.is_empty())
-                .collect();
-            let note = if parts.is_empty() {
+            let role = Self::picker_role(state, option, props);
+            let note = if role.is_empty() {
                 String::new()
             } else {
-                format!(" {}", parts.join(" · "))
+                format!(" {role}")
             };
             let note_len = js_len(&note);
+            let indent = "  ".repeat(option.depth);
             let label = format!(
-                "{} {}",
+                "{} {indent}{}",
                 marker(selected),
-                truncate(&option.label, minus(width, note_len + 2).max(1))
+                truncate(&option.label, minus(width, note_len + 2 + indent.len()).max(1))
             );
             let base = TextStyle::default()
                 .inverse(selected)
@@ -1562,7 +1727,7 @@ impl TasksFlow {
         lines
     }
 
-    /// TS editorLines: the add/edit form under the list (records the body's wrap width for Up/Down).
+    /// The editor under the list (records the note's wrap width for Up/Down).
     fn editor_lines(&mut self, state: &TaskEditor, props: &TasksFlowProps<'_>, width: usize) -> Lower {
         let label = |text: &str, active: bool| {
             Seg::new(
@@ -1581,75 +1746,90 @@ impl TasksFlow {
             segs.push(Seg::plain(line.after.clone()));
             segs
         };
-        let title_width = minus(width, 8).max(4);
-        let title_rows = wrapped_editor_lines(&state.title, title_width);
-        let title_line = title_rows
-            .lines
-            .get(title_rows.cursor_row)
-            .cloned()
-            .unwrap_or_else(|| EditorLine {
-                before: state.title.text.clone(),
-                cursor: None,
-                after: String::new(),
-            });
+        let note_rows = if state.kind == TaskEditorKind::Scratchpad {
+            SCRATCHPAD_ROWS
+        } else {
+            EDITOR_BODY_ROWS
+        };
         self.body_width = minus(width, 2).max(4);
-        let body = wrapped_editor_lines(&state.body, self.body_width);
+        let body = wrapped_editor_lines(&state.note, self.body_width);
         let start = to_index(
-            (signed(body.cursor_row) - signed(EDITOR_BODY_ROWS) + 1)
-                .min(signed(body.lines.len()) - signed(EDITOR_BODY_ROWS)),
+            (signed(body.cursor_row) - signed(note_rows) + 1).min(signed(body.lines.len()) - signed(note_rows)),
         );
-        let heading = match state.kind {
-            TaskEditorKind::Step => "New step",
-            TaskEditorKind::Add => "New task",
-            TaskEditorKind::Edit => "Edit task",
+        let on_note = state.field == TaskEditorField::Note;
+        let mut head = vec![Seg::new(
+            match state.kind {
+                TaskEditorKind::Add => "New line",
+                TaskEditorKind::Edit => "Edit line",
+                TaskEditorKind::Scratchpad => "Scratchpad",
+            },
+            TextStyle::fg(THEME.accent).bold(true),
+        )];
+        let place = match state.kind {
+            TaskEditorKind::Add => match state.parent.as_deref().and_then(|id| props.list.get(id)) {
+                Some(parent) => format!(" · under “{}”", truncate(&parent.title, 40)),
+                None if state.session.is_some() => " · a step of the session's line (made now)".to_owned(),
+                None => " · top level (the backlog)".to_owned(),
+            },
+            TaskEditorKind::Scratchpad => " · loose thoughts for the repository".to_owned(),
+            TaskEditorKind::Edit => String::new(),
         };
-        let mut head = vec![Seg::new(heading, TextStyle::fg(THEME.accent).bold(true))];
-        if state.kind != TaskEditorKind::Edit {
-            let place = match state.section.as_deref().filter(|section| !section.is_empty()) {
-                Some(section) => format!(
-                    "{}{}",
-                    if state.kind == TaskEditorKind::Step {
-                        "the note of "
-                    } else {
-                        "the task of "
-                    },
-                    work_label(section, props.sessions)
-                ),
-                None => "backlog".to_owned(),
+        head.push(Seg::new(place, TextStyle::fg(THEME.muted)));
+        let mut rows = vec![line(head, TextStyle::default(), width)];
+        let mut nodes = 1;
+        if state.kind != TaskEditorKind::Scratchpad {
+            let title_width = minus(width, 8).max(4);
+            let title_rows = wrapped_editor_lines(&state.title, title_width);
+            let title_line = title_rows
+                .lines
+                .get(title_rows.cursor_row)
+                .cloned()
+                .unwrap_or_else(|| EditorLine {
+                    before: state.title.text.clone(),
+                    cursor: None,
+                    after: String::new(),
+                });
+            let on_title = state.field == TaskEditorField::Title;
+            let mut title = vec![label("Title  ", on_title)];
+            if on_title {
+                title.extend(cursor_of(&title_line, true));
+            } else {
+                title.push(Seg::plain(truncate(&state.title.text, title_width)));
+            }
+            rows.push(line(title, TextStyle::default(), width));
+            let optional = if !state.note.text.is_empty() || on_note {
+                ""
+            } else {
+                " (optional; whoever takes the line on is given it)"
             };
-            head.push(Seg::new(format!(" · {place}"), TextStyle::fg(THEME.muted)));
+            let note_label = vec![label("Note", on_note), Seg::new(optional, TextStyle::fg(THEME.muted))];
+            // The note's label is a wrapping Text: one node, possibly several rows.
+            rows.extend(fit_row(&note_label, width, Wrap::Wrap));
+            nodes += 2;
         }
-        let on_title = state.field == TaskEditorField::Title;
-        let on_body = state.field == TaskEditorField::Body;
-        let mut title = vec![label("Title  ", on_title)];
-        if on_title {
-            title.extend(cursor_of(&title_line, true));
-        } else {
-            title.push(Seg::plain(truncate(&state.title.text, title_width)));
-        }
-        let optional = if !state.body.text.is_empty() || on_body {
-            ""
-        } else {
-            " (optional; typed into the agent's input with the title)"
-        };
-        let body_label = vec![
-            label("Details", on_body),
-            Seg::new(optional, TextStyle::fg(THEME.muted)),
-        ];
-        let mut rows = vec![
-            line(head, TextStyle::default(), width),
-            line(title, TextStyle::default(), width),
-        ];
-        // The details label is a wrapping Text: one node, possibly several rows.
-        rows.extend(fit_row(&body_label, width, Wrap::Wrap));
-        let mut nodes = 3;
-        for (index, body_line) in body.lines.iter().skip(start).take(EDITOR_BODY_ROWS).enumerate() {
+        for (index, body_line) in body.lines.iter().skip(start).take(note_rows).enumerate() {
             let mut segs = vec![Seg::plain("  ")];
-            segs.extend(cursor_of(body_line, on_body && start + index == body.cursor_row));
+            segs.extend(cursor_of(body_line, on_note && start + index == body.cursor_row));
             rows.push(line(segs, TextStyle::default(), width));
             nodes += 1;
         }
         Lower { nodes, rows }
+    }
+}
+
+/// Opens `file` in Cursor / VS Code, saying where it is if that fails.
+fn open_file(file: &str, what: &str, cx: &mut FlowCx<App, TasksFlow>) {
+    let errors = RefCell::new(Vec::new());
+    let label = deckhand_sys::desktop::open_in_editor(
+        file,
+        &|message| errors.borrow_mut().push(format!("{message}; {what} is {file}")),
+        None,
+    );
+    for error in errors.into_inner() {
+        cx.set_error(Some(error));
+    }
+    if let Some(label) = label.filter(|label| !label.is_empty()) {
+        cx.set_status(Some(format!("Opened {what} in {label}; edits there show up here")));
     }
 }
 
@@ -1660,14 +1840,6 @@ fn selectable_indexes(rows: &[BoardRow]) -> Vec<usize> {
         .filter(|(_, row)| selectable_row(row))
         .map(|(index, _)| index)
         .collect()
-}
-
-/// TS firstTaskOf: the first open task of a work.
-fn first_task_of<'a>(section: Option<&str>, tasks: &'a [Task]) -> Option<&'a Task> {
-    let section = section.filter(|section| !section.is_empty())?;
-    tasks
-        .iter()
-        .find(|task| !task.done && link_key(&task.meta).as_deref() == Some(section))
 }
 
 impl Flow<App> for TasksFlow {
@@ -1714,33 +1886,30 @@ impl Flow<App> for TasksFlow {
             self.select(&rows, &selectable, last);
             return;
         }
-        // v: only the work of the session the board was opened from (its worktree), in either view.
+        // v: only the line of the session the board was opened from (or its nearest ancestor's), in either view.
         if text == "v" {
             let Some(scope) = self.scope.clone().filter(|scope| !scope.is_empty()) else {
                 cx.set_status(Some(format!(
-                    "Select a session first: v shows the {} of its worktree",
+                    "Select a session first: v shows the {} of its line",
                     if self.view == TasksView::Notes {
                         "notes"
                     } else {
-                        "tasks"
+                        "lines"
                     }
                 )));
                 return;
             };
-            let first = if self.view == TasksView::Tasks {
-                first_task_of(Some(&scope), props.tasks)
-            } else {
-                None
-            };
             self.scoped = !self.scoped;
-            self.selected = first.map_or_else(RowSelection::default, |first| RowSelection::task(&first.id));
+            self.selected = scope_root(props.list, &scope, props.sessions)
+                .filter(|_| self.view == TasksView::Tasks)
+                .map_or_else(RowSelection::default, |root| RowSelection::line(&root.id));
             return;
         }
         if self.view == TasksView::Notes {
             self.notes_input(input, current_row, props, cx);
             return;
         }
-        // Not in the TS: h and ← go back too, as from every pane.
+        // h and ← go back too, as from every pane.
         if key.escape || key.left_arrow || text == "h" {
             cx.exit();
             return;
@@ -1750,151 +1919,100 @@ impl Flow<App> for TasksFlow {
             self.selected = RowSelection::default();
             return;
         }
+        let selected_line = match current_row {
+            Some(BoardRow::Line { line, section, .. }) => Some((line, *section)),
+            _ => None,
+        };
         if text == "a" {
-            let section = self.add_section(current_row);
-            let step = section
-                .as_deref()
-                .is_some_and(|section| !section.is_empty() && has_main_task(section, props.tasks, None));
-            self.editor = Some(TaskEditor {
-                kind: if step {
-                    TaskEditorKind::Step
-                } else {
-                    TaskEditorKind::Add
-                },
-                id: None,
-                section,
-                field: TaskEditorField::Title,
-                title: empty_state(),
-                body: empty_state(),
-            });
+            match (selected_line, current_row) {
+                (Some((line, Section::Open)), _) => self.add_line(Some(line.id.clone()), None),
+                // v on a session without a line: under its line, made first.
+                (_, Some(BoardRow::Empty { .. })) if self.scoped => self.add_line(None, self.scope.clone()),
+                _ => self.add_line(None, None),
+            }
             return;
         }
-        // A: a new backlog task from anywhere (a adds a step when on a work, which has its task).
         if text == "A" {
-            self.editor = Some(TaskEditor {
-                kind: TaskEditorKind::Add,
-                id: None,
-                section: None,
-                field: TaskEditorField::Title,
-                title: empty_state(),
-                body: empty_state(),
-            });
+            self.add_line(None, None);
             return;
         }
         if text == "E" {
-            self.open_list_in_editor(props, cx);
-            return;
-        }
-        // c: the task's steps hidden or shown (on a step, its task's, which takes the selection).
-        if text == "c" {
-            let task_id = match current_row {
-                Some(BoardRow::Task {
-                    task, steps: Some(_), ..
-                }) => &task.id,
-                Some(BoardRow::Step { task_id, .. }) => task_id,
-                Some(BoardRow::Task { .. }) => {
-                    cx.set_status(Some("That task has no steps to hide".to_owned()));
-                    return;
-                }
-                _ => return,
-            };
-            if self.steps_hidden(task_id) {
-                self.collapsed_steps.retain(|id| id != task_id);
-            } else {
-                self.collapsed_steps.push(task_id.clone());
+            match selected_line {
+                Some((line, _)) => self.open_note_in_editor(WorkNoteKind::Line, line.id.clone(), props, cx),
+                None => self.open_list_in_editor(props, cx),
             }
-            self.selected = RowSelection::task(task_id);
             return;
         }
         if matches!(current_row, Some(BoardRow::Older { .. })) && (key.return_ || text == " ") {
             self.show_older = !self.show_older;
             return;
         }
-        if let Some(BoardRow::Step { section, step, .. }) = current_row {
-            if text == " " {
-                self.toggle_step(section, step, props, cx);
-                return;
-            }
-            if key.return_ {
-                match work_note(section, props.sessions) {
-                    Some(note) => cx.emit(FlowEffect::OpenNote(note.session_id)),
-                    None => cx.set_status(Some("Its note is not in this list (archived or filtered?)".to_owned())),
-                }
-                return;
-            }
-            if matches!(text, "n" | "o" | "x" | "w" | "J" | "K") {
-                cx.set_status(Some(
-                    "A step from the note: space ticks it, enter opens the note to edit it".to_owned(),
-                ));
-            }
-            return;
-        }
-        let Some(BoardRow::Task {
-            task,
-            group,
-            section: task_section,
-            ..
-        }) = current_row
-        else {
-            if matches!(text, "n" | "o" | "x" | "w" | " ") || key.return_ {
-                cx.set_status(Some("Select a task first (j/k)".to_owned()));
+        let Some((line, section)) = selected_line else {
+            if matches!(text, "n" | "o" | "x" | "w" | " " | "c" | "J" | "K") || key.return_ {
+                cx.set_status(Some("Select a line first (j/k)".to_owned()));
             }
             return;
         };
-        let group = *group;
+        // c: its lines hidden or shown (on a line without any, its parent's, which takes the selection).
+        if text == "c" {
+            let target = if props.list.count(&line.id).total > 0 {
+                Some(line.id.clone())
+            } else {
+                props.list.parent(&line.id).map(|parent| parent.id.clone())
+            };
+            let Some(target) = target else {
+                cx.set_status(Some("That line has no lines under it to hide".to_owned()));
+                return;
+            };
+            if self.collapsed_steps.contains(&target) {
+                self.collapsed_steps.retain(|id| *id != target);
+            } else {
+                self.collapsed_steps.push(target.clone());
+            }
+            self.selected = RowSelection::line(&target);
+            return;
+        }
         if key.return_ {
-            self.editor = Some(TaskEditor {
-                kind: TaskEditorKind::Edit,
-                id: Some(task.id.clone()),
-                section: None,
-                field: TaskEditorField::Title,
-                title: EditorState {
-                    text: task.title.clone(),
-                    cursor: task.title.len(),
-                    ..EditorState::default()
-                },
-                body: EditorState {
-                    text: task.body.clone(),
-                    cursor: task.body.len(),
-                    ..EditorState::default()
-                },
-            });
+            self.edit_line(line, TaskEditorField::Title, props, cx);
             return;
         }
         if text == " " {
-            let message = if task.done {
-                format!("Reopened {}", task.title)
+            let message = if line.done {
+                format!("Reopened {}", line.title)
             } else {
-                format!("Done: {}", task.title)
+                format!("Done: {}", line.title)
             };
             let then: ApplyThen = Box::new(move |_, _, cx| cx.set_status(Some(message)));
-            self.apply(TaskOp::Toggle { id: task.id.clone() }, props, cx, Some(then));
+            self.apply(TaskOp::Toggle { id: line.id.clone() }, props, cx, Some(then));
             return;
         }
         if text == "n" {
-            match group {
-                TaskGroup::Backlog => cx.emit(FlowEffect::StartTask(Box::new(task.clone()))),
-                TaskGroup::Progress => cx.set_status(Some(
-                    "That task is already being worked on (o opens its session)".to_owned(),
-                )),
-                TaskGroup::Done => cx.set_status(Some("That task is done; space reopens it".to_owned())),
+            if line.done {
+                cx.set_status(Some("That line is done; space reopens it".to_owned()));
+            } else if line.is_taken() {
+                cx.set_status(Some("Someone is on it already (o selects the session)".to_owned()));
+            } else {
+                let parent = match start_on(props.list, &line.id, props.sessions) {
+                    StartOn::TopLevel => None,
+                    StartOn::SubSessionOf(id) => Some(id),
+                };
+                cx.emit(FlowEffect::StartTask {
+                    task: Box::new(line.task()),
+                    parent,
+                });
             }
             return;
         }
         if text == "w" {
-            if task.done {
-                cx.set_status(Some("That task is done; space reopens it".to_owned()));
+            if line.done {
+                cx.set_status(Some("That line is done; space reopens it".to_owned()));
                 return;
             }
-            let current = link_key(&task.meta);
-            let view = picker_view_of(current.as_deref());
             self.open_picker(
                 TaskPicker {
-                    task_id: task.id.clone(),
-                    title: task.title.clone(),
-                    origin: task_origin(task, props.sessions),
-                    current,
-                    view,
+                    line_id: line.id.clone(),
+                    title: line.title.clone(),
+                    view: MoveView::Lines,
                     query: String::new(),
                     typing: false,
                     index: 0,
@@ -1904,14 +2022,14 @@ impl Flow<App> for TasksFlow {
             return;
         }
         if text == "o" {
-            let working = task_sessions(task, props.sessions);
-            match lead_session(&working) {
-                Some(lead) => cx.emit(FlowEffect::GoTo(lead.session().id.clone())),
+            let state = line_state(line, props.sessions, props.spinner_frame);
+            match state.session_id {
+                Some(id) => cx.emit(FlowEffect::GoTo(id)),
                 None => cx.set_status(Some(
-                    if group == TaskGroup::Progress {
+                    if line.is_taken() {
                         "Its session is not in this list (archived or filtered?)"
                     } else {
-                        "That task has no session; n starts one"
+                        "Nobody is on it; n starts a session"
                     }
                     .to_owned(),
                 )),
@@ -1919,27 +2037,32 @@ impl Flow<App> for TasksFlow {
             return;
         }
         if text == "x" {
-            if deleting.as_deref() == Some(task.id.as_str()) {
-                let message = format!("Deleted {}", task.title);
+            let under = props.list.subtree(&line.id).len().saturating_sub(1);
+            let with = if under > 0 {
+                format!(" and the {} under it", lines_count(under))
+            } else {
+                String::new()
+            };
+            if deleting.as_deref() == Some(line.id.as_str()) {
+                let message = format!("Removed {}{with}", line.title);
                 let then: ApplyThen = Box::new(move |_, _, cx| cx.set_status(Some(message)));
-                self.apply(TaskOp::Remove { id: task.id.clone() }, props, cx, Some(then));
+                self.apply(TaskOp::Remove { id: line.id.clone() }, props, cx, Some(then));
                 return;
             }
-            self.pending_delete.arm(task.id.clone());
-            cx.set_status(Some(format!("x again deletes “{}”", truncate(&task.title, 40))));
+            self.pending_delete.arm(line.id.clone());
+            cx.set_status(Some(format!("x again removes “{}”{with}", truncate(&line.title, 40))));
             return;
         }
-        if (text == "J" || text == "K") && group != TaskGroup::Done {
-            let direction: isize = if text == "J" { 1 } else { -1 };
-            let Some(index) = current else { return };
-            if let Some(neighbor) = neighbor_in_group(&rows, index, direction, task_section) {
-                let op = TaskOp::Move {
-                    id: task.id.clone(),
-                    target: neighbor.id.clone(),
-                    after: (direction > 0).then_some(true),
-                };
-                self.apply(op, props, cx, None);
+        if text == "J" || text == "K" {
+            if section == Section::Done {
+                cx.set_status(Some("Finished lines are listed by when they were done".to_owned()));
+                return;
             }
+            let op = TaskOp::Reorder {
+                id: line.id.clone(),
+                down: text == "J",
+            };
+            self.apply(op, props, cx, None);
         }
     }
 
@@ -1950,27 +2073,16 @@ impl Flow<App> for TasksFlow {
         let rows = self.rows(props);
         let current = self.current(&rows);
         let current_row = current.and_then(|index| rows.get(index));
-        let open = props.tasks.iter().filter(|task| !task.done).count();
-        let in_progress = rows
-            .iter()
-            .filter(|row| {
-                matches!(
-                    row,
-                    BoardRow::Task {
-                        group: TaskGroup::Progress,
-                        ..
-                    }
-                )
-            })
-            .count();
-        let narrowed = if self.scoped {
-            self.scope.as_deref().filter(|scope| !scope.is_empty())
-        } else {
-            None
-        };
-        let name = match narrowed {
-            Some(scope) => work_label(scope, props.sessions),
-            None => {
+        let scope = self.board_scope(props);
+        let name = match scope {
+            BoardScope::Under(root) => props.list.get(root).map(|root| root.title.clone()).unwrap_or_default(),
+            BoardScope::Nothing => self
+                .scope
+                .as_deref()
+                .and_then(|id| props.sessions.iter().find(|session| session.id == id))
+                .map(|session| session.title.clone())
+                .unwrap_or_default(),
+            BoardScope::All => {
                 let base = path::basename(props.repo_root);
                 if base.is_empty() {
                     props.repo_root.to_owned()
@@ -1979,35 +2091,39 @@ impl Flow<App> for TasksFlow {
                 }
             }
         };
-        let open_here = narrowed.map_or(0, |scope| {
-            props
-                .tasks
-                .iter()
-                .filter(|task| !task.done && link_key(&task.meta).as_deref() == Some(scope))
-                .count()
-        });
-        let open_items = rows
-            .iter()
-            .filter(|row| matches!(row, BoardRow::NoteLine { item: Some(_), .. }))
-            .count();
         let right = if self.view == TasksView::Notes {
+            let written = rows
+                .iter()
+                .filter(|row| matches!(row, BoardRow::NoteHead { empty: false, .. }))
+                .count();
             format!(
-                "{open_items} open item{}{}{}",
-                if open_items == 1 { "" } else { "s" },
-                if self.items_only { " · items only" } else { "" },
-                if narrowed.is_some() { " · v all" } else { "" }
+                "{written} note{}{}{}",
+                if written == 1 { "" } else { "s" },
+                if self.with_text { " · with text" } else { "" },
+                if self.scoped { " · v all" } else { "" }
             )
-        } else if narrowed.is_some() {
-            format!("{open_here} open · v all tasks")
+        } else if self.scoped {
+            let open = rows
+                .iter()
+                .filter(|row| matches!(row, BoardRow::Line { line, .. } if !line.done))
+                .count();
+            format!("{open} open · v all lines")
         } else {
-            format!("{open} open · {in_progress} in progress")
+            let open = props.list.open_count();
+            let on = props
+                .list
+                .lines()
+                .iter()
+                .filter(|line| !line.done && line.is_taken())
+                .count();
+            format!("{open} open · {on} with a session")
         };
         let lower = if let Some(picker) = self.picker.clone() {
             Lower::of(Self::picker_lines(&picker, props, inner))
         } else if let Some(editor) = self.editor.clone() {
             self.editor_lines(&editor, props, inner)
         } else {
-            Lower::of(detail_lines(current_row, props.sessions, props.spinner_frame, inner))
+            Lower::of(detail_lines(current_row, props, inner))
         };
         // Border (2), title and status lines (2), the `+N more` line (1), then the rule and the lower part.
         let lower_rows = if lower.nodes > 0 { lower.nodes + 1 } else { 0 };
@@ -2042,7 +2158,7 @@ impl Flow<App> for TasksFlow {
         if props.doc.is_some_and(|doc| doc.too_large == Some(true)) {
             column.push(line(
                 vec![Seg::plain(
-                    "The task list is too large to change here; E opens it in your editor",
+                    "The list is too large to change here; E on an empty row opens it in your editor",
                 )],
                 TextStyle::fg(THEME.warn),
                 inner,
@@ -2060,7 +2176,6 @@ impl Flow<App> for TasksFlow {
                     inner,
                     props.sessions,
                     props.spinner_frame,
-                    matches!(row, BoardRow::Task { task, .. } if self.steps_hidden(&task.id)),
                 )),
                 None => column.blank(),
             }
@@ -2080,20 +2195,30 @@ impl Flow<App> for TasksFlow {
         column.draw(buf, content);
     }
 
-    /// TS: TasksFlow.hint: the board's footer.
+    /// The board's footer.
     fn hint(&self, props: &TasksFlowProps<'_>, width: usize) -> String {
         if let Some(editor) = &self.editor {
-            let parts: Vec<HintPart> = if editor.kind == TaskEditorKind::Step {
-                vec!["enter add to the note".into(), "esc add".into()]
-            } else if editor.field == TaskEditorField::Title {
-                vec!["enter save".into(), "tab details".into(), "esc save".into()]
-            } else {
-                vec![
+            let parts: Vec<HintPart> = match (editor.kind, editor.field) {
+                (TaskEditorKind::Scratchpad, _) => vec![
+                    "enter new line".into(),
+                    hint("ctrl+p checkbox → line", Some("ctrl+p → line"), Some(1)),
+                    "ctrl+s save".into(),
+                    "esc save".into(),
+                ],
+                (_, TaskEditorField::Title) => vec!["enter save".into(), "tab note".into(), "esc save".into()],
+                (TaskEditorKind::Edit, TaskEditorField::Note) => vec![
+                    "enter new line".into(),
+                    hint("ctrl+p checkbox → line", Some("ctrl+p → line"), Some(1)),
+                    "ctrl+s save".into(),
+                    "tab title".into(),
+                    "esc save".into(),
+                ],
+                (_, TaskEditorField::Note) => vec![
                     "enter new line".into(),
                     "ctrl+s save".into(),
                     "tab title".into(),
                     "esc save".into(),
-                ]
+                ],
             };
             return fit_hint(&parts, width, HINT_SEPARATOR);
         }
@@ -2110,7 +2235,7 @@ impl Flow<App> for TasksFlow {
                 vec![
                     "enter move here".into(),
                     if searched { "/ edit search" } else { "/ search" }.into(),
-                    hint("tab worktrees / sessions", Some("tab view"), None),
+                    hint("tab lines / sessions", Some("tab view"), None),
                     if searched { "esc clear search" } else { "esc cancel" }.into(),
                 ]
             };
@@ -2119,93 +2244,89 @@ impl Flow<App> for TasksFlow {
         let rows = self.rows(props);
         let current_row = self.current(&rows).and_then(|index| rows.get(index));
         let has_scope = self.scope.as_deref().is_some_and(|scope| !scope.is_empty());
+        let view_hint = |all: &str| {
+            hint(
+                if self.scoped { all } else { "v this session's line" },
+                Some("v view"),
+                Some(1),
+            )
+        };
         if self.view == TasksView::Notes {
-            let on_item = matches!(current_row, Some(BoardRow::NoteLine { item: Some(_), .. }));
-            let on_note = matches!(current_row, Some(BoardRow::NoteHead { .. } | BoardRow::NoteLine { .. }));
             let mut parts = Vec::new();
-            if on_item {
-                parts.push("a add as a task".into());
+            if let Some(BoardRow::NoteHead { note, .. } | BoardRow::NoteLine { note, .. }) = current_row {
+                parts.push(match note {
+                    NoteOf::Session(_) => hint("enter open its Notes tab", Some("enter open"), None),
+                    _ => hint("enter edit", None, None),
+                });
+                parts.push(hint("E open in editor", Some("E editor"), Some(2)));
             }
-            if on_note {
-                parts.push(hint("A send all open items", Some("A send all"), Some(1)));
-            }
-            parts.push(hint("enter open the note", Some("enter open"), None));
             parts.push(hint(
-                if self.items_only {
+                if self.with_text {
                     "f every note"
                 } else {
-                    "f open items only"
+                    "f only with text"
                 },
                 Some("f filter"),
                 Some(1),
             ));
             if has_scope {
-                parts.push(hint(
-                    if self.scoped { "v all notes" } else { "v this worktree" },
-                    Some("v view"),
-                    Some(1),
-                ));
+                parts.push(view_hint("v all notes"));
             }
-            parts.push("tab tasks".into());
+            parts.push("tab list".into());
             return fit_hint(&parts, width, HINT_SEPARATOR);
         }
-        let add_to = self.add_section(current_row);
-        let adds_step = add_to
-            .as_deref()
-            .is_some_and(|section| !section.is_empty() && has_main_task(section, props.tasks, None));
-        // A (a backlog task) shows wherever a adds a step; E (the list in an editor) everywhere.
-        let new_task = hint("A new task", Some("A task"), None);
         let edit_list = hint("E open in editor", Some("E editor"), Some(1));
         let back = hint("esc back", None, Some(2));
-        if let Some(BoardRow::Step { step, .. }) = current_row {
-            let parts = vec![
-                hint(if step.done { "space reopen" } else { "space tick" }, None, None),
-                hint("enter open the note", Some("enter note"), None),
-                hint("a add step", Some("a step"), None),
-                new_task,
-                edit_list,
-                back,
-            ];
-            return fit_hint(&parts, width, HINT_SEPARATOR);
-        }
-        if let Some(BoardRow::Empty { .. }) = current_row {
-            let parts = vec![hint("a add task", Some("a add"), None), edit_list, back];
-            return fit_hint(&parts, width, HINT_SEPARATOR);
-        }
-        let mut parts = vec![if adds_step {
-            hint("a add step", Some("a step"), None)
-        } else {
-            hint("a add task", Some("a add"), None)
-        }];
-        if adds_step {
-            parts.push(new_task);
-        }
-        parts.push(hint("n start session", Some("n start"), None));
-        parts.push(hint("w move to a worktree", Some("w move"), None));
-        parts.push(hint("enter edit", None, Some(1)));
-        parts.push(hint("space done", Some("space ✓"), None));
-        if let Some(BoardRow::Task {
-            task, steps: Some(_), ..
+        let Some(BoardRow::Line {
+            line,
+            section,
+            count,
+            folded,
+            ..
         }) = current_row
-        {
-            let (text, short) = if self.steps_hidden(&task.id) {
-                ("c show steps", "c show")
+        else {
+            let mut parts = vec![hint("a add line", Some("a add"), None)];
+            if has_scope {
+                parts.push(view_hint("v all lines"));
+            }
+            parts.extend([edit_list, back]);
+            return fit_hint(&parts, width, HINT_SEPARATOR);
+        };
+        let mut parts = vec![if *section == Section::Open {
+            hint("a add under", Some("a add"), None)
+        } else {
+            hint("a add line", Some("a add"), None)
+        }];
+        parts.push(hint("A top level", Some("A top"), Some(2)));
+        if !line.done && !line.is_taken() {
+            parts.push(hint("n start session", Some("n start"), None));
+        }
+        if line.is_taken() {
+            parts.push(hint("o its session", Some("o session"), Some(1)));
+        }
+        if !line.done {
+            parts.push(hint("w move", None, None));
+        }
+        parts.push(hint("enter edit", None, Some(1)));
+        parts.push(hint(
+            if line.done { "space reopen" } else { "space done" },
+            Some("space ✓"),
+            None,
+        ));
+        if count.is_some() {
+            let (text, short) = if *folded {
+                ("c show lines", "c show")
             } else {
-                ("c hide steps", "c hide")
+                ("c hide lines", "c hide")
             };
             parts.push(hint(text, Some(short), Some(2)));
         }
         if has_scope {
-            parts.push(hint(
-                if self.scoped { "v all tasks" } else { "v this worktree" },
-                Some("v view"),
-                Some(1),
-            ));
+            parts.push(view_hint("v all lines"));
         }
-        parts.push(hint("o open its session", Some("o session"), Some(1)));
-        parts.push(hint("x delete", None, Some(2)));
+        parts.push(hint("x remove", None, Some(2)));
         parts.push(hint("tab notes", None, Some(1)));
-        parts.push(edit_list);
+        parts.push(hint("E note in editor", Some("E editor"), Some(1)));
         parts.push(back);
         fit_hint(&parts, width, HINT_SEPARATOR)
     }
@@ -2216,33 +2337,146 @@ pub(crate) mod tests {
     use super::*;
     use crate::app::event_loop::Dispatch;
     use crate::primitives::{row_text, string_width};
-    use deckhand_protocol::data::TaskMeta;
-    use serde_json::Value;
+    use deckhand_protocol::data::{TaskMeta, WorkNote};
+    use deckhand_protocol::events::WorkNoteUpdated;
+    use ratatui::style::Color;
 
     const TASK_ID: &str = "a1b2c3";
     const DATE: &str = "2026-10-19";
 
-    fn task(id: &str, title: &str, body: &str) -> Task {
-        Task {
-            id: id.to_owned(),
-            title: title.to_owned(),
-            done: false,
-            body: body.to_owned(),
-            meta: TaskMeta {
-                t: Some(id.to_owned()),
-                added: Some(DATE.to_owned()),
-                ..TaskMeta::default()
-            },
+    /// The walkthrough of the design: an idea an orchestrator is on, two sessions on lines under it, steps, a
+    /// sub-session, a line nobody is on that was tried; a backlog line, a finished tree this week and an older one.
+    const LIST: &str = "- [ ] Rework auth <!-- dh:t=idea s=orch -->\n\
+        \x20 - [ ] Token storage <!-- dh:t=tok s=token -->\n\
+        \x20   - [x] schema <!-- dh:t=sch done=2026-11-13 -->\n\
+        \x20   - [ ] encryption <!-- dh:t=enc -->\n\
+        \x20   - [ ] refresh tokens <!-- dh:t=ref s=refresh -->\n\
+        \x20 - [ ] Login UI <!-- dh:t=ui s=login -->\n\
+        \x20 - [ ] Remove legacy endpoint <!-- dh:t=leg tried=old-auth -->\n\
+        - [ ] Rate-limit export <!-- dh:t=rate -->\n\
+        - [x] Shipped parser <!-- dh:t=ship done=2099-01-01 auto=merge -->\n\
+        - [x] Old thing <!-- dh:t=old done=2020-10-01 -->\n";
+
+    fn record(id: &str, fields: Value) -> SessionRecord {
+        let mut base = json!({"id": id, "title": id, "cwd": "/repo", "repoRoot": "/repo", "program": "claude",
+            "command": "claude", "status": "running", "agentStatus": "idle", "createdAt": "2026-11-01T00:00:00Z",
+            "updatedAt": "2026-11-01T00:00:00Z"});
+        if let (Some(base), Some(fields)) = (base.as_object_mut(), fields.as_object()) {
+            base.extend(fields.clone());
+        }
+        serde_json::from_value(base).unwrap_or_else(|error| panic!("a session: {error}"))
+    }
+
+    fn walkthrough_sessions() -> Vec<SessionRecord> {
+        vec![
+            record("orch", json!({"title": "Rework auth"})),
+            record(
+                "token",
+                json!({"title": "Token storage", "parentSessionId": "orch", "cwd": "/repo/wt/tok",
+                    "worktree": {"mode": "managed", "id": "w1", "path": "/repo/wt/tok", "branch": "tok"},
+                    "notes": "Review crypto.rs before merging\n", "notesFile": {"path": "/n/token.md", "revision": "sn"}}),
+            ),
+            record(
+                "refresh",
+                json!({"title": "Refresh tokens", "parentSessionId": "token", "agentStatus": "active"}),
+            ),
+            record(
+                "login",
+                json!({"title": "Login UI", "parentSessionId": "orch", "attention": {"state": "needs-input",
+                    "event": "x", "at": "2026-11-14T00:00:00.000Z"}}),
+            ),
+            record("loose", json!({"title": "No line yet", "parentSessionId": "token"})),
+        ]
+    }
+
+    fn work_note(kind: WorkNoteKind, id: &str, text: &str, revision: &str) -> WorkNote {
+        WorkNote {
+            kind,
+            id: id.into(),
+            path: format!("/notes/{id}.md"),
+            text: text.into(),
+            revision: revision.into(),
+            too_large: None,
+            from: None,
+            at: None,
         }
     }
 
-    fn props<'a>(tasks: &'a [Task], sessions: &'a [&'a SessionRecord]) -> TasksFlowProps<'a> {
+    fn doc(text: &str, notes: Option<Vec<WorkNote>>) -> TasksDoc {
+        TasksDoc {
+            key: "k".to_owned(),
+            path: "/notes/tasks/k.md".to_owned(),
+            text: text.to_owned(),
+            revision: "r".to_owned(),
+            too_large: None,
+            notes,
+        }
+    }
+
+    /// The walkthrough's notes as `watch-tasks` answers them: Token storage's brief and note, and the scratchpad.
+    fn walkthrough_note_list() -> Vec<WorkNote> {
+        let mut brief = work_note(
+            WorkNoteKind::Brief,
+            "tok",
+            "Store tokens encrypted at rest.\nDone when tests pass.",
+            "b1",
+        );
+        brief.from = Some("◎ Rework auth".into());
+        brief.at = Some("2026-11-14T09:00:00.000Z".into());
+        vec![
+            brief,
+            work_note(
+                WorkNoteKind::Line,
+                "tok",
+                "- [x] chose AES-GCM\nkeys live in the keychain\n",
+                "l1",
+            ),
+            work_note(
+                WorkNoteKind::Scratchpad,
+                "k",
+                "# Ideas\n- [ ] cache the JWKS\nloose thought\n",
+                "s1",
+            ),
+        ]
+    }
+
+    fn walkthrough_notes() -> NoteMap {
+        let mut map = NoteMap::default();
+        map.load(&doc(LIST, Some(walkthrough_note_list())));
+        map
+    }
+
+    /// A board's inputs, kept for the props to borrow.
+    struct Board {
+        list: TaskList,
+        notes: NoteMap,
+        doc: TasksDoc,
+        sessions: Vec<SessionRecord>,
+    }
+
+    impl Board {
+        fn new(text: &str, notes: NoteMap, sessions: Vec<SessionRecord>) -> Board {
+            Board {
+                list: TaskList::parse(text),
+                notes,
+                doc: doc(text, None),
+                sessions,
+            }
+        }
+
+        fn walkthrough() -> Board {
+            Board::new(LIST, walkthrough_notes(), walkthrough_sessions())
+        }
+    }
+
+    fn props<'a>(board: &'a Board, refs: &'a [&'a SessionRecord]) -> TasksFlowProps<'a> {
         TasksFlowProps {
             client: None,
             repo_root: "<TMP>/demo",
-            doc: None,
-            tasks,
-            sessions,
+            doc: Some(&board.doc),
+            list: &board.list,
+            notes: &board.notes,
+            sessions: refs,
             spinner_frame: "⠋",
         }
     }
@@ -2264,9 +2498,9 @@ pub(crate) mod tests {
         Input::key("", key)
     }
 
-    fn ctrl_s() -> Input {
+    fn ctrl(letter: &str) -> Input {
         Input::key(
-            "s",
+            letter,
             Key {
                 ctrl: true,
                 ..Key::NONE
@@ -2395,47 +2629,58 @@ pub(crate) mod tests {
         deckhand_testkit::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &text.join("\n"));
     }
 
-    fn editor(kind: TaskEditorKind, field: TaskEditorField, title: &str, body: &str) -> TaskEditor {
+    fn editor(kind: TaskEditorKind, field: TaskEditorField, title: &str, note: &str) -> TaskEditor {
         TaskEditor {
             kind,
             id: (kind == TaskEditorKind::Edit).then(|| TASK_ID.to_owned()),
-            section: None,
+            parent: None,
+            session: None,
             field,
             title: EditorState {
                 text: title.to_owned(),
                 cursor: title.len(),
                 ..EditorState::default()
             },
-            body: EditorState {
-                text: body.to_owned(),
-                cursor: body.len(),
+            note: EditorState {
+                text: note.to_owned(),
+                cursor: note.len(),
                 ..EditorState::default()
             },
+            note_before: String::new(),
+            revision: deckhand_core::notes::note_revision(""),
         }
+    }
+
+    fn one_line() -> String {
+        format!("- [ ] Write the docs <!-- dh:t={TASK_ID} added={DATE} -->\n")
     }
 
     #[test]
     fn the_empty_board_matches_the_snapshot() {
+        let board = Board::new("", NoteMap::default(), Vec::new());
+        let props = props(&board, &[]);
         let mut flow = TasksFlow::default();
-        let props = props(&[], &[]);
         flow.open(None, &props);
         assert_pane("15-tasks-empty", &mut flow, &props);
     }
 
     #[test]
-    fn the_new_task_editor_matches_the_snapshots() {
-        let mut flow = TasksFlow::default();
-        let props = props(&[], &[]);
-        flow.editor = Some(editor(
-            TaskEditorKind::Add,
-            TaskEditorField::Title,
-            "Write the docs",
-            "",
-        ));
+    fn the_new_line_editor_matches_the_snapshots() {
+        let board = Board::new("", NoteMap::default(), Vec::new());
+        let props = props(&board, &[]);
+        let mut flow = TasksFlow {
+            editor: Some(editor(
+                TaskEditorKind::Add,
+                TaskEditorField::Title,
+                "Write the docs",
+                "",
+            )),
+            ..TasksFlow::default()
+        };
         assert_pane("16-task-new", &mut flow, &props);
         flow.editor = Some(editor(
             TaskEditorKind::Add,
-            TaskEditorField::Body,
+            TaskEditorField::Note,
             "Write the docs",
             "why: people ask",
         ));
@@ -2443,46 +2688,56 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_board_with_a_task_matches_the_snapshots() {
-        let tasks = [task(TASK_ID, "Write the docs", "why: people ask")];
-        let props = props(&tasks, &[]);
+    fn the_board_with_a_line_matches_the_snapshots() {
+        let mut notes = NoteMap::default();
+        notes.load(&doc(
+            &one_line(),
+            Some(vec![work_note(WorkNoteKind::Line, TASK_ID, "why: people ask\n", "n1")]),
+        ));
+        let board = Board::new(&one_line(), notes, Vec::new());
+        let props = props(&board, &[]);
         let mut flow = TasksFlow {
-            selected: RowSelection::task(TASK_ID),
+            selected: RowSelection::line(TASK_ID),
             ..TasksFlow::default()
         };
         assert_pane("18-tasks-board", &mut flow, &props);
-        // Enter: the edit form, filled in.
+        // Enter: the title and the line's note, filled in, the note's revision kept for the save.
         let mut cx = cx();
         press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
+        let editing = flow.editor.clone().unwrap_or_else(|| panic!("the editor"));
         assert_eq!(
-            flow.editor,
-            Some(editor(
+            (
+                editing.kind,
+                editing.field,
+                editing.title.text.as_str(),
+                editing.note.text.as_str()
+            ),
+            (
                 TaskEditorKind::Edit,
                 TaskEditorField::Title,
                 "Write the docs",
-                "why: people ask"
-            ))
+                "why: people ask\n"
+            )
         );
+        assert_eq!(editing.revision, "n1");
         assert_pane("19-task-edit", &mut flow, &props);
-        // Esc, then w: the move picker, on the backlog where it is.
+        // Esc (nothing changed) closes; w: the move menu, on the backlog where it is.
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
         assert_eq!(flow.editor, None);
         typed(&mut flow, &props, &mut cx, "w");
         assert_eq!(
             flow.picker,
             Some(TaskPicker {
-                task_id: TASK_ID.to_owned(),
+                line_id: TASK_ID.to_owned(),
                 title: "Write the docs".to_owned(),
-                current: None,
-                origin: None,
-                view: PickerView::Worktrees,
+                view: MoveView::Lines,
                 query: String::new(),
                 typing: false,
                 index: 0,
             })
         );
         assert_pane("20-task-move", &mut flow, &props);
-        // Esc, then tab: the notes view (no notes yet).
+        // Esc, then tab: the notes view.
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
         assert_eq!(flow.picker, None);
         press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
@@ -2491,831 +2746,101 @@ pub(crate) mod tests {
         assert!(effects(&mut cx).is_empty());
     }
 
-    // -----------------------------------------------------------------------------------------------------------
-    // The TS board (recorded once from src/tasksFlow.tsx rendered by Ink with the same repository and keys).
-
-    /// (label, input, key as Ink JSON, hint, callbacks, frame rows).
-    type TsStep = (
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static [&'static str],
-        &'static [&'static str],
-    );
-
-    /// The TS board (tasksFlow.tsx rendered by Ink at 98x31) after each step: the label, the input and key,
-    /// the hint at 98 columns, the callbacks it made, and the frame rows checked (all, or the last 14).
-    const TS_STEPS: &[TsStep] = &[
-        (
-            "start",
-            "",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[
-                "╭────────────────────────────────────────────────────────────────────────────────────────────────╮",
-                "│ ☐ Tasks · repo                                                          5 open · 3 in progress │",
-                "│                                                                                                │",
-                "│ › ◆ Ship the feature                                                       ⎇ feat  ● idle  1/3 │",
-                "│     ☐ step one                                                                                 │",
-                "│     ☑ step two                                                                                 │",
-                "│     ☐ ship it                                                                                  │",
-                "│ main checkout · beta · 2                                                           ? needs you │",
-                "│   ◆ Check the logs                                                                         0/2 │",
-                "│     ☐ check logs                                                                               │",
-                "│     ☐ Second item ↗ <!-- dh:t=zz99 -->                                                         │",
-                "│   ◆ Second for beta                                                                            │",
-                "│ BACKLOG · 2                                                                                    │",
-                "│   ○ Tried before                                                         tried in ⎇ old-branch │",
-                "│   ○ Plain backlog                                                             added 2026-01-02 │",
-                "│ DONE · this week                                                                               │",
-                "│   ▸ 1 older done · enter shows them                                                            │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ Ship the feature                                                                               │",
-                "│ The task of ⎇ feat: merging or marking it done ticks it · o opens it                           │",
-                "│   the body line one                                                                            │",
-                "│   second line of the body which is quite long so it wraps around the details area width more   │",
-                "│   than once for sure yes …                                                                     │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "picker w1",
-            "w",
-            "{}",
-            "enter move here • / search • tab worktrees / sessions • esc cancel",
-            &[],
-            &[],
-        ),
-        (
-            "picker tab",
-            "",
-            "{\"tab\": true}",
-            "enter move here • / search • tab worktrees / sessions • esc cancel",
-            &[],
-            &[],
-        ),
-        (
-            "picker down",
-            "",
-            "{\"downArrow\": true}",
-            "enter move here • / search • tab worktrees / sessions • esc cancel",
-            &[],
-            &[],
-        ),
-        (
-            "picker search",
-            "/",
-            "{}",
-            "type to search • enter done • ↑↓ move • esc clear",
-            &[],
-            &[],
-        ),
-        (
-            "picker typed",
-            "be",
-            "{}",
-            "type to search • enter done • ↑↓ move • esc clear",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ Move “Ship the feature” to                                                                     │",
-                "│  Worktrees 0   Sessions 1    search: be▏                                                       │",
-                "│   Backlog · no worktree                                                                        │",
-                "│ › main checkout · beta                                                    → a step in its note │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "picker done",
-            "",
-            "{\"return\": true}",
-            "enter move here • / edit search • tab worktrees / sessions • esc clear search",
-            &[],
-            &[],
-        ),
-        (
-            "picker esc",
-            "",
-            "{\"escape\": true}",
-            "enter move here • / search • tab worktrees / sessions • esc cancel",
-            &[],
-            &[],
-        ),
-        (
-            "picker esc2",
-            "",
-            "{\"escape\": true}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "j1",
-            "j",
-            "{}",
-            "space tick • enter open the note • a add step • A new task • E open in editor • esc back",
-            &[],
-            &[],
-        ),
-        (
-            "j2",
-            "j",
-            "{}",
-            "space reopen • enter open the note • a add step • A new task • E open in editor • esc back",
-            &[],
-            &[],
-        ),
-        (
-            "j3",
-            "j",
-            "{}",
-            "space tick • enter open the note • a add step • A new task • E open in editor • esc back",
-            &[],
-            &[],
-        ),
-        (
-            "j4",
-            "j",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ Check the logs                                                                                 │",
-                "│ The task of main checkout · beta: merging or marking it done ticks it · o opens it             │",
-                "│ Which database should I use for the cache layer?                                               │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "o",
-            "o",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &["goto s2"],
-            &[],
-        ),
-        (
-            "n",
-            "n",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &["status That task is already being worked on (o opens its session)"],
-            &[],
-        ),
-        (
-            "x",
-            "x",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &["status x again deletes “Check the logs”"],
-            &[],
-        ),
-        (
-            "J",
-            "J",
-            "{}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "w s2",
-            "w",
-            "{}",
-            "enter move here • / search • tab worktrees / sessions • esc cancel",
-            &[],
-            &[
-                "╭────────────────────────────────────────────────────────────────────────────────────────────────╮",
-                "│ ☐ Tasks · repo                                                          5 open · 3 in progress │",
-                "│                                                                                                │",
-                "│   ◆ Ship the feature                                                       ⎇ feat  ● idle  1/3 │",
-                "│     ☐ step one                                                                                 │",
-                "│     ☑ step two                                                                                 │",
-                "│     ☐ ship it                                                                                  │",
-                "│ main checkout · beta · 2                                                           ? needs you │",
-                "│   ◆ Check the logs                                                                         0/2 │",
-                "│     ☐ check logs                                                                               │",
-                "│     ☐ Second item ↗ <!-- dh:t=zz99 -->                                                         │",
-                "│   ◆ Second for beta                                                                            │",
-                "│ BACKLOG · 2                                                                                    │",
-                "│   ○ Tried before                                                         tried in ⎇ old-branch │",
-                "│   ○ Plain backlog                                                             added 2026-01-02 │",
-                "│ DONE · this week                                                                               │",
-                "│   ▸ 1 older done · enter shows them                                                            │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ Move “Check the logs” to                                                                       │",
-                "│  Worktrees 1   Sessions 1    / search                                                          │",
-                "│   Backlog · no worktree                                                                        │",
-                "│ › main checkout · beta                                                                    here │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "w s2 esc",
-            "",
-            "{\"escape\": true}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "a step editor",
-            "a",
-            "{}",
-            "enter add to the note • esc add",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ New step · the note of main checkout · beta                                                    │",
-                "│ Title                                                                                          │",
-                "│ Details (optional; typed into the agent's input with the title)                                │",
-                "│                                                                                                │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        // Not in the TS: Esc adds what was typed; with nothing typed it just closes (the recording typed "hello world").
-        ("nothing typed", "", "{}", "enter add to the note • esc add", &[], &[]),
-        (
-            "tab in step",
-            "",
-            "{\"tab\": true}",
-            "enter add to the note • esc add",
-            &[],
-            &[],
-        ),
-        (
-            "esc",
-            "",
-            "{\"escape\": true}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        ("A editor", "A", "{}", "enter save • tab details • esc save", &[], &[]),
-        (
-            "tab body",
-            "",
-            "{\"tab\": true}",
-            "enter new line • ctrl+s save • tab title • esc save",
-            &[],
-            &[],
-        ),
-        (
-            "body typed",
-            "line one",
-            "{}",
-            "enter new line • ctrl+s save • tab title • esc save",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ New task · backlog                                                                             │",
-                "│ Title                                                                                          │",
-                "│ Details                                                                                        │",
-                "│   line one                                                                                     │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "esc2",
-            "",
-            "{\"escape\": true}",
-            "a step • A task • n start • w move • enter edit • space ✓ • o session • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "G",
-            "G",
-            "{}",
-            "a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "older",
-            "",
-            "{\"return\": true}",
-            "a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "G2",
-            "G",
-            "{}",
-            "a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor",
-            &[],
-            &[
-                "╭────────────────────────────────────────────────────────────────────────────────────────────────╮",
-                "│ ☐ Tasks · repo                                                          5 open · 3 in progress │",
-                "│                                                                                                │",
-                "│   ◆ Ship the feature                                                       ⎇ feat  ● idle  1/3 │",
-                "│     ☐ step one                                                                                 │",
-                "│     ☑ step two                                                                                 │",
-                "│     ☐ ship it                                                                                  │",
-                "│ main checkout · beta · 2                                                           ? needs you │",
-                "│   ◆ Check the logs                                                                         0/2 │",
-                "│     ☐ check logs                                                                               │",
-                "│     ☐ Second item ↗ <!-- dh:t=zz99 -->                                                         │",
-                "│   ◆ Second for beta                                                                            │",
-                "│ BACKLOG · 2                                                                                    │",
-                "│   ○ Tried before                                                         tried in ⎇ old-branch │",
-                "│   ○ Plain backlog                                                             added 2026-01-02 │",
-                "│ DONE · this week                                                                               │",
-                "│   ▾ 1 older done · enter hides them                                                            │",
-                "│ › ✓ Finished                                                                2026-01-01  merged │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ Finished                                                                                       │",
-                "│ merged 2026-01-01 · space reopens it                                                           │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "k on older",
-            "k",
-            "{}",
-            "a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor",
-            &[],
-            &[],
-        ),
-        (
-            "v",
-            "v",
-            "{}",
-            "a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor",
-            &["status Select a session first: v shows the tasks of its worktree"],
-            &[],
-        ),
-        (
-            "notes",
-            "",
-            "{\"tab\": true}",
-            "A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[
-                "╭────────────────────────────────────────────────────────────────────────────────────────────────╮",
-                "│ ✎ Notes · repo                                                                    4 open items │",
-                "│                                                                                                │",
-                "│ ⎇ feat · 2                                                                              ● idle │",
-                "│ › Worktree note                                                                         2 open │",
-                "│     Plan                                                                                       │",
-                "│     ☐ step one                                                                                 │",
-                "│     ☑ step two                                                                                 │",
-                "│     ☐ ship it                                                                                  │",
-                "│ main checkout · 2                                                                              │",
-                "│   Beta                                                                                  2 open │",
-                "│     ☐ check logs                                                                               │",
-                "│     plain line                                                                                 │",
-                "│     ☐ Second item ↗ <!-- dh:t=zz99 -->                                                         │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ The worktree note · ⎇ feat                                                                     │",
-                "│ 2 open items · enter opens it in its session’s Notes tab                                       │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "nj",
-            "j",
-            "{}",
-            "A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "nj2",
-            "j",
-            "{}",
-            "a add as a task • A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "nj3",
-            "j",
-            "{}",
-            "A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ ☑ step two                                                                                     │",
-                "│ The worktree note · ⎇ feat · enter opens the note                                              │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "nj4",
-            "j",
-            "{}",
-            "a add as a task • A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "nj5",
-            "j",
-            "{}",
-            "A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "nj6",
-            "j",
-            "{}",
-            "a add as a task • A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "nj7",
-            "j",
-            "{}",
-            "A send all open items • enter open the note • f open items only • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "items only",
-            "f",
-            "{}",
-            "A send all open items • enter open the note • f every note • tab tasks",
-            &[],
-            &[
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│                                                                                                │",
-                "│ ────────────────────────────────────────────────────────────────────────────────────────────── │",
-                "│ The worktree note · ⎇ feat                                                                     │",
-                "│ 2 open items · enter opens it in its session’s Notes tab                                       │",
-                "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
-            ],
-        ),
-        (
-            "ij",
-            "j",
-            "{}",
-            "a add as a task • A send all open items • enter open the note • f every note • tab tasks",
-            &[],
-            &[],
-        ),
-        (
-            "enter note",
-            "",
-            "{\"return\": true}",
-            "a add as a task • A send all open items • enter open the note • f every note • tab tasks",
-            &["note s1"],
-            &[],
-        ),
-    ];
-
-    const TS_BANNER: &[&str] = &[
-        "◆ Task Ship the…   1/3 steps · +1 open here · idle · b board",
-        "────────────────────────────────────────────────────────────",
-    ];
-
-    /// The repository of TS_STEPS: a worktree session with a note checklist and a main-checkout session that
-    /// needs input, with notes of its own.
-    const TS_SESSIONS: &str = r##"[{"id": "s1", "title": "alpha", "program": "claude", "command": "claude", "cwd": "/repo/wt/feat", "repoRoot": "/repo", "status": "running", "agentStatus": "idle", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z", "worktree": {"mode": "managed", "path": "/repo/wt/feat", "branch": "feat", "id": "w1"}, "sharedNotes": {"kind": "worktree", "id": "w1", "path": "/n/w1.md", "text": "# Plan\n- [ ] step one\n- [x] step two\n- [ ] ship it\n", "revision": "r1"}}, {"id": "s2", "title": "beta", "program": "claude", "command": "claude", "cwd": "/repo", "repoRoot": "/repo", "status": "running", "agentStatus": "active", "createdAt": "2026-01-02T00:00:00.000Z", "updatedAt": "2026-01-02T00:00:00.000Z", "notes": "- [ ] check logs\nplain line\n- [ ] Second item ↗ <!-- dh:t=zz99 -->\n", "notesFile": {"path": "/n/s2.md", "revision": "n1"}, "attention": {"state": "needs-input", "event": "x", "at": "2026-01-02T00:00:00.000Z", "reason": {"kind": "question", "text": "Which database should I use for the cache layer?"}}}]"##;
-
-    const TS_TASKS: &str = "- [ ] Ship the feature <!-- dh:t=aa01 wt=w1 -->\n  the body line one\n  second line of the body which is quite long so it wraps around the details area width more than once for sure yes\n  third\n  fourth\n- [ ] Check the logs <!-- dh:t=bb02 s=s2 -->\n- [ ] Second for beta <!-- dh:t=cc03 s=s2 -->\n- [ ] Tried before <!-- dh:t=dd04 tried=old-branch -->\n- [ ] Plain backlog <!-- dh:t=ee05 added=2026-01-02 -->\n- [x] Finished <!-- dh:t=ff06 done=2026-01-01 auto=merge -->\n";
-
-    /// An effect as the TS scenario logged the callback.
-    fn ts_log(effect: &FlowEffect<App>) -> String {
-        match effect {
-            FlowEffect::Exit => "exit".to_owned(),
-            FlowEffect::StartTask(task) => format!("start {}", task.id),
-            FlowEffect::GoTo(id) => format!("goto {id}"),
-            FlowEffect::OpenNote(id) => format!("note {id}"),
-            FlowEffect::TasksDoc(_) => "doc".to_owned(),
-            FlowEffect::Session(_) => "session".to_owned(),
-            FlowEffect::SetError(error) => format!("error {}", error.as_deref().unwrap_or("undefined")),
-            FlowEffect::SetStatus(status) => format!("status {}", status.as_deref().unwrap_or("undefined")),
-            other => format!("{other:?}"),
-        }
-    }
-
     #[test]
-    fn the_board_renders_and_answers_keys_like_the_ts() {
-        let sessions: Vec<SessionRecord> = serde_json::from_str(TS_SESSIONS).unwrap_or_else(|error| panic!("{error}"));
-        let refs: Vec<&SessionRecord> = sessions.iter().collect();
-        let tasks = deckhand_core::tasks::parse_tasks(TS_TASKS);
-        let doc = TasksDoc {
-            key: "k".to_owned(),
-            path: "/repo/tasks.md".to_owned(),
-            text: TS_TASKS.to_owned(),
-            revision: "r".to_owned(),
-            too_large: None,
-            notes: None,
-        };
-        let props = TasksFlowProps {
-            client: None,
-            repo_root: "/repo",
-            doc: Some(&doc),
-            tasks: &tasks,
-            sessions: &refs,
-            spinner_frame: "⠋",
-        };
+    fn a_nested_board_matches_the_snapshot() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
         let mut flow = TasksFlow::default();
+        flow.open(Some("token"), &props);
+        // b from a session selects its line.
+        assert_eq!(flow.selected, RowSelection::line("tok"));
+        assert_pane("22-tasks-nested", &mut flow, &props);
+        // v: only that line's tree.
         let mut cx = cx();
-        for (label, input, key, hint, log, rows) in TS_STEPS {
-            let key: Key = serde_json::from_str(key).unwrap_or_else(|error| panic!("{error}"));
-            if !input.is_empty() || key != Key::NONE {
-                flow.handle_input(&props, &Input::key(*input, key), &mut cx);
-            }
-            let logged: Vec<String> = cx.take_effects().iter().map(ts_log).collect();
-            assert_eq!(logged, *log, "{label}: callbacks");
-            let area = Rect::new(0, 0, 98, 31);
-            let mut buf = Buffer::empty(area);
-            flow.render(&props, &mut buf, area);
-            let got = buffer_rows(&buf);
-            let shown = if rows.len() == got.len() {
-                &got[..]
-            } else {
-                &got[got.len() - rows.len()..]
-            };
-            assert_eq!(shown, *rows, "{label}: frame");
-            assert_eq!(flow.hint(&props, 98), *hint, "{label}: hint");
-        }
-        let banner = task_banner_rows(
-            &TaskBannerProps {
-                task: &tasks[0],
-                more: 1,
-                steps: Some(StepCount { done: 1, total: 3 }),
-                sessions: &refs,
-                spinner_frame: "⠋",
-            },
-            60,
-        );
-        let banner: Vec<String> = banner.iter().map(|row| row_text(row).trim_end().to_owned()).collect();
-        assert_eq!(banner, TS_BANNER);
+        typed(&mut flow, &props, &mut cx, "v");
+        let shown: Vec<String> = flow
+            .rows(&props)
+            .iter()
+            .filter_map(|row| match row {
+                BoardRow::Line { line, depth, .. } => Some(format!("{}{}", "  ".repeat(*depth), line.title)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(shown, ["Token storage", "  schema", "  encryption", "  refresh tokens"]);
     }
 
     #[test]
-    fn c_hides_and_shows_a_tasks_steps() {
-        let sessions: Vec<SessionRecord> = serde_json::from_str(TS_SESSIONS).unwrap_or_else(|error| panic!("{error}"));
-        let refs: Vec<&SessionRecord> = sessions.iter().collect();
-        let tasks = deckhand_core::tasks::parse_tasks(TS_TASKS);
-        let props = props(&tasks, &refs);
-        let mut flow = TasksFlow::default();
-        let mut cx = cx();
-        let steps_under = |flow: &TasksFlow, title: &str| -> Vec<String> {
+    fn the_notes_view_matches_the_snapshot() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
+        let mut flow = TasksFlow {
+            view: TasksView::Notes,
+            with_text: true,
+            ..TasksFlow::default()
+        };
+        assert_pane("65-tasks-notes-view", &mut flow, &props);
+    }
+
+    #[test]
+    fn rows_show_who_is_on_a_line_its_count_and_its_brief() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
+        let flow = TasksFlow::default();
+        let text = |id: &str| -> String {
             let rows = flow.rows(&props);
-            let at = rows
+            let row = rows
                 .iter()
-                .position(|row| matches!(row, BoardRow::Task { task, .. } if task.title == title))
-                .unwrap_or_else(|| panic!("{title}"));
-            rows[at + 1..]
-                .iter()
-                .map_while(|row| match row {
-                    BoardRow::Step { step, .. } => Some(step.text.clone()),
-                    _ => None,
-                })
-                .collect()
+                .find(|row| matches!(row, BoardRow::Line { line, .. } if line.id == id))
+                .unwrap_or_else(|| panic!("no row {id}"));
+            row_text(&board_line(row, false, 90, props.sessions, "⠋"))
+                .trim_end()
+                .to_owned()
         };
-        let selected_title = |flow: &TasksFlow| -> String {
-            let rows = flow.rows(&props);
-            match flow.current(&rows).and_then(|index| rows.get(index)) {
-                Some(BoardRow::Task { task, .. }) => task.title.clone(),
-                Some(BoardRow::Step { step, .. }) => format!("step {}", step.text),
-                other => panic!("{other:?}"),
-            }
-        };
-        assert_eq!(
-            steps_under(&flow, "Ship the feature"),
-            ["step one", "step two", "ship it"]
-        );
-        assert!(flow.hint(&props, 200).contains("c hide steps"));
-
-        // On a task: its steps go, its count says so, and the hint offers them back.
-        typed(&mut flow, &props, &mut cx, "c");
-        assert!(steps_under(&flow, "Ship the feature").is_empty());
-        assert_eq!(selected_title(&flow), "Ship the feature");
-        let rows = buffer_rows(&render(&mut flow, &props));
-        assert!(
-            rows.iter()
-                .any(|row| row.contains("◆ Ship the feature") && row.contains("▸ 1/3"))
-        );
-        assert!(flow.hint(&props, 200).contains("c show steps"));
-
-        // On a step: its task's steps go, and the selection moves up to the task.
-        typed(&mut flow, &props, &mut cx, "j");
-        typed(&mut flow, &props, &mut cx, "j");
-        assert_eq!(selected_title(&flow), "step check logs");
-        typed(&mut flow, &props, &mut cx, "c");
-        assert_eq!(selected_title(&flow), "Check the logs");
-        assert!(steps_under(&flow, "Check the logs").is_empty());
-
-        // Again: shown, the other task's still hidden.
-        typed(&mut flow, &props, &mut cx, "c");
-        assert_eq!(steps_under(&flow, "Check the logs").len(), 2);
-        assert!(steps_under(&flow, "Ship the feature").is_empty());
-        assert_eq!(flow.collapsed_steps, [tasks[0].id.clone()]);
-
-        // A task without steps has none to hide.
-        typed(&mut flow, &props, &mut cx, "j");
-        typed(&mut flow, &props, &mut cx, "j");
-        typed(&mut flow, &props, &mut cx, "j");
-        assert_eq!(selected_title(&flow), "Second for beta");
-        typed(&mut flow, &props, &mut cx, "c");
-        assert_eq!(flow.collapsed_steps.len(), 1);
-        assert!(
-            effects(&mut cx)
-                .iter()
-                .any(|effect| effect.contains("no steps to hide"))
-        );
-    }
-
-    // -----------------------------------------------------------------------------------------------------------
-    // Pure helpers
-
-    #[test]
-    fn capitalize_upper_cases_the_first_code_unit() {
-        assert_eq!(capitalize(""), "");
-        assert_eq!(capitalize("worktree note"), "Worktree note");
-        assert_eq!(capitalize("ßeta"), "SSeta");
-        // An astral first character is half a surrogate pair to JS: left as it is.
-        assert_eq!(capitalize("𐐨x"), "𐐨x");
+        let token = text("tok");
+        assert!(token.starts_with("    ☐ Token storage"), "{token}");
+        assert!(token.ends_with("Token storage ● idle  1/3 ✎"), "{token}");
+        assert!(text("idea").ends_with("Rework auth ● idle  0/3"));
+        assert!(text("ref").ends_with("Refresh tokens ⠋ working"));
+        assert!(text("ui").ends_with("Login UI ? needs you"));
+        assert!(text("leg").ends_with("tried in ⎇ old-auth"));
+        assert!(text("sch").starts_with("      ☑ schema"));
+        assert!(text("ship").ends_with("✓ merged 2099-01-01"));
+        // Nothing on the right of a backlog line.
+        assert_eq!(text("rate"), "  ☐ Rate-limit export");
+        assert_eq!(string_width(&text("tok")), 90);
     }
 
     #[test]
-    fn parse_added_finds_the_new_id() {
-        let doc = TasksDoc {
-            key: "k".to_owned(),
-            path: "/tasks.md".to_owned(),
-            text: "- [ ] A <!-- dh:t=aa -->\n- [ ] B <!--\tdh:t=bb added=1 -->\n- [ ] C <!--dh:t=XY -->\n".to_owned(),
-            revision: "r".to_owned(),
-            too_large: None,
-            notes: None,
-        };
-        let before: HashSet<String> = ["aa".to_owned()].into_iter().collect();
-        assert_eq!(parse_added(&doc, &before), Some("bb".to_owned()));
-        let all: HashSet<String> = ["aa".to_owned(), "bb".to_owned()].into_iter().collect();
-        assert_eq!(parse_added(&doc, &all), None);
-    }
-
-    #[test]
-    fn neighbors_stay_within_their_group() {
-        let a = task("aa", "A", "");
-        let b = task("bb", "B", "");
-        let row = |task: &Task, section: &str| BoardRow::Task {
-            task: task.clone(),
-            group: TaskGroup::Backlog,
-            section: section.to_owned(),
-            steps: None,
-            heads_work: None,
-        };
-        let rows = vec![
-            BoardRow::Heading {
-                text: "BACKLOG".to_owned(),
-                count: None,
+    fn the_task_banner_counts_its_lines() {
+        let task = Task {
+            id: TASK_ID.to_owned(),
+            title: "Write the docs".to_owned(),
+            done: false,
+            body: String::new(),
+            meta: TaskMeta {
+                t: Some(TASK_ID.to_owned()),
+                added: Some(DATE.to_owned()),
+                ..TaskMeta::default()
             },
-            row(&a, "backlog"),
-            row(&b, "backlog"),
-            row(&a, "done"),
-        ];
-        let id = |task: Option<&Task>| task.map(|task| task.id.clone());
-        assert_eq!(id(neighbor_in_group(&rows, 1, 1, "backlog")), Some("bb".to_owned()));
-        assert_eq!(id(neighbor_in_group(&rows, 2, -1, "backlog")), Some("aa".to_owned()));
-        assert_eq!(neighbor_in_group(&rows, 1, -1, "backlog"), None);
-        assert_eq!(neighbor_in_group(&rows, 2, 1, "backlog"), None);
-        assert_eq!(neighbor_in_group(&rows, 0, -1, "backlog"), None);
-        assert_eq!(neighbor_in_group(&rows, 3, 1, "done"), None);
-    }
-
-    #[test]
-    fn editor_options_match_the_ts_limits() {
-        assert_eq!(title_options().max_chars, Some(MAX_TASK_TITLE));
-        assert_eq!(
-            title_options().limit_message.as_deref(),
-            Some("A title is at most 300 characters")
-        );
-        assert_eq!(
-            body_options().limit_message.as_deref(),
-            Some("A task's details are at most 4000 characters")
-        );
-        assert_eq!(body_options().select_all, Some(false));
-        assert_eq!(body_options().tab, Some(false));
-    }
-
-    #[test]
-    fn the_task_banner_names_the_task_and_the_board_key() {
-        let task = task(TASK_ID, "Write the docs", "");
+        };
         let props = TaskBannerProps {
             task: &task,
-            more: 2,
+            more: 0,
             steps: Some(StepCount { done: 1, total: 3 }),
             sessions: &[],
             spinner_frame: "⠋",
         };
         let rows = task_banner_rows(&props, 80);
-        assert_eq!(rows.len(), 2);
         let first = row_text(&rows[0]);
         assert!(first.starts_with("◆ Task Write the docs"), "{first}");
         assert!(
-            first.ends_with(&format!("1/3 steps · +2 open here · added {DATE} · b board")),
+            first.ends_with(&format!("1/3 steps · added {DATE} · b board")),
             "{first}"
         );
-        assert_eq!(string_width(&first), 80);
         assert_eq!(row_text(&rows[1]), "─".repeat(80));
-        let no_steps = TaskBannerProps {
-            more: 0,
-            steps: Some(StepCount { done: 0, total: 0 }),
-            ..props
-        };
-        assert!(row_text(&task_banner_rows(&no_steps, 80)[0]).ends_with(&format!("added {DATE} · b board")));
-        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 2));
-        render_task_banner(&props, &mut buf, Rect::new(0, 0, 40, 2));
-        assert_eq!(buf[(0, 1)].symbol(), "─");
     }
 
     #[test]
@@ -3324,386 +2849,711 @@ pub(crate) mod tests {
         assert!(crate::keymap::unknown_topics(KEYMAP).is_empty());
     }
 
+    #[test]
+    fn parse_added_finds_the_new_id() {
+        let before: HashSet<String> = ["aa".to_owned()].into_iter().collect();
+        let next = doc("- [ ] A <!-- dh:t=aa -->\n  - [ ] B <!-- dh:t=bb -->\n", None);
+        assert_eq!(parse_added(&next, &before).as_deref(), Some("bb"));
+        assert_eq!(parse_added(&doc("- [ ] A <!-- dh:t=aa -->\n", None), &before), None);
+    }
+
     // -----------------------------------------------------------------------------------------------------------
-    // Keys
+    // Keys without the daemon
 
     #[test]
-    fn the_editor_adds_to_the_backlog_and_checks_the_title() {
+    fn n_on_a_nested_line_starts_a_sub_session_of_the_session_above() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
         let mut flow = TasksFlow::default();
-        let props = props(&[], &[]);
         let mut cx = cx();
-        typed(&mut flow, &props, &mut cx, "a");
-        let state = flow.editor.clone().unwrap_or_else(|| panic!("the editor"));
-        assert_eq!(
-            (state.kind, state.section, state.field),
-            (TaskEditorKind::Add, None, TaskEditorField::Title)
-        );
-        // An empty title is refused.
-        press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
-        assert_eq!(effects(&mut cx), ["SetError(Some(\"A task needs a title\"))"]);
-        // Typed text (a pasted newline becomes a space); arrows do nothing in the title.
-        typed(&mut flow, &props, &mut cx, "Fix\nit");
-        press(&mut flow, &props, &mut cx, key(|key| key.up_arrow = true));
-        assert_eq!(
-            flow.editor.as_ref().map(|state| state.title.text.as_str()),
-            Some("Fix it")
-        );
-        // Tab: the details; Enter there is a new line.
-        press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
-        typed(&mut flow, &props, &mut cx, "one");
-        press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
-        typed(&mut flow, &props, &mut cx, "two");
-        let state = flow.editor.clone().unwrap_or_else(|| panic!("the editor"));
-        assert_eq!(state.field, TaskEditorField::Body);
-        assert_eq!(state.body.text, "one\ntwo");
-        assert_eq!(
-            flow.hint(&props, 130),
-            "enter new line • ctrl+s save • tab title • esc save"
-        );
-        // Ctrl+S saves: without a daemon, the error says so.
-        press(&mut flow, &props, &mut cx, ctrl_s());
-        assert_eq!(effects(&mut cx), ["SetError(Some(\"still connecting to daemon\"))"]);
-        assert!(flow.editor.is_some());
-        // Not in the TS: Esc saves too (it threw the draft away); without a daemon the editor stays, nothing lost.
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert_eq!(effects(&mut cx), ["SetError(Some(\"still connecting to daemon\"))"]);
-        assert!(flow.editor.is_some());
-        // An empty title has nothing to keep: Esc closes it.
-        let empty = TaskEditor {
-            title: EditorState::default(),
-            ..flow.editor.clone().unwrap_or_else(|| panic!("the editor"))
+        let mut n_on = |flow: &mut TasksFlow, id: &str| {
+            flow.selected = RowSelection::line(id);
+            typed(flow, &props, &mut cx, "n");
+            effects(&mut cx)
         };
-        flow.editor = Some(empty);
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert!(flow.editor.is_none() && effects(&mut cx).is_empty());
-        // A: always a backlog task.
-        typed(&mut flow, &props, &mut cx, "A");
-        assert_eq!(flow.editor.as_ref().map(|state| state.kind), Some(TaskEditorKind::Add));
+        // Under Token storage's line: a sub-session of Token storage, on that line.
+        assert_eq!(
+            n_on(&mut flow, "enc"),
+            [r#"StartTask { task: "enc", parent: Some("token") }"#]
+        );
+        // Under the idea's line (nobody on the line itself): a sub-session of the orchestrator.
+        assert_eq!(
+            n_on(&mut flow, "leg"),
+            [r#"StartTask { task: "leg", parent: Some("orch") }"#]
+        );
+        // A top-level line: the usual new session.
+        assert_eq!(n_on(&mut flow, "rate"), [r#"StartTask { task: "rate", parent: None }"#]);
+        // Someone on it, or done: said, nothing started.
+        assert_eq!(
+            n_on(&mut flow, "tok"),
+            [r#"SetStatus(Some("Someone is on it already (o selects the session)"))"#]
+        );
+        assert_eq!(
+            n_on(&mut flow, "sch"),
+            [r#"SetStatus(Some("That line is done; space reopens it"))"#]
+        );
     }
 
     #[test]
-    fn the_title_limit_is_reported() {
-        let mut flow = TasksFlow::default();
-        let props = props(&[], &[]);
-        let mut cx = cx();
-        typed(&mut flow, &props, &mut cx, "a");
-        typed(&mut flow, &props, &mut cx, &"x".repeat(MAX_TASK_TITLE + 1));
-        assert_eq!(
-            effects(&mut cx),
-            ["SetError(Some(\"A title is at most 300 characters\"))"]
-        );
-        assert_eq!(flow.editor.as_ref().map(|state| state.title.text.as_str()), Some(""));
-    }
-
-    #[test]
-    fn task_keys_on_a_backlog_task() {
-        let tasks = [task(TASK_ID, "Write the docs", ""), task("bb", "Second", "")];
-        let props = props(&tasks, &[]);
-        let mut flow = TasksFlow::default();
-        let mut cx = cx();
-        // The first selectable row is the first backlog task.
-        let rows = flow.rows(&props);
-        let current = flow.current(&rows).unwrap_or_else(|| panic!("a selection"));
-        assert_eq!(row_key(&rows[current]).as_deref(), Some("task:a1b2c3"));
-        typed(&mut flow, &props, &mut cx, "j");
-        assert_eq!(flow.selected.key.as_deref(), Some("task:bb"));
-        typed(&mut flow, &props, &mut cx, "g");
-        assert_eq!(flow.selected.key.as_deref(), Some("task:a1b2c3"));
-        typed(&mut flow, &props, &mut cx, "G");
-        assert_eq!(flow.selected.key.as_deref(), Some("task:bb"));
-        typed(&mut flow, &props, &mut cx, "k");
-        assert_eq!(flow.selected, RowSelection::task(TASK_ID));
-        typed(&mut flow, &props, &mut cx, "n");
-        typed(&mut flow, &props, &mut cx, "o");
-        typed(&mut flow, &props, &mut cx, "v");
-        assert_eq!(
-            effects(&mut cx),
-            [
-                "StartTask(\"a1b2c3\")",
-                "SetStatus(Some(\"That task has no session; n starts one\"))",
-                "SetStatus(Some(\"Select a session first: v shows the tasks of its worktree\"))",
-            ]
-        );
-        // x asks first; another key forgets it; x twice deletes (no daemon here).
-        typed(&mut flow, &props, &mut cx, "x");
-        assert_eq!(flow.pending_delete.armed().map(String::as_str), Some(TASK_ID));
-        typed(&mut flow, &props, &mut cx, "z");
-        assert_eq!(flow.pending_delete.armed(), None);
-        typed(&mut flow, &props, &mut cx, "x");
-        typed(&mut flow, &props, &mut cx, "x");
-        assert_eq!(
-            effects(&mut cx),
-            [
-                "SetStatus(Some(\"x again deletes “Write the docs”\"))",
-                "SetStatus(Some(\"x again deletes “Write the docs”\"))",
-                "SetError(Some(\"still connecting to daemon\"))",
-            ]
-        );
-        // The picker: Enter on the backlog where it is already.
-        typed(&mut flow, &props, &mut cx, "w");
-        assert!(flow.picker.is_some());
-        press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
-        assert_eq!(flow.picker, None);
-        assert_eq!(effects(&mut cx), ["SetStatus(Some(\"It is already there\"))"]);
-        // Esc leaves the board.
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert_eq!(effects(&mut cx), ["Exit"]);
-    }
-
-    #[test]
-    fn the_picker_searches_and_switches_views() {
-        let tasks = [task(TASK_ID, "Write the docs", "")];
-        let props = props(&tasks, &[]);
-        let mut flow = TasksFlow::default();
-        let mut cx = cx();
-        typed(&mut flow, &props, &mut cx, "w");
-        typed(&mut flow, &props, &mut cx, "/");
-        assert_eq!(flow.picker.as_ref().map(|picker| picker.typing), Some(true));
-        assert_eq!(
-            flow.hint(&props, 130),
-            "type to search • enter done • ↑↓ move • esc clear"
-        );
-        typed(&mut flow, &props, &mut cx, "do");
-        typed(&mut flow, &props, &mut cx, "c\u{1b}[A");
-        assert_eq!(flow.picker.as_ref().map(|picker| picker.query.as_str()), Some("doc"));
-        press(&mut flow, &props, &mut cx, key(|key| key.backspace = true));
-        assert_eq!(flow.picker.as_ref().map(|picker| picker.query.as_str()), Some("do"));
-        press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
-        let picker = flow.picker.clone().unwrap_or_else(|| panic!("the picker"));
-        assert_eq!((picker.typing, picker.query.as_str()), (false, "do"));
-        assert_eq!(
-            flow.hint(&props, 130),
-            "enter move here • / edit search • tab worktrees / sessions • esc clear search"
-        );
-        let buf = render(&mut flow, &props);
-        let rows = buffer_rows(&buf);
-        assert!(rows.iter().any(|row| row.contains("search: do")), "{rows:#?}");
-        assert!(
-            rows.iter().any(|row| row.contains("Nothing in worktrees matches “do”")),
-            "{rows:#?}"
-        );
-        typed(&mut flow, &props, &mut cx, "l");
-        assert_eq!(
-            flow.picker.as_ref().map(|picker| picker.view),
-            Some(PickerView::Sessions)
-        );
-        press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
-        assert_eq!(
-            flow.picker.as_ref().map(|picker| picker.view),
-            Some(PickerView::Worktrees)
-        );
-        // Esc clears the search first, then closes.
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert_eq!(flow.picker.as_ref().map(|picker| picker.query.as_str()), Some(""));
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert_eq!(flow.picker, None);
-        assert!(effects(&mut cx).is_empty());
-    }
-
-    #[test]
-    fn the_picker_moves_with_ctrl_keys_while_typing_its_search() {
-        let sessions: Vec<SessionRecord> = serde_json::from_str(TS_SESSIONS).unwrap_or_else(|error| panic!("{error}"));
-        let refs: Vec<&SessionRecord> = sessions.iter().collect();
-        let tasks = [task(TASK_ID, "Write the docs", "")];
-        let props = props(&tasks, &refs);
-        let mut flow = TasksFlow::default();
-        let mut cx = cx();
-        typed(&mut flow, &props, &mut cx, "w");
-        typed(&mut flow, &props, &mut cx, "/");
-        let index = |flow: &TasksFlow| flow.picker.as_ref().map(|picker| picker.index);
-        // It opens on the second row. Ctrl+J is the bare line feed the terminal sends; Ctrl+K, Ctrl+N and Ctrl+P
-        // arrive as Ctrl+letter.
-        assert_eq!(index(&flow), Some(1));
-        for (bytes, at) in [("\x0b", 0), ("\n", 1), ("\x10", 0), ("\x0e", 1)] {
-            press(&mut flow, &props, &mut cx, crate::input::input_for_event(bytes));
-            assert_eq!(index(&flow), Some(at), "{bytes:?}");
-        }
-        let picker = flow.picker.clone().unwrap_or_else(|| panic!("the picker"));
-        assert_eq!((picker.typing, picker.query.as_str()), (true, ""));
-    }
-
-    #[test]
-    fn nothing_selected_asks_for_a_task() {
-        let props = props(&[], &[]);
-        let mut flow = TasksFlow::default();
-        let mut cx = cx();
-        // The empty backlog row is selected: it is not a task.
-        typed(&mut flow, &props, &mut cx, "n");
-        typed(&mut flow, &props, &mut cx, "q");
-        assert_eq!(effects(&mut cx), ["SetStatus(Some(\"Select a task first (j/k)\"))"]);
-        // The notes view's keys without a note.
-        press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
-        typed(&mut flow, &props, &mut cx, "a");
-        typed(&mut flow, &props, &mut cx, "A");
-        typed(&mut flow, &props, &mut cx, "f");
-        assert!(flow.items_only);
-        assert_eq!(
-            effects(&mut cx),
-            [
-                "SetStatus(Some(\"Select an open checklist item (☐) to add it as a task\"))",
-                "SetStatus(Some(\"Select a note first (j/k)\"))",
-            ]
-        );
-        assert_eq!(flow.hint(&props, 130), "enter open the note • f every note • tab tasks");
-        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert_eq!(flow.view, TasksView::Tasks);
-    }
-
-    #[test]
-    fn open_resets_the_board_onto_the_works_first_task() {
-        let mut linked = task("cc", "Linked", "");
-        linked.meta.wt = Some("w1".to_owned());
-        let tasks = [task(TASK_ID, "Backlog", ""), linked];
-        let props = props(&tasks, &[]);
+    fn o_selects_the_session_on_the_line_and_c_hides_its_lines() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
         let mut flow = TasksFlow {
-            view: TasksView::Notes,
-            pending_delete: {
-                let mut armed = PressAgain::default();
-                armed.arm("x".to_owned());
-                armed
-            },
-            scoped: true,
+            selected: RowSelection::line("tok"),
             ..TasksFlow::default()
         };
-        flow.open(Some("wt:w1"), &props);
-        assert_eq!(flow.view, TasksView::Tasks);
-        assert_eq!(flow.scope.as_deref(), Some("wt:w1"));
-        assert!(!flow.scoped && flow.pending_delete.armed().is_none());
-        assert_eq!(flow.selected, RowSelection::task("cc"));
-        // v narrows to that work, and its hint offers the way back.
         let mut cx = cx();
-        typed(&mut flow, &props, &mut cx, "v");
-        assert!(flow.scoped);
-        let rows = flow.rows(&props);
-        assert!(
-            rows.iter()
-                .all(|row| !matches!(row, BoardRow::Task { task, .. } if task.id == TASK_ID))
+        typed(&mut flow, &props, &mut cx, "o");
+        assert_eq!(effects(&mut cx), [r#"GoTo("token")"#]);
+        flow.selected = RowSelection::line("rate");
+        typed(&mut flow, &props, &mut cx, "o");
+        assert_eq!(
+            effects(&mut cx),
+            [r#"SetStatus(Some("Nobody is on it; n starts a session"))"#]
         );
-        let buf = render(&mut flow, &props);
-        let rendered = buffer_rows(&buf);
-        assert!(rendered[1].contains("1 open · v all tasks"), "{rendered:#?}");
-        assert!(flow.hint(&props, 200).contains("v all tasks"));
+        // c on a line without lines folds its parent, which takes the selection; c again shows them.
+        flow.selected = RowSelection::line("enc");
+        typed(&mut flow, &props, &mut cx, "c");
+        assert_eq!(flow.collapsed_steps, ["tok"]);
+        assert_eq!(flow.selected, RowSelection::line("tok"));
+        assert!(
+            !flow
+                .rows(&props)
+                .iter()
+                .any(|row| matches!(row, BoardRow::Line { line, .. } if line.id == "enc"))
+        );
+        assert!(flow.hint(&props, 200).contains("c show lines"));
+        typed(&mut flow, &props, &mut cx, "c");
+        assert!(flow.collapsed_steps.is_empty());
+        // x asks first, naming what goes with it.
+        typed(&mut flow, &props, &mut cx, "x");
+        assert_eq!(
+            effects(&mut cx),
+            [r#"SetStatus(Some("x again removes “Token storage” and the 3 lines under it"))"#]
+        );
+        // a: a new line under the selected one; A: at the top level.
+        typed(&mut flow, &props, &mut cx, "a");
+        let adding = flow.editor.take().unwrap_or_else(|| panic!("the editor"));
+        assert_eq!(
+            (adding.kind, adding.parent.as_deref()),
+            (TaskEditorKind::Add, Some("tok"))
+        );
+        typed(&mut flow, &props, &mut cx, "A");
+        let adding = flow.editor.take().unwrap_or_else(|| panic!("the editor"));
+        assert_eq!(adding.parent, None);
+    }
+
+    #[test]
+    fn the_notes_view_opens_each_note_where_it_is_edited() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
+        let mut flow = TasksFlow {
+            view: TasksView::Notes,
+            ..TasksFlow::default()
+        };
+        let mut cx = cx();
+        let enter = || key(|key| key.return_ = true);
+        // The scratchpad: the board's editor on it, at its revision.
+        flow.selected = RowSelection {
+            key: Some("note:scratchpad".to_owned()),
+            index: 0,
+        };
+        press(&mut flow, &props, &mut cx, enter());
+        let editing = flow.editor.take().unwrap_or_else(|| panic!("the editor"));
+        assert_eq!(
+            (editing.kind, editing.revision.as_str()),
+            (TaskEditorKind::Scratchpad, "s1")
+        );
+        assert!(editing.note.text.starts_with("# Ideas"));
+        // A line's note: the line's editor, on its note.
+        flow.selected = RowSelection {
+            key: Some("note:line:tok".to_owned()),
+            index: 0,
+        };
+        press(&mut flow, &props, &mut cx, enter());
+        let editing = flow.editor.take().unwrap_or_else(|| panic!("the editor"));
+        assert_eq!(
+            (
+                editing.kind,
+                editing.field,
+                editing.id.as_deref(),
+                editing.revision.as_str()
+            ),
+            (TaskEditorKind::Edit, TaskEditorField::Note, Some("tok"), "l1")
+        );
+        // A session's note: its Notes tab.
+        flow.selected = RowSelection {
+            key: Some("noteline:session:token:0".to_owned()),
+            index: 0,
+        };
+        press(&mut flow, &props, &mut cx, enter());
+        assert_eq!(effects(&mut cx), [r#"OpenNote("token")"#]);
+        // f: only notes with text; the empty lines' notes go.
+        let heads = |flow: &TasksFlow| {
+            flow.rows(&props)
+                .iter()
+                .filter(|row| matches!(row, BoardRow::NoteHead { .. }))
+                .count()
+        };
+        let every = heads(&flow);
+        typed(&mut flow, &props, &mut cx, "f");
+        assert!(flow.with_text);
+        assert_eq!(
+            heads(&flow),
+            3,
+            "the scratchpad, Token storage's note, the session's note (of {every})"
+        );
+        // a no longer sends anything anywhere.
+        typed(&mut flow, &props, &mut cx, "a");
+        assert_eq!(
+            effects(&mut cx),
+            [r#"SetStatus(Some("The notes are for reading here: enter edits one, tab goes back to the list"))"#]
+        );
+        // v: the selected session's line and notes.
+        flow.scope = Some("loose".to_owned());
+        typed(&mut flow, &props, &mut cx, "f");
+        typed(&mut flow, &props, &mut cx, "v");
+        let labels: Vec<String> = flow
+            .rows(&props)
+            .iter()
+            .filter_map(|row| match row {
+                BoardRow::NoteHead { label, .. } => Some(label.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            labels,
+            [
+                "Token storage",
+                "encryption",
+                "refresh tokens",
+                "Token storage",
+                "No line yet"
+            ]
+        );
+        // tab: back to the list.
+        press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
+        assert_eq!(flow.view, TasksView::Tasks);
+    }
+
+    #[test]
+    fn the_editor_needs_a_title_and_tab_switches_to_the_note() {
+        let board = Board::new("", NoteMap::default(), Vec::new());
+        let props = props(&board, &[]);
+        let mut flow = TasksFlow::default();
+        let mut cx = cx();
+        typed(&mut flow, &props, &mut cx, "a");
+        assert!(flow.hint(&props, 130).contains("tab note"));
+        press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
+        assert_eq!(
+            flow.editor.as_ref().map(|editor| editor.field),
+            Some(TaskEditorField::Note)
+        );
+        typed(&mut flow, &props, &mut cx, "some thinking");
+        press(&mut flow, &props, &mut cx, ctrl("s"));
+        assert_eq!(effects(&mut cx), [r#"SetError(Some("A line needs a title"))"#]);
+        // Esc with no title just closes.
+        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
+        assert_eq!(flow.editor, None);
+    }
+
+    #[test]
+    fn the_hints_fit_and_name_the_lines_keys() {
+        let board = Board::walkthrough();
+        let refs: Vec<&SessionRecord> = board.sessions.iter().collect();
+        let props = props(&board, &refs);
+        let mut flow = TasksFlow {
+            selected: RowSelection::line("enc"),
+            scope: Some("token".to_owned()),
+            ..TasksFlow::default()
+        };
+        let hint = flow.hint(&props, 400);
+        for part in [
+            "a add under",
+            "n start session",
+            "w move",
+            "space done",
+            "v this session's line",
+            "x remove",
+            "tab notes",
+        ] {
+            assert!(hint.contains(part), "{part} in {hint}");
+        }
+        assert!(!hint.contains("o its session"));
+        flow.selected = RowSelection::line("tok");
+        let on = flow.hint(&props, 400);
+        assert!(on.contains("o its session") && !on.contains("n start"), "{on}");
+        assert!(string_width(&flow.hint(&props, 98)) <= 98);
     }
 
     // -----------------------------------------------------------------------------------------------------------
-    // Requests (a daemon over a socket pair)
+    // With a daemon: what the keys send
 
-    #[test]
-    fn saving_a_new_task_sends_the_op_and_selects_it() {
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    type Lines = tokio::io::BufReader<tokio::net::unix::OwnedReadHalf>;
+    type Updates = tokio::sync::mpsc::UnboundedReceiver<crate::app::event_loop::Update<App>>;
 
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap_or_else(|error| panic!("{error}"));
-        tokio::task::LocalSet::new().block_on(&runtime, async {
-            let (mut app, mut rx) = crate::app::test_support::app(crate::app::state::AppProps::default());
+    /// The app on the walkthrough list, with a client whose daemon end the test plays.
+    struct Wired {
+        app: App,
+        rx: Updates,
+        lines: Lines,
+        write: tokio::net::unix::OwnedWriteHalf,
+    }
+
+    impl Wired {
+        fn new(sessions: Vec<SessionRecord>) -> Wired {
+            let (mut app, rx) = crate::app::test_support::app(crate::app::state::AppProps::default());
             let (socket, peer) = tokio::net::UnixStream::pair().unwrap_or_else(|error| panic!("{error}"));
             app.connection.client = Some(Rc::new(LiveClient::new(
                 socket,
                 deckhand_client::live::LiveClientHandlers::default(),
             )));
-            let (read, mut write) = peer.into_split();
-            let mut lines = BufReader::new(read);
-            app.flows.tasks.editor = Some(editor(TaskEditorKind::Add, TaskEditorField::Body, "  New one ", "why"));
-            app.tasks_flow_call(|flow, props, cx| flow.handle_input(props, &ctrl_s(), cx));
-            assert!(app.flows.tasks.busy);
-            // A second op while one is in flight is ignored.
-            app.tasks_flow_call(|flow, props, cx| flow.handle_input(props, &ctrl_s(), cx));
+            app.data.repo_sessions = sessions;
+            // The watch answer: the list and its notes.
+            app.set_tasks_doc(Some(doc(LIST, Some(walkthrough_note_list()))));
+            let (read, write) = peer.into_split();
+            Wired {
+                app,
+                rx,
+                lines: tokio::io::BufReader::new(read),
+                write,
+            }
+        }
+
+        fn press(&mut self, input: Input) {
+            self.app
+                .tasks_flow_call(|flow, props, cx| flow.handle_input(props, &input, cx));
+        }
+
+        fn typed(&mut self, text: &str) {
+            for ch in text.chars() {
+                self.press(Input::text(ch.to_string()));
+            }
+        }
+
+        fn select(&mut self, id: &str) {
+            self.app.flows.tasks.selected = RowSelection::line(id);
+        }
+
+        /// The next request the client sent.
+        async fn request(&mut self) -> Value {
+            use tokio::io::AsyncBufReadExt;
             let mut line = String::new();
-            lines
+            self.lines
                 .read_line(&mut line)
                 .await
                 .unwrap_or_else(|error| panic!("{error}"));
-            let request: Value = serde_json::from_str(&line).unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(request["type"], "task-op");
-            assert_eq!(request["cwd"], "/repo");
-            assert_eq!(
-                request["op"],
-                serde_json::json!({"type": "add", "title": "New one", "body": "why"})
-            );
-            let response = serde_json::json!({
-                "type": "response",
-                "requestId": request["requestId"],
-                "ok": true,
-                "data": {
-                    "key": "k",
-                    "path": "/repo/tasks.md",
-                    "text": "# Tasks\n\n- [ ] New one <!-- dh:t=0f0f added=2026-10-19 -->\n",
-                    "revision": "r1",
-                },
-            });
-            write
+            serde_json::from_str(&line).unwrap_or_else(|error| panic!("{error}: {line}"))
+        }
+
+        async fn respond(&mut self, request: &Value, data: Value) {
+            use tokio::io::AsyncWriteExt;
+            let response = json!({"type": "response", "requestId": request["requestId"], "ok": true, "data": data});
+            self.write
                 .write_all(format!("{response}\n").as_bytes())
                 .await
                 .unwrap_or_else(|error| panic!("{error}"));
-            let update = rx.recv().await.unwrap_or_else(|| panic!("the reply's update"));
-            update(&mut app);
-            let flow = &app.flows.tasks;
-            assert!(!flow.busy);
-            assert!(flow.editor.is_none());
-            assert_eq!(flow.selected, RowSelection::task("0f0f"));
-            assert_eq!(app.messages.status_message.as_deref(), Some("Added to the backlog"));
-            let ids: Vec<&str> = app.data.tasks.iter().map(|task| task.id.as_str()).collect();
-            assert_eq!(ids, ["0f0f"]);
-            // Nothing else was sent.
-            let mut more = String::new();
-            let pending = tokio::time::timeout(std::time::Duration::from_millis(20), lines.read_line(&mut more)).await;
-            assert!(pending.is_err(), "unexpected request: {more}");
+        }
+
+        /// The task op of the next request.
+        async fn op(&mut self) -> (Value, Value) {
+            let request = self.request().await;
+            assert_eq!(request["type"], "task-op", "{request}");
+            assert_eq!(request["cwd"], "/repo");
+            (request["op"].clone(), request)
+        }
+
+        /// The reply's update, applied.
+        async fn settle(&mut self) {
+            let update = self.rx.recv().await.unwrap_or_else(|| panic!("the reply's update"));
+            update(&mut self.app);
+            assert!(!self.app.flows.tasks.busy);
+        }
+
+        fn status(&self) -> Option<&str> {
+            self.app.messages.status_message.as_deref()
+        }
+    }
+
+    fn run(test: impl std::future::Future<Output = ()>) {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, test);
+    }
+
+    fn list_doc(text: &str) -> Value {
+        json!({"key": "k", "path": "/notes/tasks/k.md", "text": text, "revision": "r2"})
+    }
+
+    #[test]
+    fn space_x_and_j_k_send_their_ops() {
+        run(async {
+            let mut wired = Wired::new(walkthrough_sessions());
+            wired.select("tok");
+            wired.press(Input::text(" "));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "toggle", "id": "tok"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            assert_eq!(wired.status(), Some("Done: Token storage"));
+            wired.select("rate");
+            wired.press(Input::text("K"));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "reorder", "id": "rate", "down": false}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            wired.press(Input::text("J"));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "reorder", "id": "rate", "down": true}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            // x twice removes it (with its lines).
+            wired.select("tok");
+            wired.press(Input::text("x"));
+            wired.press(Input::text("x"));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "remove", "id": "tok"}));
+            wired
+                .respond(&request, list_doc("- [ ] Rework auth <!-- dh:t=idea s=orch -->\n"))
+                .await;
+            wired.settle().await;
+            assert_eq!(wired.status(), Some("Removed Token storage and the 3 lines under it"));
+            assert_eq!(wired.app.data.task_list.lines().len(), 1);
         });
     }
 
     #[test]
-    fn a_failed_op_shows_its_error() {
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap_or_else(|error| panic!("{error}"));
-        tokio::task::LocalSet::new().block_on(&runtime, async {
-            let (mut app, mut rx) = crate::app::test_support::app(crate::app::state::AppProps::default());
-            let (socket, peer) = tokio::net::UnixStream::pair().unwrap_or_else(|error| panic!("{error}"));
-            app.connection.client = Some(Rc::new(LiveClient::new(
-                socket,
-                deckhand_client::live::LiveClientHandlers::default(),
-            )));
-            let (read, mut write) = peer.into_split();
-            let mut lines = BufReader::new(read);
-            app.set_tasks_doc(Some(TasksDoc {
-                key: "k".to_owned(),
-                path: "/repo/tasks.md".to_owned(),
-                text: "- [ ] One <!-- dh:t=aa -->\n- [ ] Two <!-- dh:t=bb -->\n".to_owned(),
-                revision: "r1".to_owned(),
-                too_large: None,
-                notes: None,
-            }));
-            app.flows.tasks.selected = RowSelection::task("bb");
-            app.tasks_flow_call(|flow, props, cx| flow.handle_input(props, &Input::text("K"), cx));
-            let mut line = String::new();
-            lines
-                .read_line(&mut line)
-                .await
-                .unwrap_or_else(|error| panic!("{error}"));
-            let request: Value = serde_json::from_str(&line).unwrap_or_else(|error| panic!("{error}"));
+    fn a_adds_a_line_under_the_selected_one_with_its_note() {
+        run(async {
+            let mut wired = Wired::new(walkthrough_sessions());
+            wired.select("tok");
+            wired.press(Input::text("a"));
+            wired.typed("rotate keys");
+            wired.press(key(|key| key.tab = true));
+            wired.typed("monthly");
+            wired.press(ctrl("s"));
+            let (op, request) = wired.op().await;
             assert_eq!(
-                request["op"],
-                serde_json::json!({"type": "move", "id": "bb", "target": "aa"})
+                op,
+                json!({"type": "add", "title": "rotate keys", "parent": "tok", "note": "monthly"})
             );
-            let response = serde_json::json!({
-                "type": "response",
-                "requestId": request["requestId"],
-                "ok": false,
-                "error": "the task list changed",
-            });
-            write
-                .write_all(format!("{response}\n").as_bytes())
-                .await
-                .unwrap_or_else(|error| panic!("{error}"));
-            let update = rx.recv().await.unwrap_or_else(|| panic!("the reply's update"));
-            update(&mut app);
-            assert!(!app.flows.tasks.busy);
-            assert_eq!(app.messages.error.as_deref(), Some("the task list changed"));
+            let next = format!("{LIST}- [ ] x <!-- dh:t=0f0f -->\n");
+            wired.respond(&request, list_doc(&next)).await;
+            wired.settle().await;
+            assert_eq!(wired.app.flows.tasks.editor, None);
+            assert_eq!(wired.app.flows.tasks.selected, RowSelection::line("0f0f"));
+            assert_eq!(wired.status(), Some("Added under “Token storage”"));
         });
+    }
+
+    #[test]
+    fn a_under_v_on_a_session_without_a_line_makes_its_line_first() {
+        run(async {
+            let mut sessions = walkthrough_sessions();
+            sessions.push(record("solo", json!({"title": "Solo work"})));
+            let mut wired = Wired::new(sessions);
+            wired.app.flows.tasks.scope = Some("solo".to_owned());
+            wired.press(Input::text("v"));
+            assert!(matches!(
+                wired.app.flows.tasks.rows(&props_of(&wired.app)).first(),
+                Some(BoardRow::Empty { adds: true, .. })
+            ));
+            wired.press(Input::text("a"));
+            wired.typed("first step");
+            wired.press(key(|key| key.return_ = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "session-line", "s": "solo"}));
+            let with_line = format!("{LIST}- [ ] Solo work <!-- dh:t=sl s=solo -->\n");
+            wired.respond(&request, list_doc(&with_line)).await;
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "add", "title": "first step", "parent": "sl"}));
+            let next = format!("{with_line}  - [ ] first step <!-- dh:t=0a0a -->\n");
+            wired.respond(&request, list_doc(&next)).await;
+            wired.settle().await;
+            assert_eq!(wired.app.flows.tasks.selected, RowSelection::line("0a0a"));
+        });
+    }
+
+    /// The tasks flow's props from the app (for reading rows in a test).
+    fn props_of(app: &App) -> TasksFlowProps<'_> {
+        TasksFlowProps {
+            client: None,
+            repo_root: "/repo",
+            doc: app.data.tasks_doc.as_ref(),
+            list: &app.data.task_list,
+            notes: &app.data.work_notes,
+            sessions: &[],
+            spinner_frame: "⠋",
+        }
+    }
+
+    #[test]
+    fn w_moves_a_line_by_the_rules_of_task_move() {
+        run(async {
+            let mut wired = Wired::new(walkthrough_sessions());
+            // Onto a session that has a line: a step of it (under its line).
+            wired.select("rate");
+            wired.press(Input::text("w"));
+            wired.press(key(|key| key.tab = true));
+            assert_eq!(
+                wired.app.flows.tasks.picker.as_ref().map(|picker| picker.view),
+                Some(MoveView::Sessions)
+            );
+            wired.press(Input::text("/"));
+            wired.typed("login");
+            wired.press(key(|key| key.return_ = true));
+            wired.press(key(|key| key.return_ = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "move-to", "id": "rate", "parent": "ui"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            assert_eq!(
+                wired.status(),
+                Some("Now a step of the line of Login UI: Rate-limit export")
+            );
+            // Onto a session without a line: its line.
+            wired.press(Input::text("w"));
+            wired.press(key(|key| key.tab = true));
+            wired.press(Input::text("/"));
+            wired.typed("no line");
+            wired.press(key(|key| key.return_ = true));
+            wired.press(key(|key| key.return_ = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "session-on", "id": "rate", "s": "loose"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            // Under another line.
+            wired.select("leg");
+            wired.press(Input::text("w"));
+            wired.press(Input::text("/"));
+            wired.typed("rate");
+            wired.press(key(|key| key.return_ = true));
+            wired.press(key(|key| key.return_ = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "move-to", "id": "leg", "parent": "rate"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            assert_eq!(
+                wired.status(),
+                Some("Now under “Rate-limit export”: Remove legacy endpoint")
+            );
+            // A line a session is on, to the backlog: the session leaves it, then it goes to the top level.
+            wired.select("tok");
+            wired.press(Input::text("w"));
+            // The menu opens on its parent's row; g goes to the backlog.
+            assert_eq!(
+                wired.app.flows.tasks.picker.as_ref().map(|picker| picker.index),
+                Some(1)
+            );
+            wired.press(Input::text("g"));
+            wired.press(key(|key| key.return_ = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "session-off", "s": "token"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "move-to", "id": "tok", "parent": null}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            assert_eq!(wired.status(), Some("Moved to the backlog: Token storage"));
+        });
+    }
+
+    #[test]
+    fn a_lines_note_is_saved_against_its_revision() {
+        run(async {
+            let mut wired = Wired::new(walkthrough_sessions());
+            wired.select("tok");
+            wired.press(key(|key| key.return_ = true));
+            wired.press(key(|key| key.tab = true));
+            wired.typed("more");
+            wired.press(ctrl("s"));
+            let request = wired.request().await;
+            assert_eq!(request["type"], "save-note");
+            assert_eq!(request["note"], json!({"kind": "line", "id": "tok"}));
+            assert_eq!(request["revision"], "l1");
+            assert_eq!(request["text"], "- [x] chose AES-GCM\nkeys live in the keychain\nmore");
+            // Changed elsewhere meanwhile: nothing saved, the editor keeps what was typed, the note held is theirs.
+            let theirs = json!({"kind": "line", "id": "tok", "path": "/notes/lines/tok.md", "text": "theirs\n",
+                "revision": "l2"});
+            wired.respond(&request, json!({"saved": false, "note": theirs})).await;
+            wired.settle().await;
+            let editing = wired
+                .app
+                .flows
+                .tasks
+                .editor
+                .clone()
+                .unwrap_or_else(|| panic!("still editing"));
+            assert_eq!(editing.revision, "l2");
+            assert!(editing.note.text.ends_with("more"));
+            assert!(
+                wired
+                    .app
+                    .messages
+                    .error
+                    .as_deref()
+                    .is_some_and(|error| error.contains("changed meanwhile"))
+            );
+            assert_eq!(
+                wired
+                    .app
+                    .data
+                    .work_notes
+                    .line_note("tok")
+                    .map(|note| note.text.as_str()),
+                Some("theirs\n")
+            );
+            // Saving again names the new revision.
+            wired.press(ctrl("s"));
+            let request = wired.request().await;
+            assert_eq!(request["revision"], "l2");
+            let ours = json!({"kind": "line", "id": "tok", "path": "/notes/lines/tok.md",
+                "text": request["text"], "revision": "l3"});
+            wired.respond(&request, json!({"saved": true, "note": ours})).await;
+            wired.settle().await;
+            assert_eq!(wired.app.flows.tasks.editor, None);
+            assert_eq!(wired.status(), Some("Saved the line and its note"));
+            assert_eq!(
+                wired
+                    .app
+                    .data
+                    .work_notes
+                    .line_note("tok")
+                    .map(|note| note.revision.as_str()),
+                Some("l3")
+            );
+            // A changed title alone is a retitle (esc saves it).
+            wired.press(key(|key| key.return_ = true));
+            wired.typed("!");
+            wired.press(key(|key| key.escape = true));
+            let (op, request) = wired.op().await;
+            assert_eq!(op, json!({"type": "retitle", "id": "tok", "title": "Token storage!"}));
+            wired.respond(&request, list_doc(LIST)).await;
+            wired.settle().await;
+            assert_eq!(wired.status(), Some("Saved the line"));
+        });
+    }
+
+    #[test]
+    fn ctrl_p_in_the_scratchpad_makes_a_checkbox_a_backlog_line() {
+        run(async {
+            let mut wired = Wired::new(walkthrough_sessions());
+            wired.press(key(|key| key.tab = true));
+            wired.app.flows.tasks.selected = RowSelection {
+                key: Some("note:scratchpad".to_owned()),
+                index: 0,
+            };
+            wired.press(key(|key| key.return_ = true));
+            assert!(
+                wired
+                    .app
+                    .flows
+                    .tasks
+                    .hint(&props_of(&wired.app), 130)
+                    .contains("ctrl+p checkbox → line")
+            );
+            // The cursor on the checkbox's line.
+            if let Some(editor) = wired.app.flows.tasks.editor.as_mut() {
+                editor.note.cursor = editor.note.text.find("cache").unwrap_or(0);
+            }
+            wired.press(ctrl("p"));
+            let request = wired.request().await;
+            assert_eq!(request["type"], "promote-note-item");
+            assert_eq!(request["note"], json!({"kind": "scratchpad", "id": "k"}));
+            assert_eq!(
+                (request["line"].clone(), request["revision"].clone()),
+                (json!(1), json!("s1"))
+            );
+            let next = format!("{LIST}- [ ] cache the JWKS <!-- dh:t=c4c4 -->\n");
+            let note = json!({"kind": "scratchpad", "id": "k", "path": "/notes/repos/k.md",
+                "text": "# Ideas\nloose thought\n", "revision": "s2"});
+            wired
+                .respond(
+                    &request,
+                    json!({"tasks": list_doc(&next), "lineId": "c4c4", "note": note}),
+                )
+                .await;
+            wired.settle().await;
+            assert_eq!(wired.status(), Some("Now a line in the backlog: cache the JWKS"));
+            let editing = wired
+                .app
+                .flows
+                .tasks
+                .editor
+                .clone()
+                .unwrap_or_else(|| panic!("still editing"));
+            assert_eq!(
+                (editing.note.text.as_str(), editing.revision.as_str()),
+                ("# Ideas\nloose thought\n", "s2")
+            );
+            assert_eq!(
+                wired
+                    .app
+                    .data
+                    .work_notes
+                    .scratchpad()
+                    .map(|note| note.revision.as_str()),
+                Some("s2")
+            );
+            assert!(wired.app.data.task_list.get("c4c4").is_some());
+            // A line that is not a checkbox stays.
+            if let Some(editor) = wired.app.flows.tasks.editor.as_mut() {
+                editor.note.cursor = 0;
+            }
+            wired.press(ctrl("p"));
+            assert_eq!(
+                wired.status(),
+                Some("Put the cursor on an open checklist item (- [ ] …) to make it a line")
+            );
+        });
+    }
+
+    #[test]
+    fn the_app_holds_the_notes_of_the_watch_answer_events_and_save_answers() {
+        let (mut app, _rx) = crate::app::test_support::app(crate::app::state::AppProps::default());
+        app.set_tasks_doc(Some(doc(
+            LIST,
+            Some(vec![work_note(WorkNoteKind::Line, "tok", "first", "a")]),
+        )));
+        assert_eq!(
+            app.data.work_notes.line_note("tok").map(|note| note.text.as_str()),
+            Some("first")
+        );
+        // The doc kept drops the notes (they live in the map); the tree is parsed.
+        assert_eq!(app.data.tasks_doc.as_ref().and_then(|doc| doc.notes.as_ref()), None);
+        assert_eq!(app.data.task_list.children("idea").len(), 3);
+        // tasks-updated (no notes) keeps them; a work-note-updated event replaces one.
+        app.set_tasks_doc(Some(doc(LIST, None)));
+        assert!(app.data.work_notes.line_note("tok").is_some());
+        app.work_note_updated(WorkNoteUpdated {
+            key: "k".into(),
+            note: work_note(WorkNoteKind::Brief, "ui", "set up", "b"),
+        });
+        assert!(app.data.work_notes.brief("ui").is_some());
+        // Another list's event is not this one's.
+        app.work_note_updated(WorkNoteUpdated {
+            key: "other".into(),
+            note: work_note(WorkNoteKind::Brief, "rate", "theirs", "c"),
+        });
+        assert!(app.data.work_notes.brief("rate").is_none());
+        // A save's answer, from a flow.
+        crate::flow::FlowHost::apply_flow_effects(
+            &mut app,
+            vec![FlowEffect::WorkNote(Box::new(work_note(
+                WorkNoteKind::Line,
+                "tok",
+                "saved",
+                "z",
+            )))],
+        );
+        assert_eq!(
+            app.data.work_notes.line_note("tok").map(|note| note.revision.as_str()),
+            Some("z")
+        );
     }
 }

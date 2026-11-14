@@ -1,0 +1,65 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ☐ Tasks · demo                                                       7 open · 4 with a session │
+│                                                                                                │
+│ OPEN · 2                                                                                       │
+│   ☐ Rework auth                                                        Rework auth ● idle  0/3 │
+│ ›   ☐ Token storage                                                Token storage ● idle  1/3 ✎ │
+│       ☑ schema                                                                                 │
+│       ☐ encryption                                                                             │
+│       ☐ refresh tokens                                                Refresh tokens ⠋ working │
+│     ☐ Login UI                                                            Login UI ? needs you │
+│     ☐ Remove legacy endpoint                                               tried in ⎇ old-auth │
+│   ☐ Rate-limit export                                                                          │
+│ DONE · this week · 1                                                                           │
+│   ☑ Shipped parser                                                         ✓ merged 2099-01-01 │
+│   ▸ 1 older done · enter shows them                                                            │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│ ────────────────────────────────────────────────────────────────────────────────────────────── │
+│ Token storage                                                                                  │
+│ Under “Rework auth” · Token storage is on it (idle) · o selects it                             │
+│ ✎ Brief · ◎ Rework auth · 14 Nov: Store tokens encrypted at rest.                              │
+│   - [x] chose AES-GCM                                                                          │
+│   keys live in the keychain                                                                    │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+── hint
+a add • A top • o session • w move • enter edit • space ✓ • c hide • v view • x remove • tab notes • E editor • esc back
+── styles
+row 0: 0..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 71..96 fg=8, 97..98 fg=5
+row 2: 0..1 fg=5, 97..98 fg=5
+row 3: 0..1 fg=5, 2..6 fg=8 bold, 6..10 fg=8, 97..98 fg=5
+row 4: 0..1 fg=5, 73..85 fg=13, 85..91 fg=2, 91..96 fg=8, 97..98 fg=5
+row 5: 0..1 fg=5, 2..96 fg=6 bold inverse, 97..98 fg=5
+row 6: 0..1 fg=5, 2..8 fg=8, 8..9 fg=2, 9..96 fg=8, 97..98 fg=5
+row 7: 0..1 fg=5, 97..98 fg=5
+row 8: 0..1 fg=5, 72..87 fg=13, 87..96 fg=2, 97..98 fg=5
+row 9: 0..1 fg=5, 76..85 fg=13, 85..96 fg=3, 97..98 fg=5
+row 10: 0..1 fg=5, 77..96 fg=8, 97..98 fg=5
+row 11: 0..1 fg=5, 97..98 fg=5
+row 12: 0..1 fg=5, 2..18 fg=8 bold, 18..22 fg=8, 97..98 fg=5
+row 13: 0..1 fg=5, 2..4 fg=8, 4..5 fg=2, 5..77 fg=8, 77..96 fg=2, 97..98 fg=5
+row 14: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 15: 0..1 fg=5, 97..98 fg=5
+row 16: 0..1 fg=5, 97..98 fg=5
+row 17: 0..1 fg=5, 97..98 fg=5
+row 18: 0..1 fg=5, 97..98 fg=5
+row 19: 0..1 fg=5, 97..98 fg=5
+row 20: 0..1 fg=5, 97..98 fg=5
+row 21: 0..1 fg=5, 97..98 fg=5
+row 22: 0..1 fg=5, 97..98 fg=5
+row 23: 0..1 fg=5, 97..98 fg=5
+row 24: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 25: 0..1 fg=5, 2..15 bold, 97..98 fg=5
+row 26: 0..1 fg=5, 2..68 fg=8, 97..98 fg=5
+row 27: 0..1 fg=5, 2..34 fg=5, 97..98 fg=5
+row 28: 0..1 fg=5, 97..98 fg=5
+row 29: 0..1 fg=5, 97..98 fg=5
+row 30: 0..98 fg=5

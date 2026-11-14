@@ -13,6 +13,7 @@ pub mod error;
 pub mod help;
 pub mod jsstr;
 pub mod key;
+pub mod lines_board;
 pub mod merge_model;
 pub mod merge_stack;
 pub mod notes;

@@ -16,7 +16,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 use deckhand_core::key::Input;
-use deckhand_protocol::data::{AgentVersions, ChangesRecord, ProgramKey, SessionRecord, Task, TasksDoc};
+use deckhand_protocol::data::{AgentVersions, ChangesRecord, ProgramKey, SessionRecord, Task, TasksDoc, WorkNote};
 use deckhand_sys::async_util::{Task as LocalTask, Timer};
 
 use crate::app::event_loop::Dispatch;
@@ -48,8 +48,11 @@ pub enum FlowEffect<H> {
     AttachGit,
     /// TS notesFlow `onTasks(doc)` / tasksFlow `onDoc(doc)`: the task list as it is now.
     TasksDoc(Box<TasksDoc>),
-    /// TS tasksFlow `onStart(task)`: the new-session form, filled in from the task.
-    StartTask(Box<Task>),
+    /// TS tasksFlow `onStart(task)`: the new-session form, filled in from the line (`n`): a new session, or a
+    /// sub-session of `parent` (the session on the nearest line above it).
+    StartTask { task: Box<Task>, parent: Option<String> },
+    /// A line note, brief or scratchpad as the daemon answered a save or a promotion (for the notes held).
+    WorkNote(Box<WorkNote>),
     /// TS tasksFlow / worktreesFlow `onGoTo(sessionId)`: select that session (revealing it).
     GoTo(String),
     /// TS tasksFlow `onOpenNote(sessionId)`: that session's Notes tab.
@@ -77,7 +80,12 @@ impl<H> std::fmt::Debug for FlowEffect<H> {
             FlowEffect::Changes(_) => f.write_str("Changes(..)"),
             FlowEffect::AttachGit => f.write_str("AttachGit"),
             FlowEffect::TasksDoc(_) => f.write_str("TasksDoc(..)"),
-            FlowEffect::StartTask(task) => f.debug_tuple("StartTask").field(&task.id).finish(),
+            FlowEffect::StartTask { task, parent } => f
+                .debug_struct("StartTask")
+                .field("task", &task.id)
+                .field("parent", parent)
+                .finish(),
+            FlowEffect::WorkNote(note) => f.debug_tuple("WorkNote").field(&note.kind).field(&note.id).finish(),
             FlowEffect::GoTo(id) => f.debug_tuple("GoTo").field(id).finish(),
             FlowEffect::OpenNote(id) => f.debug_tuple("OpenNote").field(id).finish(),
             FlowEffect::Session(session) => f.debug_tuple("Session").field(&session.id).finish(),

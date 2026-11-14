@@ -1,0 +1,65 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✎ Notes · demo                                                             3 notes · with text │
+│                                                                                                │
+│ SCRATCHPAD                                                                                     │
+│ › Scratchpad                                                                                   │
+│     Ideas                                                                                      │
+│     ☐ cache the JWKS                                                                           │
+│     loose thought                                                                              │
+│ LINE NOTES · 1                                                                                 │
+│     ☐ Token storage                                                                    ✎ brief │
+│       ☑ chose AES-GCM                                                                          │
+│       keys live in the keychain                                                                │
+│ SESSION NOTES                                                                                  │
+│   Token storage                                                                        session │
+│     Review crypto.rs before merging                                                            │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│ ────────────────────────────────────────────────────────────────────────────────────────────── │
+│ Scratchpad                                                                                     │
+│ Loose thoughts for the repository · enter edits it · ctrl+p there makes a checkbox a line      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+── hint
+enter edit • E open in editor • f every note • tab list
+── styles
+row 0: 0..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 77..96 fg=8, 97..98 fg=5
+row 2: 0..1 fg=5, 97..98 fg=5
+row 3: 0..1 fg=5, 2..12 fg=8 bold, 97..98 fg=5
+row 4: 0..1 fg=5, 2..96 fg=6 bold inverse, 97..98 fg=5
+row 5: 0..1 fg=5, 2..96 bold, 97..98 fg=5
+row 6: 0..1 fg=5, 97..98 fg=5
+row 7: 0..1 fg=5, 97..98 fg=5
+row 8: 0..1 fg=5, 2..12 fg=8 bold, 12..16 fg=8, 97..98 fg=5
+row 9: 0..1 fg=5, 2..89 fg=13 bold, 89..96 fg=8, 97..98 fg=5
+row 10: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 11: 0..1 fg=5, 97..98 fg=5
+row 12: 0..1 fg=5, 2..15 fg=8 bold, 97..98 fg=5
+row 13: 0..1 fg=5, 2..89 fg=13 bold, 89..96 fg=8, 97..98 fg=5
+row 14: 0..1 fg=5, 97..98 fg=5
+row 15: 0..1 fg=5, 97..98 fg=5
+row 16: 0..1 fg=5, 97..98 fg=5
+row 17: 0..1 fg=5, 97..98 fg=5
+row 18: 0..1 fg=5, 97..98 fg=5
+row 19: 0..1 fg=5, 97..98 fg=5
+row 20: 0..1 fg=5, 97..98 fg=5
+row 21: 0..1 fg=5, 97..98 fg=5
+row 22: 0..1 fg=5, 97..98 fg=5
+row 23: 0..1 fg=5, 97..98 fg=5
+row 24: 0..1 fg=5, 97..98 fg=5
+row 25: 0..1 fg=5, 97..98 fg=5
+row 26: 0..1 fg=5, 97..98 fg=5
+row 27: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 28: 0..1 fg=5, 2..12 bold, 97..98 fg=5
+row 29: 0..1 fg=5, 2..91 fg=8, 97..98 fg=5
+row 30: 0..98 fg=5

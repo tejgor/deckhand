@@ -19,8 +19,7 @@ use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, s
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
 use deckhand_core::tasks_board::{
-    linked_task, linked_tasks, note_steps, other_open_tasks, step_count, task_count_label, work_key_of, work_note,
-    worktree_open_items,
+    StepCount, linked_task, linked_tasks, other_open_tasks, task_count_label, worktree_open_items,
 };
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
@@ -380,7 +379,8 @@ fn flow_hint(app: &App, derived: &Derived, width: usize) -> Option<String> {
                 client: app.connection.client.as_ref(),
                 repo_root: &app.props.repo_root,
                 doc: app.data.tasks_doc.as_ref(),
-                tasks: &app.data.tasks,
+                list: &app.data.task_list,
+                notes: &app.data.work_notes,
                 sessions: &repo_refs,
                 spinner_frame: app.spinner_frame(),
             };
@@ -713,11 +713,15 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
             let mut notes_area = pane;
             if let (Some(task), Some(session)) = (task, selected) {
                 let repo_refs: Vec<&SessionRecord> = app.data.repo_sessions.iter().collect();
-                let note = work_note(&work_key_of(session), &repo_refs);
+                // Its line's lines, ticked of total.
+                let count = app.data.task_list.count(&task.id);
                 let props = TaskBannerProps {
                     task: &task,
                     more: other_open_tasks(&app.data.tasks, Some(session)),
-                    steps: Some(step_count(&note_steps(note.as_ref().map(|note| note.text.as_str())))),
+                    steps: Some(StepCount {
+                        done: count.ticked,
+                        total: count.total,
+                    }),
                     sessions: &repo_refs,
                     spinner_frame: app.spinner_frame(),
                 };
@@ -999,11 +1003,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                     && create.handoff_from_id.is_none()
                     && parent.is_some_and(|parent| truthy(parent.handoff_path.as_ref())),
                 from_handoff: create.handoff_from_id.is_some(),
-                task_title: create
-                    .task_start
-                    .as_ref()
-                    .filter(|_| !has_parent)
-                    .map(|task| task.title.as_str()),
+                task_title: create.task_start.as_ref().map(|task| task.title.as_str()),
                 base: Some(&base),
             };
             app.dialog.last = render_create_dialog(&props, buf, right, view);

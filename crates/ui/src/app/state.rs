@@ -13,6 +13,8 @@ use indexmap::{IndexMap, IndexSet};
 
 use deckhand_client::live::LiveClient;
 use deckhand_core::display::HintPart;
+use deckhand_core::task_list::TaskList;
+use deckhand_core::work_notes::NoteMap;
 use deckhand_protocol::data::{
     ActionRecord, AgentVersions, BranchList, ChangesRecord, DevRecord, JsNumber, MergePreview, PreviewRecord,
     ProjectInfo, RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc, TerminalRecord,
@@ -334,8 +336,13 @@ pub struct RepoData {
     pub sessions_loaded: bool,
     pub agent_versions: Option<AgentVersions>,
     pub tasks_doc: Option<TasksDoc>,
-    /// TS `tasks`: `parseTasks(tasksDoc?.text ?? '')`, reparsed when the text changes.
+    /// TS `tasks`: `parseTasks(tasksDoc?.text ?? '')`, reparsed when the text changes (the top-level lines).
     pub tasks: Vec<Task>,
+    /// The whole list as a tree (lines, nesting, who is on what), reparsed with `tasks`.
+    pub task_list: TaskList,
+    /// The list's line notes, briefs and scratchpad (`watch-tasks`' answer, then `work-note-updated` and save answers).
+    /// Session notes come with the sessions.
+    pub work_notes: NoteMap,
 }
 
 /// The footer's messages and the busy gate.

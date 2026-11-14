@@ -1,10 +1,10 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ☐ Tasks · demo                                                          0 open · 0 in progress │
+│ ☐ Tasks · demo                                                       0 open · 0 with a session │
 │                                                                                                │
-│ IN PROGRESS                                                                                    │
-│   n on a backlog task starts a session for it · w gives it to a worktree                       │
-│ BACKLOG                                                                                        │
-│   No tasks yet · a adds one                                                                    │
+│ OPEN                                                                                           │
+│   No lines yet · a adds one                                                                    │
+│                                                                                                │
+│                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
@@ -24,21 +24,21 @@
 │                                                                                                │
 │                                                                                                │
 │ ────────────────────────────────────────────────────────────────────────────────────────────── │
-│ New task · backlog                                                                             │
+│ New line · top level (the backlog)                                                             │
 │ Title  Write the docs                                                                          │
-│ Details (optional; typed into the agent's input with the title)                                │
+│ Note (optional; whoever takes the line on is given it)                                         │
 │                                                                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-enter save • tab details • esc save
+enter save • tab note • esc save
 ── styles
 row 0: 0..98 fg=5
-row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 74..96 fg=8, 97..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 71..96 fg=8, 97..98 fg=5
 row 2: 0..1 fg=5, 97..98 fg=5
-row 3: 0..1 fg=5, 2..13 fg=8 bold, 97..98 fg=5
+row 3: 0..1 fg=5, 2..6 fg=8 bold, 97..98 fg=5
 row 4: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 5: 0..1 fg=5, 2..9 fg=8 bold, 97..98 fg=5
-row 6: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 5: 0..1 fg=5, 97..98 fg=5
+row 6: 0..1 fg=5, 97..98 fg=5
 row 7: 0..1 fg=5, 97..98 fg=5
 row 8: 0..1 fg=5, 97..98 fg=5
 row 9: 0..1 fg=5, 97..98 fg=5
@@ -58,8 +58,8 @@ row 22: 0..1 fg=5, 97..98 fg=5
 row 23: 0..1 fg=5, 97..98 fg=5
 row 24: 0..1 fg=5, 97..98 fg=5
 row 25: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 26: 0..1 fg=5, 2..10 fg=5 bold, 10..20 fg=8, 97..98 fg=5
+row 26: 0..1 fg=5, 2..10 fg=5 bold, 10..36 fg=8, 97..98 fg=5
 row 27: 0..1 fg=5, 2..9 fg=6 bold, 23..24 inverse, 97..98 fg=5
-row 28: 0..1 fg=5, 2..65 fg=8, 97..98 fg=5
+row 28: 0..1 fg=5, 2..56 fg=8, 97..98 fg=5
 row 29: 0..1 fg=5, 97..98 fg=5
 row 30: 0..98 fg=5

@@ -1,10 +1,10 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ☐ Tasks · demo                                                          0 open · 0 in progress │
+│ ☐ Tasks · demo                                                       0 open · 0 with a session │
 │                                                                                                │
-│ IN PROGRESS                                                                                    │
-│   n on a backlog task starts a session for it · w gives it to a worktree                       │
-│ BACKLOG                                                                                        │
-│ › No tasks yet · a adds one                                                                    │
+│ OPEN                                                                                           │
+│ › No lines yet · a adds one                                                                    │
+│                                                                                                │
+│                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
@@ -30,15 +30,15 @@
 │                                                                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-a add task • E open in editor • esc back
+a add line • E open in editor • esc back
 ── styles
 row 0: 0..98 fg=5
-row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 74..96 fg=8, 97..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 71..96 fg=8, 97..98 fg=5
 row 2: 0..1 fg=5, 97..98 fg=5
-row 3: 0..1 fg=5, 2..13 fg=8 bold, 97..98 fg=5
-row 4: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 5: 0..1 fg=5, 2..9 fg=8 bold, 97..98 fg=5
-row 6: 0..1 fg=5, 2..96 fg=6 inverse, 97..98 fg=5
+row 3: 0..1 fg=5, 2..6 fg=8 bold, 97..98 fg=5
+row 4: 0..1 fg=5, 2..96 fg=6 inverse, 97..98 fg=5
+row 5: 0..1 fg=5, 97..98 fg=5
+row 6: 0..1 fg=5, 97..98 fg=5
 row 7: 0..1 fg=5, 97..98 fg=5
 row 8: 0..1 fg=5, 97..98 fg=5
 row 9: 0..1 fg=5, 97..98 fg=5

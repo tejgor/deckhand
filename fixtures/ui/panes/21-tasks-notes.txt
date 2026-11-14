@@ -1,13 +1,11 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ✎ Notes · demo                                                                    0 open items │
+│ ✎ Notes · demo                                                                          1 note │
 │                                                                                                │
-│   No notes yet · esc, then a session’s Notes tab (a in the sidebar)                            │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
+│ SCRATCHPAD                                                                                     │
+│ › Scratchpad                                                        empty · enter writes in it │
+│ LINE NOTES · 1                                                                                 │
+│   ☐ Write the docs                                                                             │
+│     why: people ask                                                                            │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
@@ -27,18 +25,20 @@
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
+│ ────────────────────────────────────────────────────────────────────────────────────────────── │
+│ Scratchpad                                                                                     │
+│ Loose thoughts for the repository · enter edits it · ctrl+p there makes a checkbox a line      │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-enter open the note • f open items only • tab tasks
+enter edit • E open in editor • f only with text • tab list
 ── styles
 row 0: 0..98 fg=5
-row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 84..96 fg=8, 97..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 90..96 fg=8, 97..98 fg=5
 row 2: 0..1 fg=5, 97..98 fg=5
-row 3: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 4: 0..1 fg=5, 97..98 fg=5
-row 5: 0..1 fg=5, 97..98 fg=5
-row 6: 0..1 fg=5, 97..98 fg=5
+row 3: 0..1 fg=5, 2..12 fg=8 bold, 97..98 fg=5
+row 4: 0..1 fg=5, 2..70 fg=6 bold inverse, 70..96 fg=6 inverse, 97..98 fg=5
+row 5: 0..1 fg=5, 2..12 fg=8 bold, 12..16 fg=8, 97..98 fg=5
+row 6: 0..1 fg=5, 2..96 fg=13 bold, 97..98 fg=5
 row 7: 0..1 fg=5, 97..98 fg=5
 row 8: 0..1 fg=5, 97..98 fg=5
 row 9: 0..1 fg=5, 97..98 fg=5
@@ -59,7 +59,7 @@ row 23: 0..1 fg=5, 97..98 fg=5
 row 24: 0..1 fg=5, 97..98 fg=5
 row 25: 0..1 fg=5, 97..98 fg=5
 row 26: 0..1 fg=5, 97..98 fg=5
-row 27: 0..1 fg=5, 97..98 fg=5
-row 28: 0..1 fg=5, 97..98 fg=5
-row 29: 0..1 fg=5, 97..98 fg=5
+row 27: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 28: 0..1 fg=5, 2..12 bold, 97..98 fg=5
+row 29: 0..1 fg=5, 2..91 fg=8, 97..98 fg=5
 row 30: 0..98 fg=5

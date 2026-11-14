@@ -15,7 +15,6 @@ use deckhand_core::session_order::{
     parent_of, place_session, session_descendants, session_has_children, sort_sessions_for_sidebar, step_placement,
 };
 use deckhand_core::session_sections::{TimeOrder, session_section};
-use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
@@ -368,7 +367,7 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         return;
     }
     if text == "b" {
-        let scope = selected.as_ref().map(work_key_of);
+        let scope = selected.as_ref().map(|session| session.id.clone());
         app.tasks_flow_call(|flow, props, _cx| flow.open(scope.as_deref(), props));
         app.set_mode(Mode::Tasks);
         return;

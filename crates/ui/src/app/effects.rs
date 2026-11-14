@@ -299,6 +299,7 @@ fn sync_tasks_memo(app: &mut App) {
         return;
     }
     app.data.tasks = deckhand_core::tasks::parse_tasks(&text);
+    app.data.task_list = deckhand_core::task_list::TaskList::parse(&text);
     app.effects.tasks_text = Some(text);
 }
 
@@ -678,6 +679,7 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
     let action_updated = on();
     let versions_updated = on();
     let tasks_updated = on();
+    let work_note_updated = on();
     let plan_pending = on();
     let plan_settled = on();
     let error = on();
@@ -758,8 +760,9 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
         on_error: Some(Box::new(move |next_error: DhError| {
             error.update(move |app: &mut App| app.set_error(Some(next_error.to_string())));
         })),
-        // Line notes, briefs and the scratchpad: shown from stage 4 on.
-        on_work_note_updated: None,
+        on_work_note_updated: Some(Box::new(move |update| {
+            work_note_updated.update(move |app: &mut App| app.work_note_updated(update));
+        })),
         on_close: Some(Box::new(move || {
             close.update(move |app: &mut App| {
                 // Only the current connection's close reconnects (an older client was closed by its cleanup).

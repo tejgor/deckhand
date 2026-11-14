@@ -10,7 +10,7 @@ use std::time::Duration;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-use deckhand_client::live::LiveClient;
+use deckhand_client::live::{LiveClient, Reply};
 use deckhand_core::display::{HintPart, display_session_title, error_message, fit_hint};
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::{js_len, js_trim, path};
@@ -22,7 +22,9 @@ use deckhand_core::notes::{
 use deckhand_core::text_editor::{
     EditOptions, EditorState, clean_inserted_text, edit_text, line_end, line_start, replace_range,
 };
-use deckhand_protocol::data::{NoteSaveResult, NoteSection, PromoteNoteItemResult, SessionRecord, SharedNoteKind};
+use deckhand_protocol::data::{
+    NoteRef, NoteSaveResult, NoteSection, PromoteNoteItemResult, SessionRecord, SharedNoteKind, WorkNoteKind,
+};
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::open_in_editor;
 
@@ -74,6 +76,34 @@ pub struct NoteDoc {
     pub revision: String,
     pub read_only: bool,
     pub too_large: bool,
+}
+
+/// The note a section of the tab names: the session's own. Its shared note (a worktree's or the main checkout's) is
+/// gone since protocol 60: they became line notes and the scratchpad, which the tab does not show yet.
+fn section_note(session_id: &str, section: NoteSection) -> Result<NoteRef, DhError> {
+    match section {
+        NoteSection::Session => Ok(NoteRef {
+            kind: WorkNoteKind::Session,
+            id: session_id.to_owned(),
+        }),
+        NoteSection::Shared => Err(DhError::msg(
+            "A session has no shared note any more: its line's note and the scratchpad took its place",
+        )),
+    }
+}
+
+/// `save-note` on a section's note.
+fn save_section(
+    client: &LiveClient,
+    session_id: &str,
+    section: NoteSection,
+    text: &str,
+    revision: &str,
+) -> Reply<NoteSaveResult> {
+    match section_note(session_id, section) {
+        Ok(note) => client.save_work_note(note, text, revision),
+        Err(error) => Box::pin(async move { Err(error) }),
+    }
 }
 
 /// TS: notesFlow.tsx docOf: a session's note of `section` as last pushed (none without one).
@@ -350,13 +380,7 @@ impl NotesFlow {
         }
         let text = draft.text.clone();
         draft.in_flight = Some(text.clone());
-        let request = client.save_note(
-            &draft.session_id,
-            draft.section,
-            &text,
-            &draft.revision,
-            draft.note_id.as_deref(),
-        );
+        let request = save_section(client, &draft.session_id, draft.section, &text, &draft.revision);
         if let Some(then) = then {
             self.waiters.entry(key.to_owned()).or_default().push(then);
         }
@@ -442,7 +466,10 @@ impl NotesFlow {
         let session_id = session.id.clone();
         let client = Rc::clone(client);
         let open: FlowThen<App, NotesFlow> = Box::new(move |_flow, cx| {
-            let request = client.open_note(&session_id, which);
+            let request = match section_note(&session_id, which) {
+                Ok(note) => client.open_work_note(note),
+                Err(error) => Box::pin(async move { Err(error) }),
+            };
             drop(
                 cx.dispatch()
                     .spawn(request, move |app: &mut App, result| done(app, Some(result))),
@@ -550,8 +577,10 @@ impl NotesFlow {
                     return;
                 }
                 let sent = draft.text.clone();
-                let request =
-                    client.promote_note_item(&session_id, section, line, &draft.revision, draft.note_id.as_deref());
+                let request = match section_note(&session_id, section) {
+                    Ok(note) => client.promote_work_note_item(note, line, &draft.revision),
+                    Err(error) => Box::pin(async move { Err(error) }),
+                };
                 drop(cx.spawn(request, move |flow, result, cx| {
                     flow.promoted(&key, section, &sent, result, cx)
                 }));

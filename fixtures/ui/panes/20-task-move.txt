@@ -1,10 +1,10 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ☐ Tasks · demo                                                          1 open · 0 in progress │
+│ ☐ Tasks · demo                                                       1 open · 0 with a session │
 │                                                                                                │
-│ IN PROGRESS                                                                                    │
-│   n on a backlog task starts a session for it · w gives it to a worktree                       │
-│ BACKLOG · 1                                                                                    │
-│   ○ Write the docs                                                            added 2026-10-19 │
+│ OPEN · 1                                                                                       │
+│   ☐ Write the docs                                                                             │
+│                                                                                                │
+│                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
@@ -25,20 +25,20 @@
 │                                                                                                │
 │ ────────────────────────────────────────────────────────────────────────────────────────────── │
 │ Move “Write the docs” to                                                                       │
-│  Worktrees 0   Sessions 0    / search                                                          │
-│ › Backlog · no worktree                                                                   here │
-│   No worktrees                                                                                 │
+│  Lines 0   Sessions 0    / search                                                              │
+│ › Backlog · top level, nobody on it                                                       here │
+│   No other open lines                                                                          │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-enter move here • / search • tab worktrees / sessions • esc cancel
+enter move here • / search • tab lines / sessions • esc cancel
 ── styles
 row 0: 0..98 fg=5
-row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 74..96 fg=8, 97..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 71..96 fg=8, 97..98 fg=5
 row 2: 0..1 fg=5, 97..98 fg=5
-row 3: 0..1 fg=5, 2..13 fg=8 bold, 97..98 fg=5
-row 4: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 5: 0..1 fg=5, 2..9 fg=8 bold, 9..13 fg=8, 97..98 fg=5
-row 6: 0..1 fg=5, 4..5 fg=8, 80..96 fg=8, 97..98 fg=5
+row 3: 0..1 fg=5, 2..6 fg=8 bold, 6..10 fg=8, 97..98 fg=5
+row 4: 0..1 fg=5, 97..98 fg=5
+row 5: 0..1 fg=5, 97..98 fg=5
+row 6: 0..1 fg=5, 97..98 fg=5
 row 7: 0..1 fg=5, 97..98 fg=5
 row 8: 0..1 fg=5, 97..98 fg=5
 row 9: 0..1 fg=5, 97..98 fg=5
@@ -59,7 +59,7 @@ row 23: 0..1 fg=5, 97..98 fg=5
 row 24: 0..1 fg=5, 97..98 fg=5
 row 25: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
 row 26: 0..1 fg=5, 2..7 fg=5 bold, 23..26 fg=5 bold, 97..98 fg=5
-row 27: 0..1 fg=5, 2..15 fg=6 bold inverse, 16..39 fg=8, 97..98 fg=5
+row 27: 0..1 fg=5, 2..11 fg=6 bold inverse, 12..35 fg=8, 97..98 fg=5
 row 28: 0..1 fg=5, 2..96 fg=6 bold inverse, 97..98 fg=5
-row 29: 0..1 fg=5, 2..16 fg=8, 97..98 fg=5
+row 29: 0..1 fg=5, 2..23 fg=8, 97..98 fg=5
 row 30: 0..98 fg=5

@@ -305,38 +305,38 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         title: "Tasks",
         lines: &[
             HelpLine::Note {
-                note: "One list per repository. A worktree (or main-checkout session) has one task, ◆; its to-dos are its note's checklist, shown under it as steps (2/5).",
+                note: "One list per repository; lines nest. A session is on at most one line: its lines are its steps (1/3). The backlog is the top-level lines nobody is on.",
             },
             HelpLine::Key {
                 keys: "b  v",
-                text: "The board: a group per worktree with its task, backlog, done / only the selected session's worktree",
+                text: "The list: open lines as a tree (who is on each, ✎ a brief), then done / only the selected session's line",
             },
             HelpLine::Key {
                 keys: "a  A",
-                text: "Add here (on a worktree: a step to its note) / a backlog task",
+                text: "Add a line under the selected one / at the top level",
             },
             HelpLine::Key {
                 keys: "Enter",
-                text: "Edit it (Tab: details, Ctrl+S saves); on a step, open its note",
+                text: "Edit its title (Tab: its note; Ctrl+S saves) or open the note",
             },
             HelpLine::Key {
                 keys: "n  w",
-                text: "Start a session for it (↑↓ picks the base) / move it: backlog, its note, a worktree or session (its task, or a step in its note if it has one)",
+                text: "Start a session on it (under a session's line: a sub-session of it) / move it: backlog, under a line, onto a session",
             },
             HelpLine::Key {
                 keys: "Space  x",
-                text: "Tick or reopen (a step: in its note) / delete (x twice)",
+                text: "Tick or reopen / remove it with its lines (x twice)",
             },
             HelpLine::Key {
                 keys: "o  J K  c",
-                text: "Open the session doing it / reorder (j k, g G move; h, Esc back) / hide or show its steps (▸ 2/5)",
+                text: "Select the session on it / reorder (j k, g G move; h, Esc back) / hide or show its lines (▸ 1/3)",
             },
             HelpLine::Key {
-                keys: "Tab  E",
-                text: "Every note by worktree (a sends an item, A all its open ones, Enter opens it, f only open items) / the list in your editor",
+                keys: "Tab  f  E",
+                text: "Notes: the scratchpad, line and session notes (Ctrl+P on a checkbox makes it a line) / only with text / in your editor",
             },
             HelpLine::Note {
-                note: "Merging, or marking all its sessions done, ticks ◆ (undoing reopens it); work removed unmerged sends it back. m, x and W send the note's open items to the backlog too (Space keeps them).",
+                note: "Merging ticks the lines of its sessions (open steps move out beside them); marking done ticks the session's line; work removed unmerged leaves its line, tried.",
             },
         ],
     },

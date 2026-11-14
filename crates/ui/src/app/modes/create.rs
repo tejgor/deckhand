@@ -214,25 +214,31 @@ pub fn open_new_session(app: &mut App, sub_session: bool) {
     app.review_then(&target_cwd, Some(resume), options);
 }
 
-/// TS `startFromTask` (n on a backlog task): the form filled in from the task, in a new worktree by default.
-pub fn start_from_task(app: &mut App, task: &Task) {
-    // The session it creates is linked to the task, whose text is typed (not sent) into its agent's input.
+/// TS `startFromTask` (`n` on a line nobody is on): the form filled in from the line, in a new worktree by default.
+/// With `parent` (the session on the nearest line above it) a sub-session of that session, with its agent and
+/// directory, stacked on its branch when it has one (the bases list stacking first).
+pub fn start_from_task(app: &mut App, task: &Task, parent: Option<&str>) {
+    // The session it creates goes on the line, whose text is typed (not sent) into its agent's input.
     let start = TaskStart {
         id: task.id.clone(),
         title: task.title.clone(),
     };
-    let target_cwd = app.props.cwd.clone();
+    let parent = parent.and_then(|id| session_with_id(app, id));
+    let target_cwd = parent
+        .as_ref()
+        .map_or_else(|| app.props.cwd.clone(), |parent| parent.cwd.clone());
     let resume = Rc::new(move |app: &mut App, project: Option<ProjectInfo>| {
         let defaults = project.map(|project| project.effective.into_inner());
         app.create.handoff_from_id = None;
         app.create.fork_from_id = None;
-        app.create.parent_id = None;
-        app.create.sub_session_kind = None;
+        app.create.parent_id = parent.as_ref().map(|parent| parent.id.clone());
+        app.create.sub_session_kind = parent.as_ref().map(|_| SubSessionKind::Clean);
         app.browse.session_filter = deckhand_protocol::records::SessionFilter::Active;
         app.browse.session_query.clear();
-        let program = defaults
+        let program = parent
             .as_ref()
-            .and_then(|defaults| defaults.default_agent)
+            .map(|parent| parent.program)
+            .or_else(|| defaults.as_ref().and_then(|defaults| defaults.default_agent))
             .unwrap_or(ProgramKey::Claude);
         app.create.program_index = program_position(program);
         app.create.draft_name = session_title_from_task(&start.title);
@@ -601,11 +607,7 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
         },
         handoff_from_session_id: create.handoff_from_id.clone(),
         base_branch,
-        task_id: create
-            .task_start
-            .as_ref()
-            .filter(|_| !has_parent)
-            .map(|task| task.id.clone()),
+        task_id: create.task_start.as_ref().map(|task| task.id.clone()),
         project_fingerprint,
         fork_from_session_id: fork_from_id,
         prompt: None,
@@ -1859,7 +1861,7 @@ mod tests {
                 "id": "t1", "title": "Write the docs: README & guide!", "done": false, "body": "", "meta": {}
             }))
             .unwrap_or_else(|error| panic!("{error}"));
-            start_from_task(&mut app, &task);
+            start_from_task(&mut app, &task, None);
             let request = daemon.next().await;
             daemon
                 .respond(&request, true, project(false, json!({}), json!({"defaultAgent": "pi"})))
@@ -1906,6 +1908,69 @@ mod tests {
             assert_eq!(input["taskId"], "t1");
             assert!(input.get("subSessionKind").is_none());
             assert!(input.get("projectFingerprint").is_none());
+        });
+    }
+
+    #[test]
+    fn a_line_under_a_sessions_line_starts_a_stacked_sub_session_of_it() {
+        run(async {
+            let (mut app, mut rx, mut daemon) = connected();
+            let parent: SessionRecord = serde_json::from_value(json!({
+                "id": "p1", "title": "Token storage", "program": "codex", "command": "codex", "cwd": "/repo/wt/tok",
+                "repoRoot": "/repo", "status": "running", "createdAt": "", "updatedAt": "",
+                "worktree": {"mode": "managed", "id": "w1", "path": "/repo/wt/tok", "branch": "tok"},
+            }))
+            .unwrap_or_else(|error| panic!("{error}"));
+            app.data.repo_sessions = vec![parent];
+            let task: Task = serde_json::from_value(json!({
+                "id": "t2", "title": "refresh tokens", "done": false, "body": "", "meta": {"t": "t2"}
+            }))
+            .unwrap_or_else(|error| panic!("{error}"));
+            start_from_task(&mut app, &task, Some("p1"));
+            // The parent's checkout is reviewed (as N does), then the form opens as a sub-session of it.
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "project-info");
+            assert_eq!(request["cwd"], "/repo/wt/tok");
+            daemon
+                .respond(&request, true, project(false, json!({}), json!({})))
+                .await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.mode, Mode::PickProgram);
+            assert_eq!(app.create.parent_id.as_deref(), Some("p1"));
+            assert_eq!(app.create.sub_session_kind, Some(SubSessionKind::Clean));
+            assert_eq!(
+                PROGRAMS.get(app.create.program_index).map(|program| program.key),
+                Some(ProgramKey::Codex)
+            );
+            assert_eq!(app.create.worktree_mode, WorktreeMode::New);
+            assert_eq!(app.create.draft_name, "refresh tokens");
+            // Stacked on the parent's branch first.
+            let sessions = app.sessions();
+            let bases = create_base_options(&app.create, &sessions);
+            assert_eq!(
+                bases.first().map(|base| (base.label.as_str(), base.stacked)),
+                Some(("tok · stacked", true))
+            );
+            app.set_mode(Mode::EnterName);
+            handle_enter_name(&mut app, &enter());
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "project-info");
+            daemon
+                .respond(&request, true, project(false, json!({}), json!({})))
+                .await;
+            apply(&mut app, &mut rx).await;
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "create");
+            let input = &request["input"];
+            assert_eq!(input["parentSessionId"], "p1");
+            assert_eq!(input["subSessionKind"], "clean");
+            assert_eq!(input["taskId"], "t2");
+            assert_eq!(input["cwd"], "/repo/wt/tok");
+            assert_eq!(input["worktreeMode"], "new");
+            assert!(
+                input.get("stacked").is_none() && input.get("baseBranch").is_none(),
+                "{input}"
+            );
         });
     }
 
@@ -1991,7 +2056,7 @@ mod tests {
             app.create.worktree_mode = WorktreeMode::Existing;
             app.create.task_start = Some(TaskStart {
                 id: "t9".to_owned(),
-                title: "ignored for children".to_owned(),
+                title: "a step of its parent's line".to_owned(),
             });
             app.set_mode(Mode::EnterName);
             handle_enter_name(&mut app, &enter());
@@ -2014,7 +2079,8 @@ mod tests {
             assert_eq!(input["existingWorktreePath"], "/repo/wt");
             assert_eq!(input["parentSessionId"], "p1");
             assert_eq!(input["subSessionKind"], "forked");
-            assert!(input.get("taskId").is_none());
+            // A sub-session started on a line goes on it too.
+            assert_eq!(input["taskId"], "t9");
             let created = serde_json::to_value(session("c1", "gamma", SessionStatus::Starting))
                 .unwrap_or_else(|error| panic!("{error}"));
             daemon.respond(&request, true, created).await;

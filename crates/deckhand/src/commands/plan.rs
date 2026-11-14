@@ -2,7 +2,8 @@
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::js_len;
-use deckhand_core::task_list::{Line, TaskList};
+use deckhand_core::task_list::Line;
+pub use deckhand_core::task_list::{MovePlan, MoveTarget, plan_move};
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use deckhand_protocol::data::{
     CreateSessionInput, ProgramKey, SessionRecord, SessionStatus, SubSessionKind, Task, WorktreeMode,
@@ -217,60 +218,6 @@ pub fn find_task<'a>(id: &str, tasks: &'a [Task]) -> Result<&'a Task, DhError> {
 /// The line `id` names (in full, or a unique prefix), among `lines`.
 pub fn find_line<'a>(id: &str, lines: &'a [Line], list: &str) -> Result<&'a Line, DhError> {
     find_by_id(id, lines, |line| &line.id, "line", list)
-}
-
-/// Where `task move --to` sends a line.
-#[derive(Clone, Copy, Debug)]
-pub enum MoveTarget<'a> {
-    Backlog,
-    Session(&'a SessionRecord),
-    Line(&'a Line),
-}
-
-/// What `task move` does, by the rules of the board's `w`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MovePlan {
-    /// The line is there already.
-    Already,
-    /// `move-to` under `parent` (`None`: the top level), after taking session `unhook` off it (to the backlog: nobody
-    /// is on a backlog line).
-    MoveTo {
-        parent: Option<String>,
-        unhook: Option<String>,
-    },
-    /// `session-on`: the line becomes the line of a session that has none.
-    SessionOn { s: String },
-}
-
-/// Moving `line` to `target` in `list`: to the backlog it goes to the top level with nobody on it; onto a session's
-/// line it becomes a step of it, and onto a session without one it becomes its line; under a line, a step of it.
-pub fn plan_move(line: &Line, target: MoveTarget<'_>, list: &TaskList) -> MovePlan {
-    let under = |parent: &str| -> MovePlan {
-        if line.parent.as_deref() == Some(parent) {
-            MovePlan::Already
-        } else {
-            MovePlan::MoveTo {
-                parent: Some(parent.to_owned()),
-                unhook: None,
-            }
-        }
-    };
-    match target {
-        MoveTarget::Backlog => {
-            let unhook = line.meta.s.clone().filter(|s| !s.is_empty());
-            if line.parent.is_none() && unhook.is_none() {
-                MovePlan::Already
-            } else {
-                MovePlan::MoveTo { parent: None, unhook }
-            }
-        }
-        MoveTarget::Session(session) => match list.line_of_session(&session.id) {
-            Some(own) if own.id == line.id => MovePlan::Already,
-            Some(own) => under(&own.id),
-            None => MovePlan::SessionOn { s: session.id.clone() },
-        },
-        MoveTarget::Line(parent) => under(&parent.id),
-    }
 }
 
 #[cfg(test)]
@@ -644,58 +591,6 @@ mod tests {
         assert_eq!(
             find_task("zz", &[]).map_err(|error| error.to_string()).err().as_deref(),
             Some("No task zz (see deckhand task list)")
-        );
-    }
-
-    #[test]
-    fn moving_a_line_follows_the_boards_w() {
-        let lead = in_worktree("lead", "claude");
-        let fresh = session("fresh", json!({}));
-        let list = TaskList::parse(
-            "- [ ] Backlog line <!-- dh:t=t1 -->\n- [ ] Lead's line <!-- dh:t=t2 s=lead -->\n  - [ ] A step <!-- dh:t=t3 \
-             -->\n",
-        );
-        let get = |id: &str| list.get(id).expect("a line").clone();
-        // Onto a session's line: a step of it; onto a session without one: its line.
-        assert_eq!(
-            plan_move(&get("t1"), MoveTarget::Session(&lead), &list),
-            MovePlan::MoveTo {
-                parent: Some("t2".into()),
-                unhook: None
-            }
-        );
-        assert_eq!(
-            plan_move(&get("t1"), MoveTarget::Session(&fresh), &list),
-            MovePlan::SessionOn { s: "fresh".into() }
-        );
-        // Under a line; where it is already.
-        assert_eq!(
-            plan_move(&get("t3"), MoveTarget::Line(&get("t2")), &list),
-            MovePlan::Already
-        );
-        assert_eq!(
-            plan_move(&get("t3"), MoveTarget::Session(&lead), &list),
-            MovePlan::Already
-        );
-        assert_eq!(
-            plan_move(&get("t2"), MoveTarget::Session(&lead), &list),
-            MovePlan::Already
-        );
-        // To the backlog: the top level, nobody on it.
-        assert_eq!(plan_move(&get("t1"), MoveTarget::Backlog, &list), MovePlan::Already);
-        assert_eq!(
-            plan_move(&get("t3"), MoveTarget::Backlog, &list),
-            MovePlan::MoveTo {
-                parent: None,
-                unhook: None
-            }
-        );
-        assert_eq!(
-            plan_move(&get("t2"), MoveTarget::Backlog, &list),
-            MovePlan::MoveTo {
-                parent: None,
-                unhook: Some("lead".into())
-            }
         );
     }
 }

@@ -1,10 +1,9 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ☐ Tasks · demo                                                          1 open · 0 in progress │
+│ ☐ Tasks · demo                                                       1 open · 0 with a session │
 │                                                                                                │
-│ IN PROGRESS                                                                                    │
-│   n on a backlog task starts a session for it · w gives it to a worktree                       │
-│ BACKLOG · 1                                                                                    │
-│   ○ Write the docs                                                            added 2026-10-19 │
+│ OPEN · 1                                                                                       │
+│   ☐ Write the docs                                                                             │
+│                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
@@ -24,21 +23,22 @@
 │                                                                                                │
 │                                                                                                │
 │ ────────────────────────────────────────────────────────────────────────────────────────────── │
-│ Edit task                                                                                      │
+│ Edit line                                                                                      │
 │ Title  Write the docs                                                                          │
-│ Details                                                                                        │
+│ Note                                                                                           │
 │   why: people ask                                                                              │
+│                                                                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-enter save • tab details • esc save
+enter save • tab note • esc save
 ── styles
 row 0: 0..98 fg=5
-row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 74..96 fg=8, 97..98 fg=5
+row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 71..96 fg=8, 97..98 fg=5
 row 2: 0..1 fg=5, 97..98 fg=5
-row 3: 0..1 fg=5, 2..13 fg=8 bold, 97..98 fg=5
-row 4: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 5: 0..1 fg=5, 2..9 fg=8 bold, 9..13 fg=8, 97..98 fg=5
-row 6: 0..1 fg=5, 4..5 fg=8, 80..96 fg=8, 97..98 fg=5
+row 3: 0..1 fg=5, 2..6 fg=8 bold, 6..10 fg=8, 97..98 fg=5
+row 4: 0..1 fg=5, 97..98 fg=5
+row 5: 0..1 fg=5, 97..98 fg=5
+row 6: 0..1 fg=5, 97..98 fg=5
 row 7: 0..1 fg=5, 97..98 fg=5
 row 8: 0..1 fg=5, 97..98 fg=5
 row 9: 0..1 fg=5, 97..98 fg=5
@@ -56,10 +56,10 @@ row 20: 0..1 fg=5, 97..98 fg=5
 row 21: 0..1 fg=5, 97..98 fg=5
 row 22: 0..1 fg=5, 97..98 fg=5
 row 23: 0..1 fg=5, 97..98 fg=5
-row 24: 0..1 fg=5, 97..98 fg=5
-row 25: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
-row 26: 0..1 fg=5, 2..11 fg=5 bold, 97..98 fg=5
-row 27: 0..1 fg=5, 2..9 fg=6 bold, 23..24 inverse, 97..98 fg=5
-row 28: 0..1 fg=5, 2..9 fg=8, 97..98 fg=5
+row 24: 0..1 fg=5, 2..96 fg=8, 97..98 fg=5
+row 25: 0..1 fg=5, 2..11 fg=5 bold, 97..98 fg=5
+row 26: 0..1 fg=5, 2..9 fg=6 bold, 23..24 inverse, 97..98 fg=5
+row 27: 0..1 fg=5, 2..6 fg=8, 97..98 fg=5
+row 28: 0..1 fg=5, 97..98 fg=5
 row 29: 0..1 fg=5, 97..98 fg=5
 row 30: 0..98 fg=5

@@ -39,6 +39,7 @@ use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_rep
 use deckhand_core::session_order::{filter_collapsed_sessions, sort_sessions_for_sidebar};
 use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::session_sections::{SessionSection, order_by_section, session_section};
+use deckhand_core::task_list::TaskList;
 use deckhand_core::tasks::parse_tasks;
 use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lookup};
 use deckhand_core::workspace::workspace_key;
@@ -48,6 +49,7 @@ use deckhand_protocol::data::{
     SessionCleanupInspection, SessionRecord, SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc,
     UiExitResult, WorktreeMode,
 };
+use deckhand_protocol::events::WorkNoteUpdated;
 use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::desktop::resolve_terminal_editor;
 
@@ -571,7 +573,8 @@ macro_rules! with_props {
             client: app.connection.client.as_ref(),
             repo_root: &app.props.repo_root,
             doc: app.data.tasks_doc.as_ref(),
-            tasks: &app.data.tasks,
+            list: &app.data.task_list,
+            notes: &app.data.work_notes,
             sessions: &refs,
             spinner_frame: frame,
         };
@@ -970,14 +973,29 @@ impl App {
         self.browse.active_tab = tab;
     }
 
-    /// TS `setTasksDoc`, with `tasks` reparsed when the text changed (TS: the `[tasksDoc?.text]` memo).
+    /// TS `setTasksDoc`, with `tasks` and the tree reparsed when the text changed (TS: the `[tasksDoc?.text]` memo).
+    /// A doc with notes (`watch-tasks`' answer) replaces the notes held; one without keeps them.
     pub fn set_tasks_doc(&mut self, doc: Option<TasksDoc>) {
         let text = |doc: Option<&TasksDoc>| doc.map(|doc| doc.text.clone()).unwrap_or_default();
         let changed = text(self.data.tasks_doc.as_ref()) != text(doc.as_ref());
-        self.data.tasks_doc = doc;
-        if changed {
-            self.data.tasks = parse_tasks(&text(self.data.tasks_doc.as_ref()));
+        if let Some(doc) = doc.as_ref() {
+            self.data.work_notes.load(doc);
         }
+        self.data.tasks_doc = doc.map(|mut doc| {
+            // The notes live in `work_notes` only.
+            doc.notes = None;
+            doc
+        });
+        if changed {
+            let text = text(self.data.tasks_doc.as_ref());
+            self.data.tasks = parse_tasks(&text);
+            self.data.task_list = TaskList::parse(&text);
+        }
+    }
+
+    /// `work-note-updated`: a line note, brief or scratchpad of the list shown changed.
+    pub fn work_note_updated(&mut self, update: WorkNoteUpdated) {
+        self.data.work_notes.update(&update.key, update.note);
     }
 
     /// TS `setSessions(current => upsertSession(current, session))`. Not in the TS: a J/K move not written yet
@@ -1653,7 +1671,10 @@ impl FlowHost for App {
                     }
                 }
                 FlowEffect::TasksDoc(doc) => self.set_tasks_doc(Some(*doc)),
-                FlowEffect::StartTask(task) => crate::app::modes::create::start_from_task(self, &task),
+                FlowEffect::WorkNote(note) => self.data.work_notes.put(*note),
+                FlowEffect::StartTask { task, parent } => {
+                    crate::app::modes::create::start_from_task(self, &task, parent.as_deref());
+                }
                 FlowEffect::GoTo(session_id) => self.go_to_session(&session_id),
                 FlowEffect::OpenNote(session_id) => self.open_note(&session_id),
                 FlowEffect::Session(session) => self.upsert(*session),

@@ -23,10 +23,10 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MoveDirection, NoteRef, NoteSaveResult, NoteSection, OrchestratorResult, PendingPlan, PingResult, PlanOutcome,
-    PlanSummary, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
+    MoveDirection, NoteRef, NoteSaveResult, OrchestratorResult, PendingPlan, PingResult, PlanOutcome, PlanSummary,
+    PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
     SavedConfigDocument, SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, StageMode,
-    TaskOp, TasksDoc, TerminalRecord, WorkNoteKind, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection,
+    TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection,
     WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
 };
 use deckhand_protocol::events::{PlanSettled, WorkNoteUpdated};
@@ -315,20 +315,6 @@ fn new_request_id() -> String {
 /// `...flag ? {key: true} : {}`.
 fn only_true(flag: bool) -> Option<bool> {
     flag.then_some(true)
-}
-
-/// A session's own note as a [`NoteRef`]; its shared note is gone (a worktree's and the main checkout's notes became
-/// line notes and the scratchpad).
-fn session_note_ref(session_id: &str, section: NoteSection) -> Result<NoteRef, DhError> {
-    match section {
-        NoteSection::Session => Ok(NoteRef {
-            kind: WorkNoteKind::Session,
-            id: session_id.to_owned(),
-        }),
-        NoteSection::Shared => Err(DhError::msg(
-            "A session has no shared note any more: its line's note and the scratchpad took its place",
-        )),
-    }
 }
 
 /// One entry of [`LiveClient::change_stage`]: TS `entry?: {group, path}` (absent stages/unstages everything).
@@ -965,22 +951,6 @@ impl LiveClient {
         }))
     }
 
-    /// [`LiveClient::promote_work_note_item`] on a session's note, as the UI names it until it moves to [`NoteRef`]:
-    /// its own note (`section` session); a shared note no longer exists.
-    pub fn promote_note_item(
-        &self,
-        session_id: &str,
-        section: NoteSection,
-        line: i64,
-        revision: &str,
-        _note_id: Option<&str>,
-    ) -> Reply<PromoteNoteItemResult> {
-        match session_note_ref(session_id, section) {
-            Ok(note) => self.promote_work_note_item(note, line, revision),
-            Err(error) => failed(error),
-        }
-    }
-
     /// TS: LiveClient.listBranches.
     pub fn list_branches(&self, cwd: &str) -> Reply<BranchList> {
         self.request(Request::ListBranches(cwd_request(cwd)))
@@ -996,35 +966,12 @@ impl LiveClient {
         }))
     }
 
-    /// [`LiveClient::save_work_note`] on a session's note, as the UI names it until it moves to [`NoteRef`].
-    pub fn save_note(
-        &self,
-        session_id: &str,
-        section: NoteSection,
-        text: &str,
-        revision: &str,
-        _note_id: Option<&str>,
-    ) -> Reply<NoteSaveResult> {
-        match session_note_ref(session_id, section) {
-            Ok(note) => self.save_work_note(note, text, revision),
-            Err(error) => failed(error),
-        }
-    }
-
     /// `open-note`: the note's file (created if missing), to open it in an editor.
     pub fn open_work_note(&self, note: NoteRef) -> Reply<String> {
         self.request(Request::OpenNote(OpenNote {
             request_id: new_request_id(),
             note: Loose::Known(note),
         }))
-    }
-
-    /// [`LiveClient::open_work_note`] on a session's note, as the UI names it until it moves to [`NoteRef`].
-    pub fn open_note(&self, session_id: &str, section: NoteSection) -> Reply<String> {
-        match session_note_ref(session_id, section) {
-            Ok(note) => self.open_work_note(note),
-            Err(error) => failed(error),
-        }
     }
 
     /// TS: LiveClient.saveConfig (`revision` `null` is written as `null`).
@@ -1263,6 +1210,7 @@ mod tests {
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     use super::*;
+    use deckhand_protocol::data::WorkNoteKind;
 
     type Log = Rc<RefCell<Vec<String>>>;
 
@@ -1471,7 +1419,11 @@ mod tests {
                     id(&line)
                 )
             );
-            drop(client.save_note("s1", NoteSection::Session, "text", "rev", Some("")));
+            let note = NoteRef {
+                kind: WorkNoteKind::Session,
+                id: "s1".into(),
+            };
+            drop(client.save_work_note(note, "text", "rev"));
             let line = daemon.next_line().await;
             assert_eq!(
                 line,
