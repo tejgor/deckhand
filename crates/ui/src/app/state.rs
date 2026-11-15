@@ -68,7 +68,7 @@ pub enum Mode {
     ConfirmResume,
     /// Not in the TS: an orchestrator's plan waits for `enter` (create it) or `esc` (cancel it).
     ConfirmPlan,
-    /// Not in the TS: `O`'s prompt, a name and "What do you want to do?": a new orchestrator for the idea.
+    /// Not in the TS: `O`'s dialog, a name and "What do you want to do?": a new orchestrator for the idea.
     EnterIdea,
     /// Not in the TS: `e`, the selected session's messages (sent, received, and replies to yours).
     Messages,
@@ -159,7 +159,6 @@ impl Mode {
                 | Mode::NotesFocus
                 | Mode::Search
                 | Mode::PickFilter
-                | Mode::EnterIdea
         )
     }
 
@@ -181,13 +180,14 @@ impl Mode {
                 | Mode::ConfirmResume
                 | Mode::ConfirmPlan
                 | Mode::Messages
+                | Mode::EnterIdea
         )
     }
 
     /// Not in the TS: a dialog, or a full-pane confirmation (merge and its conflicts), whose body scrolls with
-    /// J/K (PgUp/PgDn).
+    /// J/K (PgUp/PgDn). Not `O`'s dialog: it is all fields, and its idea scrolls with its cursor.
     pub fn scrolls_body(self) -> bool {
-        self.is_dialog() || matches!(self, Mode::ConfirmMerge | Mode::MergeConflicts)
+        (self.is_dialog() && self != Mode::EnterIdea) || matches!(self, Mode::ConfirmMerge | Mode::MergeConflicts)
     }
 }
 

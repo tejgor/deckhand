@@ -43,7 +43,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note you last worked on) |
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
-| `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: asks for a **Name** and *What do you want to do?* in a prompt at the bottom ([its keys](#orchestrator-prompt); `enter` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
+| `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: the **New orchestrator** dialog asks for a **Name** and *What do you want to do?* ([its keys](#new-orchestrator-dialog); `ctrl+s` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
 | `P` | Open the oldest orchestrator plan waiting for your answer, one you put aside too (the header says `◎ 1 plan waiting · P`); see [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
@@ -183,18 +183,19 @@ Both detach keys still work when the attached program switches the terminal to a
 
 When an orchestrator applies a plan, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once you answer the plan or put it aside. A plan you put aside does not detach you again.
 
-## Orchestrator prompt
+## New orchestrator dialog
 
-`O`'s prompt, on one line at the bottom: `Name: Auth tokens · What do you want to do? Store session tokens encrypted▏`. It starts in the name, which is optional (without one, the idea's first line names the orchestrator); keep it to 2–4 words.
+`O` opens **New orchestrator** over the session pane, with two fields, as a line in the Tasks board has a title and a note: **Name** (one line, optional, 2–4 words; without one, the idea's first line names the orchestrator) and **What do you want to do?**, the idea, which can be a paragraph or several. It opens in the name, or where you left it.
 
 | Key | Action |
 | --- | --- |
 | `tab`, `shift+tab` | Switch between the name and the idea |
-| `enter` | Start the orchestrator, from either field, once the idea has text (from the name with no idea yet: go to the idea) |
-| `esc` | Cancel: nothing starts, and what was typed is cleared |
-| `backspace` | Delete the last character of the field you are in |
+| `enter` | In the name: go to the idea. In the idea: a new line |
+| `ctrl+s` | Start the orchestrator, from either field (with no idea yet, the dialog says so) |
+| `esc` | Cancel: nothing starts; what you typed is kept, and the next `O` opens with it |
+| `←` `→` `↑` `↓`, `backspace`, `ctrl+w` | Edit the field you are in, as in a note |
 
-A pasted line break is a space. If starting fails, `O` opens the prompt again with what you typed.
+A pasted line break stays a line break in the idea (in the name it is a space). The name is at most 64 characters. Once an orchestrator starts, the dialog is empty again; if starting fails, the footer says why and `O` opens the dialog with what you typed.
 
 ## Plan confirmation
 

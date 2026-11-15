@@ -1,4 +1,4 @@
-//! The orchestrator in the UI, in a real PTY: `O` asks for a name and what you want to do and starts a new
+//! The orchestrator in the UI, in a real PTY: `O` opens a dialog for a name and what you want to do and starts a new
 //! orchestrator for the idea, every time; a plan it applies while you are attached to it detaches you to the
 //! confirmation, `esc` puts the plan aside and attaches you again, `P` brings it back, `enter` creates it, and the
 //! orchestrator is told in a message typed into its agent.
@@ -82,20 +82,25 @@ fn an_orchestrators_plan_can_be_put_aside_and_brought_back_and_the_orchestrator_
     ui.screen("DEV (isolated)");
     ui.screen("● ready");
 
-    // O asks for a name and what you want to do; enter starts an orchestrator for the idea (◎, named by the name) and
-    // selects it; once it runs, enter attaches to it.
+    // O opens the New orchestrator dialog: a name, then (enter) what you want to do, enter a new line in it; ctrl+s
+    // starts an orchestrator for the idea (◎, named by the name) and selects it; once it runs, enter attaches to it.
     ui.press("O");
-    ui.screen("Name: ▏(optional, 2–4 words) · What do you want to do?");
+    ui.screen("New orchestrator");
+    ui.screen("Name  optional · 2–4 words");
     ui.press("Tokens");
-    ui.screen("Name: Tokens▏");
-    ui.press("\t");
-    ui.screen("Name: Tokens · What do you want to do? ▏");
-    ui.press("Rework auth so tokens are stored encrypted");
-    ui.screen("Name: Tokens · What do you want to do? Rework auth so tokens are stored encrypted▏");
+    ui.screen("Name  Tokens");
     ui.press("\r");
+    ui.press("Rework auth so tokens");
+    ui.press("\r");
+    ui.press("are stored encrypted");
+    let dialog = ui.screen("are stored encrypted");
+    assert!(dialog.contains("Rework auth so tokens"), "{dialog}");
+    assert!(dialog.contains("ctrl+s start"), "{dialog}");
+    ui.press("\x13");
     let started = ui.screen("◎ orchestrator · pl");
     assert!(started.contains("Tokens"), "{started}");
     assert!(!started.contains("Rework auth so"), "{started}");
+    assert!(!started.contains("New orchestrator"), "{started}");
     wait_until_attachable(&ui);
     ui.press("\r");
     wait_attached(&ui, "Tokens");
@@ -165,28 +170,29 @@ fn an_orchestrators_plan_can_be_put_aside_and_brought_back_and_the_orchestrator_
     // The orchestrator is told: the answer is typed into its agent once it is idle (its screen shows the echo).
     ui.screen(&format!("[The user approved your plan {plan_id}]"));
 
-    // Another idea, while that one runs: another orchestrator. Esc on the prompt starts nothing.
+    // Another idea, while that one runs: another orchestrator. Esc closes the dialog and starts nothing, but keeps
+    // what was typed for the next O.
     ui.press("O");
-    ui.screen("What do you want to do?");
-    ui.press("Never mind");
+    ui.screen("New orchestrator");
+    ui.press("\t");
+    ui.press("Speed up the build");
+    ui.screen("Speed up the build");
     ui.press("\x1b");
     let frame = wait_for(
         || ui.screen_text(),
-        |frame| !frame.contains("What do you want to do?"),
+        |frame| !frame.contains("New orchestrator"),
         Duration::from_secs(5),
     );
-    assert!(!frame.contains("Never mind"), "{frame}");
+    assert!(!frame.contains("Speed up the build"), "{frame}");
     // Without a name, the idea's first line names it.
     ui.press("O");
-    ui.screen("What do you want to do?");
-    ui.press("\t");
-    ui.screen("What do you want to do? ▏");
-    ui.press("Speed up the build");
-    ui.screen("What do you want to do? Speed up the build▏");
-    ui.press("\r");
+    ui.screen("Speed up the build");
+    ui.press("\x13");
     let both = wait_for(
         || ui.screen_text(),
-        |frame| frame.contains("Speed up the build") && frame.contains("● Tokens") && !frame.contains("What do"),
+        |frame| {
+            frame.contains("Speed up the build") && frame.contains("● Tokens") && !frame.contains("New orchestrator")
+        },
         Duration::from_secs(15),
     );
     assert!(both.matches("◎ ").count() >= 2, "{both}");

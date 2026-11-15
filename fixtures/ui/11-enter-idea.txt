@@ -1,36 +1,36 @@
 deckhand                                                                                                                   ● ready
 <TMP>/demo
-╭─────────────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────╮
-│ Sessions                          0 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                 │
-│                                     │ │                                                                                        │
-│ No sessions yet.                    │ │ Select a session from the sidebar                                                      │
-│ Press n to create.                  │ │ No sessions yet. Press n to create one.                                                │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-│                                     │ │                                                                                        │
-╰─────────────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────╯
-Name: Auth tokens · What do you want to do? Store session tokens encrypted at rest▏ • tab next field • enter start • esc cancel
+╭──────────────────────╮ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions           2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                                │
+│› 1 ● auth refactor ✶ │ │                                                                                                       │
+│╎ 2 ○ write tests   ✶ │ │ <TMP>/demo                                                                                       idle │
+│                      │ │ agent output line 1                                                                                   │
+│                      │ │ agent output line 2                                                                                   │
+│                      │ │ agent outp╭──────────────────────────────────────────────────────────────────────────────╮            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ New orchestrator                                                             │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ Name  optional · 2–4 words                                                   │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ What do you want to do?                                                      │            │
+│                      │ │ agent outp│   a sentence or a paragraph: the orchestrator's first message                │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ enter/tab next field • ctrl+s start • esc cancel                             │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp╰──────────────────────────────────────────────────────────────────────────────╯            │
+│                      │ │ agent output line 22                                                                                  │
+│                      │ │ agent output line 23                                                                                  │
+│ ──────────────────── │ │ agent output line 24                                                                                  │
+│ auth refactor        │ │                                                                                                       │
+│ ✶ idle · now         │ │                                                                                                       │
+│ main checkout ╎1     │ │                                                                                                       │
+╰──────────────────────╯ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
 

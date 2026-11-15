@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭──────────────────────╮ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions           2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                                │
+│› 1 ● auth refactor ✶ │ │                                                                                                       │
+│╎ 2 ○ write tests   ✶ │ │ <TMP>/demo                                                                                       idle │
+│                      │ │ agent output line 1                                                                                   │
+│                      │ │ agent output line 2                                                                                   │
+│                      │ │ agent outp╭──────────────────────────────────────────────────────────────────────────────╮            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ New orchestrator                                                             │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ Name  Auth tokens                                                            │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ What do you want to do?                                                      │            │
+│                      │ │ agent outp│   Store session tokens encrypted at rest, with the key in the system         │            │
+│                      │ │ agent outp│   keychain rather than a file next to the database.                          │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│   Rotate them on every login.                                                │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp│ enter new line • tab next field • ctrl+s start • esc cancel                  │            │
+│                      │ │ agent outp│                                                                              │            │
+│                      │ │ agent outp╰──────────────────────────────────────────────────────────────────────────────╯            │
+│                      │ │ agent output line 22                                                                                  │
+│                      │ │ agent output line 23                                                                                  │
+│ ──────────────────── │ │ agent output line 24                                                                                  │
+│ auth refactor        │ │                                                                                                       │
+│ ✶ idle · now         │ │                                                                                                       │
+│ main checkout ╎1     │ │                                                                                                       │
+╰──────────────────────╯ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
