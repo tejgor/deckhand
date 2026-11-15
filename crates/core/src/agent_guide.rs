@@ -26,9 +26,10 @@ it is still in context.";
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
 
-/// The most [`GUIDE`] may be, in bytes (about 480 tokens): it is read only when an agent takes a Deckhand action (or
-/// answers a message), so it can be clear rather than terse; details belong in each command's `--help`.
-pub const GUIDE_BUDGET: usize = 2000;
+/// The most [`GUIDE`] may be, in bytes (about 530 tokens): it is read only when an agent takes a Deckhand action (or
+/// answers a message), so it can be clear rather than terse, with exact forms rather than pointers; details belong in
+/// each command's `--help`.
+pub const GUIDE_BUDGET: usize = 2200;
 
 /// `deckhand guide`: the full guide, and the skill's body.
 pub const GUIDE: &str = "\
@@ -38,28 +39,34 @@ Take Deckhand actions only when the user asks, with one exception: when a messag
 with deckhand reply. Never start or end sessions or move tasks unasked. Merges and worktree deletions stay with the
 user.
 
-deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>] [--parent <id>]
+deckhand new --title <t> --prompt <brief> [--agent claude|codex|pi] [--task <id>] [--parent <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--draft]
   Starts a sub-session of this one in a new worktree, stacked on this branch (--flat: not). --worktree same: this
   worktree; none: the main checkout. --top-level: a sibling; --parent: under a session below you. Its
   prompt is sent at once (--draft: typed for the user to send). It knows nothing of this chat unless --fork: brief
-  it fully (context, constraints, what done is). Long prompts: a quoted heredoc (new --help). --task: it works on
-  that line, ticked when merged or done.
+  it fully (context, constraints, what done is). --task: it works on that line, ticked when merged or done.
+  Always pass --title: 2-4 words naming the work (\"Fix login redirect\"), not a sentence.
 deckhand ls  your tree, who you can message (* is you)
 deckhand kill <id>  ends a session below you; deckhand remove <id> takes an ended one off the list
 
 deckhand send <id> <message> [--wait]  messages a session in your tree (deckhand ls shows them),
-  typed in once it is idle. --wait prints the first reply (Bash timeout 600000) or why none came: it waits on a
-  question, ended its turn without replying, or exited. Later replies come as messages.
+  typed in once it is idle. --wait prints the first reply (Bash timeout 600000) or why none came. Later replies
+  come as messages.
 deckhand reply <message id> <answer>  answers a message sent to you (its header has the ID)
 
-deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
+deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>|<line>
   Told to park something? task add it.
 deckhand step add <text> | step done|reopen <id> | step list  your steps
 deckhand note add <text>  findings for your line's note
 
+Long text (a prompt, message, answer, note or --details): pass - and pipe it in with a quoted heredoc, EOF
+alone on its last line:
+deckhand new --prompt - <<'EOF'
+<brief>
+EOF
 IDs: any unique prefix. --json anywhere; <command> --help for more.
-As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.
+As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed. No
+stdin: long text is one word, never -.
 ";
 
 #[cfg(test)]
@@ -93,6 +100,24 @@ mod tests {
         assert!(GUIDE.contains("deckhand reply <message id> <answer>"));
         assert!(GUIDE.contains("deckhand send <id> <message> [--wait]"));
         assert!(GUIDE.contains("Bash timeout 600000"));
+    }
+
+    #[test]
+    fn the_guide_shows_the_exact_form_for_long_text_once_for_every_command() {
+        assert!(GUIDE.contains("Long text (a prompt, message, answer, note or --details): pass - and pipe it in"));
+        // The heredoc as it is typed: its terminator alone at the start of a line, or the shell never ends it.
+        assert!(GUIDE.contains("\ndeckhand new --prompt - <<'EOF'\n<brief>\nEOF\n"));
+        assert!(GUIDE.contains("No\nstdin: long text is one word, never -."));
+        // No pointer in place of the form.
+        assert!(!GUIDE.contains("(new --help)"));
+    }
+
+    #[test]
+    fn the_guide_asks_for_a_short_title_naming_the_work_on_every_new_session() {
+        assert!(GUIDE.contains("deckhand new --title <t> --prompt <brief>"));
+        assert!(
+            GUIDE.contains("Always pass --title: 2-4 words naming the work (\"Fix login redirect\"), not a sentence.")
+        );
     }
 
     #[test]

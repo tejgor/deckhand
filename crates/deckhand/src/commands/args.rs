@@ -1,7 +1,8 @@
 //! Parsing `deckhand new|ls|task|step|note|send|reply|kill|remove|guide|plan|do` and their usage texts.
 //!
 //! Options take their value as the next argument or after `=` (`--title=x`), so a value may start with `-`. `--`
-//! ends the options. Every command takes `--json` and `--help` (`-h`).
+//! ends the options. Every command takes `--json` and `--help` (`-h`). A long text (a prompt, details, a note, a
+//! message, an answer, an idea) may be `-`: read from stdin (`commands::read_stdin`), never the literal `-`.
 
 use deckhand_core::error::DhError;
 use deckhand_protocol::data::ProgramKey;
@@ -19,23 +20,24 @@ pub const AGENT_WORDS: &[&str] = &[
 
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
-Usage: deckhand new [--prompt <text>] [--draft] [--agent claude|codex|pi] [--title <title>] [--task <id>]
+Usage: deckhand new [--prompt <text>|-] [--draft] [--agent claude|codex|pi] [--title <title>] [--task <id>]
                     [--parent <id>] [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level]
                     [--fork] [--json]
 
 Starts a session. Run inside a Deckhand session, it is a sub-session of that session in a new worktree; run
 elsewhere, a top-level session of the current repository.
 
-  --prompt <text>     The agent's first message, sent when it starts (from a shell, a long one can come from
-                      a quoted heredoc: --prompt \"$(cat <<'EOF' ... EOF)\")
+  --prompt <text>|-   The agent's first message, sent when it starts. - reads it from stdin, for a long one
+                      (a quoted heredoc: deckhand new --prompt - <<'EOF', the brief, then EOF alone on a line)
   --draft             Type the prompt into the agent's input without sending it
   --agent <agent>     claude, codex or pi (default: this session's agent, else the repository's default agent)
-  --title <title>     The session's name (default: the task's title, else the prompt's first line)
+  --title <title>     The session's name: 2-4 words naming the work, not a sentence (default: the task's title,
+                      else the prompt's first sentence)
   --task <id>         Start on a line from `deckhand task list` that nobody is on: the session is on it (the
                       prompt, if any, replaces its text; without one its title, brief and note are typed as a
                       draft)
-  --parent <id>       A sub-session of that session instead: inside a session, one this session started (or one
-                      under those); run by hand, any session of the repository
+  --parent <id>       A sub-session of that session instead: inside a session, one under this session (at any
+                      depth); run by hand, any session of the repository
   --worktree <where>  new: a new worktree (the default); same: the parent's (else this session's) worktree;
                       none: no worktree, in the repository's checkout; <path>: an existing worktree
   --base <branch>     The branch a new worktree starts from (default: a sub-session's is stacked on this
@@ -62,7 +64,7 @@ with each one's parent. Archived sessions are left out. Columns: ID, state, agen
 /// `deckhand task --help`.
 pub const TASK_USAGE: &str = "\
 Usage: deckhand task list [--json]
-       deckhand task add <title> [--details <text>] [--json]
+       deckhand task add <title> [--details <text>|-] [--json]
        deckhand task done <id> [--json]
        deckhand task reopen <id> [--json]
        deckhand task move <id> --to backlog|<session id>|<line id> [--json]
@@ -71,7 +73,8 @@ The current repository's list (the Tasks board, b): one tree of lines; a session
 lines under it are its steps.
   list    The tree: open lines and those ticked in the last 7 days, who is on each, ticked/total of the lines
           under it, a brief (✎)
-  add     Adds a line to the backlog (--details: its note)
+  add     Adds a line to the backlog (--details: its note; - reads it from stdin, as a quoted heredoc:
+          deckhand task add <title> --details - <<'EOF' ... EOF)
   done    Ticks a line; reopen unticks it. A line whose lines are all ticked ticks itself
   move    Moves a line, with its lines: to the backlog (nobody on it); onto a session's line, as a step of it
           (onto a session without a line, it becomes its line); under another line
@@ -93,11 +96,11 @@ IDs may be shortened to any unique prefix.";
 
 /// `deckhand note --help`.
 pub const NOTE_USAGE: &str = "\
-Usage: deckhand note add <text> [--json]
+Usage: deckhand note add <text>|- [--json]
 
 Appends <text> as a paragraph to the note of this session's line (findings, decisions, context for whoever works
-on it next; the line is made the first time it needs one). Steps go in with deckhand step add. Only inside a
-Deckhand session.";
+on it next; the line is made the first time it needs one). - reads the text from stdin (a quoted heredoc: deckhand
+note add - <<'EOF' ... EOF). Steps go in with deckhand step add. Only inside a Deckhand session.";
 
 /// `deckhand send --help`.
 pub const SEND_USAGE: &str = "\
@@ -177,12 +180,12 @@ lines under the idea's line, nobody on them (by hand: in the backlog), their det
 
 /// `deckhand do --help`.
 pub const DO_USAGE: &str = "\
-Usage: deckhand do <idea> [--json]
+Usage: deckhand do <idea>|- [--json]
 
 Starts a new orchestrator for an idea, which splits it into sessions for you to confirm: the idea is its first
 message, its first line the orchestrator's name, and a new top-level line of that name is the idea's, with the
-orchestrator on it. Every call starts a new one; several can run at once. Run it from a terminal in the repository,
-not inside a session.";
+orchestrator on it. Every call starts a new one; several can run at once. - reads the idea from stdin. Run it from a
+terminal in the repository, not inside a session.";
 
 /// `deckhand guide --help`.
 pub const GUIDE_USAGE: &str = "\
@@ -211,7 +214,7 @@ pub enum Action {
     TaskList,
     TaskAdd {
         title: String,
-        details: Option<String>,
+        details: Option<TextSource>,
     },
     TaskDone(String),
     TaskReopen(String),
@@ -223,7 +226,7 @@ pub enum Action {
     StepDone(String),
     StepReopen(String),
     StepList,
-    NoteAdd(String),
+    NoteAdd(TextSource),
     /// `send <session> <message>`.
     Send(SendArgs),
     /// `send --cancel <message id>`.
@@ -240,14 +243,55 @@ pub enum Action {
     /// `plan apply`.
     PlanApply(PlanSource),
     /// `do <idea>`.
-    Do(String),
+    Do(TextSource),
 }
 
-/// A message's text: given, or `-` (stdin).
+/// A long text (a prompt, details, a note, a message, an answer, an idea): given, or `-` (stdin).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TextSource {
     Given(String),
     Stdin,
+}
+
+impl TextSource {
+    /// The text, once given (`commands::run` reads stdin into a `-` before acting).
+    pub fn given(&self) -> Option<&str> {
+        match self {
+            TextSource::Given(text) => Some(text),
+            TextSource::Stdin => None,
+        }
+    }
+}
+
+/// The one text of an action that is `-`, to be read from stdin.
+pub struct StdinText<'a> {
+    pub slot: &'a mut TextSource,
+    /// What it is, for an error (`the prompt`).
+    pub what: &'static str,
+    /// The command as it reads it (`deckhand new --prompt -`), for an error.
+    pub form: &'static str,
+}
+
+impl Action {
+    /// The text this action reads from stdin, if it was given as `-` (a command has at most one).
+    pub fn stdin_text(&mut self) -> Option<StdinText<'_>> {
+        let (slot, what, form) = match self {
+            Action::New(NewArgs { prompt: Some(slot), .. }) => (slot, "the prompt", "deckhand new --prompt -"),
+            Action::TaskAdd {
+                details: Some(slot), ..
+            } => (slot, "the details", "deckhand task add <title> --details -"),
+            Action::NoteAdd(slot) => (slot, "the note", "deckhand note add -"),
+            Action::Send(SendArgs { text: slot, .. }) => (slot, "the message", "deckhand send <id> -"),
+            Action::Reply { text: slot, .. } => (slot, "the answer", "deckhand reply <message id> -"),
+            Action::Do(slot) => (slot, "the idea", "deckhand do -"),
+            _ => return None,
+        };
+        if *slot == TextSource::Stdin {
+            Some(StdinText { slot, what, form })
+        } else {
+            None
+        }
+    }
 }
 
 /// `deckhand send`'s arguments.
@@ -315,7 +359,7 @@ pub enum WorktreeChoice {
 /// `deckhand new`'s options.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NewArgs {
-    pub prompt: Option<String>,
+    pub prompt: Option<TextSource>,
     pub draft: bool,
     pub agent: Option<ProgramKey>,
     pub title: Option<String>,
@@ -376,6 +420,16 @@ impl Scanned {
 /// Splits `args` into the options of `options`, `--json`, `--help` and positionals; an unknown option, a missing
 /// value or an option given twice is refused with `usage`.
 fn scan(args: &[String], options: &[(&'static str, Kind)], usage: &str) -> Result<Scanned, DhError> {
+    scan_args(args, options, usage, false)
+}
+
+/// [`scan`] for a command whose positionals are text: an unknown option may be text that starts with `-`, so its
+/// error says how to pass that.
+fn scan_text(args: &[String], options: &[(&'static str, Kind)], usage: &str) -> Result<Scanned, DhError> {
+    scan_args(args, options, usage, true)
+}
+
+fn scan_args(args: &[String], options: &[(&'static str, Kind)], usage: &str, text: bool) -> Result<Scanned, DhError> {
     let mut scanned = Scanned::default();
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
@@ -403,7 +457,12 @@ fn scan(args: &[String], options: &[(&'static str, Kind)], usage: &str) -> Resul
             _ => (arg.as_str(), None),
         };
         let Some((option, kind)) = options.iter().find(|(option, _)| *option == name) else {
-            return Err(usage_error(&format!("Unknown option: {name}"), usage));
+            let hint = if text {
+                " (options go anywhere; text that starts with - goes after --, or comes from stdin with -)"
+            } else {
+                ""
+            };
+            return Err(usage_error(&format!("Unknown option: {name}{hint}"), usage));
         };
         let seen = scanned.switches.contains(option) || scanned.values.iter().any(|(seen, _)| seen == option);
         if seen {
@@ -433,13 +492,38 @@ fn one(scanned: &Scanned, what: &str, command: &str, usage: &str) -> Result<Stri
     }
 }
 
-/// Positionals joined by spaces (`note add Write the tests`), which must not be blank.
-fn words(scanned: &Scanned, what: &str, command: &str, usage: &str) -> Result<String, DhError> {
+/// Positionals joined by spaces (`step add Write the tests`), which must not be blank. A lone `-` is refused: this
+/// text is not read from stdin (`instead` says where long text goes).
+fn words(scanned: &Scanned, what: &str, command: &str, usage: &str, instead: &str) -> Result<String, DhError> {
     let text = scanned.positionals.join(" ");
     if text.trim().is_empty() {
         return Err(usage_error(&format!("deckhand {command} needs {what}"), usage));
     }
+    if text == "-" {
+        return Err(usage_error(
+            &format!("deckhand {command} takes {what} itself, not - (stdin); {instead}"),
+            usage,
+        ));
+    }
     Ok(text)
+}
+
+/// Positionals joined by spaces, or `-`: stdin. Blank is refused.
+fn long_text(scanned: &Scanned, what: &str, command: &str, usage: &str) -> Result<TextSource, DhError> {
+    message_text(&scanned.positionals, what, command, usage)
+}
+
+/// An option's long text (`--prompt`, `--details`): given, or `-` (stdin). Blank is refused, never taken as none.
+fn option_text(scanned: &Scanned, option: &str, usage: &str) -> Result<Option<TextSource>, DhError> {
+    match scanned.value(option) {
+        None => Ok(None),
+        Some(value) if value == "-" => Ok(Some(TextSource::Stdin)),
+        Some(value) if value.trim().is_empty() => Err(usage_error(
+            &format!("{option} is empty: give the text, or - to read it from stdin"),
+            usage,
+        )),
+        Some(value) => Ok(Some(TextSource::Given(value))),
+    }
 }
 
 /// No positionals.
@@ -477,12 +561,12 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "reply" => parse_reply(rest),
         "plan" => parse_plan(rest),
         "do" => {
-            let scanned = scan(rest, &[], DO_USAGE)?;
+            let scanned = scan_text(rest, &[], DO_USAGE)?;
             if scanned.help {
                 return Ok(help(DO_USAGE));
             }
             Ok(Invocation {
-                action: Action::Do(words(&scanned, "an idea", "do", DO_USAGE)?),
+                action: Action::Do(long_text(&scanned, "an idea", "do", DO_USAGE)?),
                 json: scanned.json,
             })
         }
@@ -564,11 +648,21 @@ fn parse_new(rest: &[String]) -> Result<Invocation, DhError> {
         return Ok(help(NEW_USAGE));
     }
     none(&scanned, NEW_USAGE)?;
+    let title = match scanned.value("--title") {
+        Some(title) if title.trim().is_empty() => return Err(usage_error("--title is empty", NEW_USAGE)),
+        Some(title) if title == "-" => {
+            return Err(usage_error(
+                "--title takes the name itself, not - (stdin); only --prompt reads -",
+                NEW_USAGE,
+            ));
+        }
+        title => title,
+    };
     let new = NewArgs {
-        prompt: scanned.value("--prompt").filter(|prompt| !prompt.trim().is_empty()),
+        prompt: option_text(&scanned, "--prompt", NEW_USAGE)?,
         draft: scanned.switch("--draft"),
         agent: scanned.value("--agent").as_deref().map(parse_agent).transpose()?,
-        title: scanned.value("--title"),
+        title,
         task: scanned.value("--task"),
         parent: scanned.value("--parent").filter(|parent| !parent.is_empty()),
         worktree: scanned.value("--worktree").as_deref().map(parse_worktree).transpose()?,
@@ -610,7 +704,7 @@ fn parse_task(rest: &[String]) -> Result<Invocation, DhError> {
         Some("move") => &[("--to", Kind::Value)],
         _ => &[],
     };
-    let scanned = scan(args, options, usage)?;
+    let scanned = scan_args(args, options, usage, sub == Some("add"))?;
     if scanned.help || matches!(sub, None | Some("--help" | "-h")) {
         return Ok(help(usage));
     }
@@ -620,8 +714,8 @@ fn parse_task(rest: &[String]) -> Result<Invocation, DhError> {
             Action::TaskList
         }
         Some("add") => Action::TaskAdd {
-            title: words(&scanned, "a title", "task add", usage)?,
-            details: scanned.value("--details").filter(|details| !details.trim().is_empty()),
+            title: words(&scanned, "a title", "task add", usage, "long text goes in --details -")?,
+            details: option_text(&scanned, "--details", usage)?,
         },
         Some("done") => Action::TaskDone(one(&scanned, "a task ID", "task done", usage)?),
         Some("reopen") => Action::TaskReopen(one(&scanned, "a task ID", "task reopen", usage)?),
@@ -672,12 +766,18 @@ fn parse_plan(rest: &[String]) -> Result<Invocation, DhError> {
 fn parse_step(rest: &[String]) -> Result<Invocation, DhError> {
     let usage = STEP_USAGE;
     let sub = rest.first().map(String::as_str);
-    let scanned = scan(rest.get(1..).unwrap_or_default(), &[], usage)?;
+    let scanned = scan_args(rest.get(1..).unwrap_or_default(), &[], usage, sub == Some("add"))?;
     if scanned.help || matches!(sub, None | Some("--help" | "-h")) {
         return Ok(help(usage));
     }
     let action = match sub {
-        Some("add") => Action::StepAdd(words(&scanned, "a step", "step add", usage)?),
+        Some("add") => Action::StepAdd(words(
+            &scanned,
+            "a step",
+            "step add",
+            usage,
+            "a step is one line, and long text goes in deckhand note add -",
+        )?),
         Some("done") => Action::StepDone(one(&scanned, "a step ID", "step done", usage)?),
         Some("reopen") => Action::StepReopen(one(&scanned, "a step ID", "step reopen", usage)?),
         Some("list") => {
@@ -714,7 +814,7 @@ fn parse_send(rest: &[String]) -> Result<Invocation, DhError> {
         ("--timeout", Kind::Value),
         ("--cancel", Kind::Value),
     ];
-    let scanned = scan(rest, &options, usage)?;
+    let scanned = scan_text(rest, &options, usage)?;
     if scanned.help || rest.is_empty() {
         return Ok(help(usage));
     }
@@ -761,7 +861,7 @@ fn parse_send(rest: &[String]) -> Result<Invocation, DhError> {
 
 fn parse_reply(rest: &[String]) -> Result<Invocation, DhError> {
     let usage = REPLY_USAGE;
-    let scanned = scan(rest, &[], usage)?;
+    let scanned = scan_text(rest, &[], usage)?;
     if scanned.help || rest.is_empty() {
         return Ok(help(usage));
     }
@@ -784,13 +884,13 @@ fn parse_reply(rest: &[String]) -> Result<Invocation, DhError> {
 fn parse_note(rest: &[String]) -> Result<Invocation, DhError> {
     let usage = NOTE_USAGE;
     let sub = rest.first().map(String::as_str);
-    let scanned = scan(rest.get(1..).unwrap_or_default(), &[], usage)?;
+    let scanned = scan_args(rest.get(1..).unwrap_or_default(), &[], usage, sub == Some("add"))?;
     if scanned.help || matches!(sub, None | Some("--help" | "-h")) {
         return Ok(help(usage));
     }
     match sub {
         Some("add") => Ok(Invocation {
-            action: Action::NoteAdd(words(&scanned, "a text", "note add", usage)?),
+            action: Action::NoteAdd(long_text(&scanned, "a text", "note add", usage)?),
             json: scanned.json,
         }),
         Some(other) => Err(usage_error(&format!("Unknown note command: {other}"), usage)),
@@ -851,7 +951,7 @@ mod tests {
         assert_eq!(
             all,
             NewArgs {
-                prompt: Some("Fix the login bug.\nRun the tests.".into()),
+                prompt: Some(TextSource::Given("Fix the login bug.\nRun the tests.".into())),
                 draft: true,
                 agent: Some(ProgramKey::Codex),
                 title: Some("Login".into()),
@@ -870,10 +970,99 @@ mod tests {
 
     #[test]
     fn a_prompt_may_start_with_a_dash_or_hold_internal_flags() {
-        assert_eq!(new(&["--prompt", "--daemon"]).prompt.as_deref(), Some("--daemon"));
-        assert_eq!(new(&["--prompt=-x"]).prompt.as_deref(), Some("-x"));
-        // A blank prompt is no prompt.
-        assert_eq!(new(&["--prompt", "  "]).prompt, None);
+        let prompt = |list: &[&str]| new(list).prompt;
+        assert_eq!(
+            prompt(&["--prompt", "--daemon"]),
+            Some(TextSource::Given("--daemon".into()))
+        );
+        assert_eq!(prompt(&["--prompt=-x"]), Some(TextSource::Given("-x".into())));
+    }
+
+    #[test]
+    fn new_prompt_dash_reads_the_prompt_from_stdin() {
+        let mut action = parsed(&["new", "--title", "X", "--prompt", "-"]).action;
+        let Action::New(args) = &action else { panic!() };
+        assert_eq!(args.prompt, Some(TextSource::Stdin));
+        assert_eq!(args.title.as_deref(), Some("X"));
+        let text = action.stdin_text().expect("reads stdin");
+        assert_eq!((text.what, text.form), ("the prompt", "deckhand new --prompt -"));
+        assert_eq!(new(&["--prompt=-"]).prompt, Some(TextSource::Stdin));
+        // A given prompt reads nothing.
+        assert!(parsed(&["new", "--prompt", "Fix it"]).action.stdin_text().is_none());
+    }
+
+    #[test]
+    fn a_blank_prompt_title_or_details_is_refused_not_dropped() {
+        assert!(refused(&["new", "--prompt", "  "]).starts_with("--prompt is empty: give the text, or - to read it"));
+        assert!(refused(&["new", "--prompt="]).starts_with("--prompt is empty"));
+        assert!(refused(&["new", "--title", " "]).starts_with("--title is empty\nUsage: deckhand new"));
+        assert!(refused(&["task", "add", "Docs", "--details", "\n"]).starts_with("--details is empty"));
+    }
+
+    #[test]
+    fn a_dash_where_stdin_is_not_read_is_refused() {
+        assert!(
+            refused(&["new", "--title", "-", "--prompt", "Fix it"])
+                .starts_with("--title takes the name itself, not - (stdin); only --prompt reads -")
+        );
+        assert!(
+            refused(&["task", "add", "-"])
+                .starts_with("deckhand task add takes a title itself, not - (stdin); long text goes in --details -")
+        );
+        assert!(refused(&["step", "add", "-"]).starts_with(
+            "deckhand step add takes a step itself, not - (stdin); a step is one line, and long text goes in \
+             deckhand note add -"
+        ));
+        // A dash inside the words is text.
+        assert_eq!(
+            parsed(&["step", "add", "Ship", "-", "then", "tag"]).action,
+            Action::StepAdd("Ship - then tag".into())
+        );
+    }
+
+    #[test]
+    fn every_long_text_reads_stdin_for_a_dash() {
+        for (list, what) in [
+            (&["new", "--prompt", "-"][..], "the prompt"),
+            (&["task", "add", "Docs", "--details", "-"], "the details"),
+            (&["note", "add", "-"], "the note"),
+            (&["send", "1a2b", "-"], "the message"),
+            (&["reply", "7a3f", "-"], "the answer"),
+            (&["do", "-"], "the idea"),
+        ] {
+            let mut action = parsed(list).action;
+            assert_eq!(action.stdin_text().map(|text| text.what), Some(what), "{list:?}");
+        }
+        assert_eq!(
+            parsed(&["task", "add", "Docs", "--details", "-"]).action,
+            Action::TaskAdd {
+                title: "Docs".into(),
+                details: Some(TextSource::Stdin)
+            }
+        );
+        assert_eq!(parsed(&["note", "add", "-"]).action, Action::NoteAdd(TextSource::Stdin));
+        assert_eq!(parsed(&["do", "-"]).action, Action::Do(TextSource::Stdin));
+    }
+
+    #[test]
+    fn an_unknown_option_among_text_says_how_to_pass_text_that_starts_with_a_dash() {
+        let hint = "(options go anywhere; text that starts with - goes after --, or comes from stdin with -)";
+        assert!(refused(&["send", "1a2b", "hello", "--wiat"]).starts_with(&format!("Unknown option: --wiat {hint}")));
+        assert!(refused(&["reply", "7a3f", "--verbose", "is", "broken"]).starts_with("Unknown option: --verbose ("));
+        assert!(refused(&["note", "add", "-x"]).starts_with("Unknown option: -x ("));
+        assert!(refused(&["task", "add", "Fix", "--force"]).starts_with("Unknown option: --force ("));
+        // Commands without text keep the plain error.
+        assert!(refused(&["new", "--yes"]).starts_with("Unknown option: --yes\n"));
+        assert!(refused(&["task", "done", "a", "--force"]).starts_with("Unknown option: --force\n"));
+        // After --, it is text.
+        assert_eq!(
+            parsed(&["send", "1a2b", "--", "--verbose", "is", "broken"]).action,
+            Action::Send(SendArgs {
+                to: "1a2b".into(),
+                text: TextSource::Given("--verbose is broken".into()),
+                wait: None,
+            })
+        );
     }
 
     #[test]
@@ -965,7 +1154,7 @@ mod tests {
             parsed(&["task", "add", "Write", "the", "docs", "--details", "For the CLI"]).action,
             Action::TaskAdd {
                 title: "Write the docs".into(),
-                details: Some("For the CLI".into())
+                details: Some(TextSource::Given("For the CLI".into()))
             }
         );
         assert_eq!(
@@ -1034,7 +1223,7 @@ mod tests {
     fn note_add_joins_its_words_and_other_commands_take_one_id() {
         assert_eq!(
             parsed(&["note", "add", "Check", "the", "migration"]).action,
-            Action::NoteAdd("Check the migration".into())
+            Action::NoteAdd(TextSource::Given("Check the migration".into()))
         );
         assert!(refused(&["note", "add", " "]).starts_with("deckhand note add needs a text"));
         assert!(refused(&["note", "list"]).starts_with("Unknown note command: list"));
@@ -1103,7 +1292,7 @@ mod tests {
         assert!(refused(&["plan", "run"]).starts_with("Unknown plan command: run"));
         assert_eq!(
             parsed(&["do", "Split", "the", "auth", "rework"]).action,
-            Action::Do("Split the auth rework".into())
+            Action::Do(TextSource::Given("Split the auth rework".into()))
         );
         assert!(refused(&["do"]).starts_with("deckhand do needs an idea"));
         // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.

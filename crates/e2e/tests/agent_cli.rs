@@ -25,6 +25,31 @@ fn cli(sandbox: &Sandbox, bin: &Path, cwd: &Path, args: &[&str], env: &[(&str, &
     sandbox.exec(command, Duration::from_secs(40))
 }
 
+/// `deckhand <args>` as [`cli`] runs it, with `input` piped to its stdin (what a quoted heredoc gives it).
+fn cli_piped(sandbox: &Sandbox, bin: &Path, cwd: &Path, args: &[&str], env: &[(&str, &str)], input: &str) -> Output {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut command = sandbox.cli(args);
+    command
+        .current_dir(cwd)
+        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for (key, value) in env {
+        command.env(key, value);
+    }
+    let mut child = sandbox.spawn(command);
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(input.as_bytes())
+        .expect("write stdin");
+    child.wait_with_output().expect("output")
+}
+
 fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
@@ -156,6 +181,111 @@ fn by_hand_new_starts_a_prompted_session_and_tasks_and_ls_list_the_repository() 
             text(&refused.stderr)
         );
     }
+
+    stop(&mut daemon);
+}
+
+#[test]
+fn a_dash_reads_long_text_from_stdin_and_nothing_piped_in_is_refused_before_anything_starts() {
+    let root = repo();
+    let sandbox = Sandbox::new("agent-cli-stdin");
+    let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
+    let bin = install_agents(&sandbox, fake_agent!());
+    let mut daemon = launch(&sandbox, &root_path, &bin);
+    ready(&sandbox.socket());
+    let run = |args: &[&str]| cli(&sandbox, &bin, &root_path, args, &[]);
+    let piped =
+        |args: &[&str], env: &[(&str, &str)], input: &str| cli_piped(&sandbox, &bin, &root_path, args, env, input);
+
+    // new --prompt - <<'EOF' … EOF: the brief, whole, is the agent's first message (never the literal "-").
+    let brief = "Fix the login.\n\nKeep \"remember me\" and $HOME as they are.\n";
+    let new = [
+        "new",
+        "--top-level",
+        "--worktree",
+        "none",
+        "--title",
+        "Login",
+        "--prompt",
+        "-",
+        "--json",
+    ];
+    let created = json_of(&piped(&new, &[], brief));
+    let id = created["id"].as_str().unwrap_or_default().to_owned();
+    assert_eq!(created["title"], "Login");
+    running(&sandbox.socket(), &id);
+    let launched = trace(&sandbox, &id);
+    assert!(
+        args_hold(
+            &launched,
+            "Fix the login.\n\nKeep \"remember me\" and $HOME as they are."
+        ),
+        "{launched}"
+    );
+    assert!(
+        !launched["args"]
+            .as_array()
+            .is_some_and(|args| args.iter().any(|arg| arg == "-")),
+        "{launched}"
+    );
+
+    // Nothing piped in (stdin closed, or only blank lines): refused, and no session is started.
+    let refused = run(&[
+        "new",
+        "--top-level",
+        "--worktree",
+        "none",
+        "--title",
+        "Empty",
+        "--prompt",
+        "-",
+    ]);
+    assert!(!refused.status.success());
+    assert!(
+        text(&refused.stderr).contains(
+            "deckhand new --prompt - reads the prompt from stdin, but nothing was piped in. Pass it in a quoted \
+             heredoc"
+        ),
+        "{}",
+        text(&refused.stderr)
+    );
+    let refused = piped(&new, &[], "\n\n");
+    assert!(!refused.status.success(), "{}", text(&refused.stdout));
+    let sessions = json_of(&run(&["ls", "--json"]));
+    assert_eq!(sessions.as_array().map(Vec::len), Some(1), "{sessions}");
+
+    // task add --details - and note add -: the text as piped, without the heredoc's last newline.
+    let added = json_of(&piped(
+        &["task", "add", "Docs", "--details", "-", "--json"],
+        &[],
+        "Line one\n\nLine two\n",
+    ));
+    let added_id = added["id"].as_str().unwrap_or_default().to_owned();
+    assert_eq!(
+        fs::read_to_string(sandbox.home().join("notes/lines").join(format!("{added_id}.md")))
+            .ok()
+            .as_deref(),
+        Some("Line one\n\nLine two\n")
+    );
+    let identity = trace(&sandbox, &id);
+    let caller = [
+        ("DECKHAND_SESSION_ID", id.as_str()),
+        ("DECKHAND_LAUNCH_ID", identity["launchId"].as_str().unwrap_or_default()),
+        ("DECKHAND_HOOK_TOKEN", identity["token"].as_str().unwrap_or_default()),
+    ];
+    let note = json_of(&piped(
+        &["note", "add", "-", "--json"],
+        &caller,
+        "Found the cache.\nIt is per process.\n",
+    ));
+    assert_eq!(note["text"], "Found the cache.\nIt is per process.\n", "{note}");
+    // A title is never read from stdin.
+    let refused = piped(&["task", "add", "-"], &[], "Docs\n");
+    assert!(
+        text(&refused.stderr).contains("deckhand task add takes a title itself, not - (stdin)"),
+        "{}",
+        text(&refused.stderr)
+    );
 
     stop(&mut daemon);
 }
@@ -378,6 +508,8 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
         call(3, serde_json::json!(["note", "add", "Check the \"MCP\" path"])),
         call(4, serde_json::json!(["ls"])),
         call(5, serde_json::json!(["restart", "--yes"])),
+        call(6, serde_json::json!(["note", "add", "-"])),
+        call(7, serde_json::json!(["note", "add", "Line one\n\nLine \"two\""])),
     ];
     let mut command = sandbox.cli(&["mcp"]);
     command
@@ -404,7 +536,7 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
         .map(|line| serde_json::from_str(line).unwrap_or_else(|error| panic!("{error}: {line}")))
         .collect();
     let ids: Vec<u64> = replies.iter().map(|reply| reply["id"].as_u64().unwrap_or(99)).collect();
-    assert_eq!(ids, [0, 1, 2, 3, 4, 5], "{replies:?}");
+    assert_eq!(ids, [0, 1, 2, 3, 4, 5, 6, 7], "{replies:?}");
     assert_eq!(replies[0]["result"]["protocolVersion"], "2025-06-18");
     assert_eq!(replies[0]["result"]["serverInfo"]["name"], "deckhand");
     assert_eq!(replies[1]["result"]["tools"][0]["name"], "deckhand");
@@ -424,6 +556,14 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
         replies[4]
     );
     assert_eq!(replies[5]["result"]["isError"], true);
+    // The tool has no stdin: a `-` runs nothing and says to pass the text as one word, which works.
+    assert_eq!(replies[6]["result"]["isError"], true);
+    assert!(
+        tool_text(&replies[6]).starts_with("The deckhand tool has no stdin, so - cannot read the note."),
+        "{}",
+        replies[6]
+    );
+    assert_eq!(replies[7]["result"]["isError"], false, "{}", replies[7]);
     assert!(!text(&output.stdout).contains(&token));
 
     // The note reached the lead's line's note, as the caller's (the line made for it).
@@ -435,7 +575,11 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
                 .collect()
         })
         .unwrap_or_default();
-    assert_eq!(written, ["Check the \"MCP\" path\n"], "{written:?}");
+    assert_eq!(
+        written,
+        ["Check the \"MCP\" path\n\nLine one\n\nLine \"two\"\n"],
+        "{written:?}"
+    );
 
     stop(&mut daemon);
 }

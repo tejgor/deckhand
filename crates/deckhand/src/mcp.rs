@@ -6,7 +6,8 @@
 //! [`TOOL_NAME`], runs this executable with the words it is given (only the agent commands,
 //! [`AGENT_WORDS`]), in this process's environment, which Codex forwards from its own (`env_vars`): the caller's
 //! `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`, and the Deckhand home and channel.
-//! Messages are handled one at a time, in order.
+//! Messages are handled one at a time, in order. A command runs with stdin closed: long text goes in `args` as one
+//! word (no shell, so nothing needs quoting), and a `-` that would read stdin is refused before anything runs.
 
 use std::future::Future;
 use std::io::{BufRead, Read, Write};
@@ -18,7 +19,7 @@ use tokio::sync::mpsc;
 
 use deckhand_core::error::DhError;
 
-use crate::commands::args::AGENT_WORDS;
+use crate::commands::args::{AGENT_WORDS, parse};
 
 /// The protocol versions this server speaks, newest first. An `initialize` asking for another gets the newest.
 pub const PROTOCOL_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -31,7 +32,8 @@ pub const TOOL_DESCRIPTION: &str = "Run a deckhand command for this Deckhand ses
 Deckhand action. args are the command's words, e.g. [\"guide\"], [\"task\", \"add\", \"Fix login\"].";
 
 /// The `args` property's description.
-const ARGS_DESCRIPTION: &str = "The words after `deckhand`, one string each (no shell quoting).";
+const ARGS_DESCRIPTION: &str =
+    "The words after `deckhand`, one string each; a long text is one word (no shell quoting, no stdin).";
 
 /// The longest one command may run before it is stopped (`new` waits up to 20 s for its worktree), but `send --wait`
 /// ([`command_timeout`]). Codex's own limit on a call (`tool_timeout_sec`) is longer.
@@ -162,6 +164,9 @@ where
             Ok(args) => args,
             Err(message) => return Ok(tool_result(message, true)),
         };
+        if let Some(refusal) = stdin_refusal(&args) {
+            return Ok(tool_result(refusal, true));
+        }
         if !self.in_session {
             return Ok(tool_result(
                 "The deckhand tool works only inside a Deckhand session, and DECKHAND_SESSION_ID is not set here."
@@ -211,6 +216,23 @@ pub fn command_words(arguments: Option<&Value>) -> Result<Vec<String>, String> {
             AGENT_WORDS.join(", ")
         )),
     }
+}
+
+/// Why `args` cannot run through the tool: it reads a text from stdin (`-`), which the tool does not have. Says the
+/// call to make instead, with the text in place of the `-`.
+pub fn stdin_refusal(args: &[String]) -> Option<String> {
+    let mut invocation = parse(args).ok()?;
+    let text = invocation.action.stdin_text()?;
+    let mut instead: Vec<&str> = args.iter().map(String::as_str).collect();
+    if let Some(dash) = instead.iter().rposition(|word| *word == "-") {
+        instead[dash] = "<the whole text>";
+    }
+    Some(format!(
+        "The deckhand tool has no stdin, so - cannot read {}. Put the text itself in args, as one word in place of \
+         the -, newlines and quotes as they are: {}",
+        text.what,
+        serde_json::to_string(&instead).unwrap_or_default()
+    ))
 }
 
 /// What the tool answers for a command that ran, and whether it failed.
@@ -544,6 +566,44 @@ mod tests {
         let answer = reply(&outside, &call(json!(["ls"]))).unwrap();
         assert_eq!(answer["result"]["isError"], true);
         assert!(calls.borrow().is_empty());
+    }
+
+    #[test]
+    fn long_text_goes_through_the_tool_as_one_word_and_a_dash_is_refused_with_the_call_to_make() {
+        let (server, calls) = fake_server(true, ok("Added"));
+        let brief = "Fix the login.\n\nKeep \"remember me\" and `$HOME` as they are.";
+        let answer = reply(&server, &call(json!(["new", "--title", "Login", "--prompt", brief]))).unwrap();
+        assert_eq!(answer["result"]["isError"], false, "{answer}");
+        assert_eq!(calls.borrow()[0], ["new", "--title", "Login", "--prompt", brief]);
+        // The tool has no stdin: a `-` would read nothing, so nothing runs and the agent is told what to pass.
+        let answer = reply(&server, &call(json!(["new", "--title", "X", "--prompt", "-"]))).unwrap();
+        assert_eq!(answer["result"]["isError"], true);
+        assert_eq!(
+            answer["result"]["content"][0]["text"],
+            "The deckhand tool has no stdin, so - cannot read the prompt. Put the text itself in args, as one word in \
+             place of the -, newlines and quotes as they are: [\"new\",\"--title\",\"X\",\"--prompt\",\"<the whole text>\"]"
+        );
+        for args in [
+            json!(["note", "add", "-"]),
+            json!(["send", "1a2b", "-", "--wait"]),
+            json!(["reply", "7a3f", "-"]),
+            json!(["task", "add", "Docs", "--details", "-"]),
+        ] {
+            let answer = reply(&server, &call(args.clone())).unwrap();
+            assert_eq!(answer["result"]["isError"], true, "{args}");
+            assert!(
+                answer["result"]["content"][0]["text"]
+                    .as_str()
+                    .is_some_and(|text| text.starts_with("The deckhand tool has no stdin")),
+                "{answer}"
+            );
+        }
+        assert_eq!(calls.borrow().len(), 1);
+        // A dash inside text is text.
+        assert_eq!(
+            stdin_refusal(&["note".into(), "add".into(), "a".into(), "-".into()]),
+            None
+        );
     }
 
     #[test]

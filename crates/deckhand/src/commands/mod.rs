@@ -11,7 +11,7 @@ pub mod args;
 pub mod plan;
 pub mod view;
 
-use std::io::Read;
+use std::io::{IsTerminal, Read};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -63,9 +63,15 @@ pub fn caller_from_env() -> Option<AgentCaller> {
     })
 }
 
-/// Runs `args` (starting with the command word).
+/// Runs `args` (starting with the command word). A `-` text is read from stdin first, so a refusal comes before
+/// anything reaches the daemon.
 pub async fn run(args: &[String]) -> Result<ExitCode, DhError> {
-    let Invocation { action, json } = args::parse(args)?;
+    let Invocation { mut action, json } = args::parse(args)?;
+    if let Some(text) = action.stdin_text() {
+        let stdin = std::io::stdin();
+        let piped = !stdin.is_terminal();
+        *text.slot = TextSource::Given(piped_text(text.what, text.form, piped, stdin.lock())?);
+    }
     match action {
         Action::Help(usage) => print_line(usage),
         Action::Guide => print_line(GUIDE.trim_end()),
@@ -96,6 +102,24 @@ pub async fn run(args: &[String]) -> Result<ExitCode, DhError> {
     Ok(ExitCode::SUCCESS)
 }
 
+/// What a `-` reads (`what`, for `form`): the text piped in, without the newline a heredoc ends with. Refused when
+/// nothing is piped in (stdin is a terminal: reading would wait for the user, or closed) or only blank lines came.
+pub fn piped_text(what: &str, form: &str, piped: bool, mut stdin: impl Read) -> Result<String, DhError> {
+    let mut text = String::new();
+    if piped {
+        stdin
+            .read_to_string(&mut text)
+            .map_err(|error| DhError::msg(format!("Cannot read {what} from stdin: {error}")))?;
+    }
+    if text.trim().is_empty() {
+        return Err(DhError::msg(format!(
+            "{form} reads {what} from stdin, but nothing was piped in. Pass it in a quoted heredoc, EOF alone on \
+             the last line:\n{form} <<'EOF'\n<text>\nEOF\nor give the text itself in place of -."
+        )));
+    }
+    Ok(text.trim_end_matches('\n').to_owned())
+}
+
 /// `send --wait`'s exit status for how the wait ended (0: a reply).
 pub fn wait_exit_status(kind: WaitOutcomeKind) -> u8 {
     match kind {
@@ -119,6 +143,13 @@ struct Cx {
     exit: Option<u8>,
 }
 
+/// A text [`run`] has read: a `-` left unread here would be a bug, refused rather than sent empty.
+fn given(source: &TextSource) -> Result<&str, DhError> {
+    source
+        .given()
+        .ok_or_else(|| DhError::msg("The text from stdin was not read"))
+}
+
 /// Pretty JSON on stdout.
 fn print_json(value: &impl Serialize) -> Result<(), DhError> {
     print_line(&serde_json::to_string_pretty(value)?);
@@ -131,7 +162,10 @@ impl Cx {
             Action::New(args) => self.new_session(&args).await,
             Action::Ls { all } => self.ls(all).await,
             Action::TaskList => self.task_list().await,
-            Action::TaskAdd { title, details } => self.task_add(&title, details).await,
+            Action::TaskAdd { title, details } => {
+                self.task_add(&title, details.as_ref().and_then(TextSource::given))
+                    .await
+            }
             Action::TaskDone(id) => self.task_tick(&id, true).await,
             Action::TaskReopen(id) => self.task_tick(&id, false).await,
             Action::TaskMove { id, to } => self.task_move(&id, &to).await,
@@ -139,7 +173,7 @@ impl Cx {
             Action::StepDone(id) => self.step_tick(&id, true).await,
             Action::StepReopen(id) => self.step_tick(&id, false).await,
             Action::StepList => self.step_list().await,
-            Action::NoteAdd(text) => self.note_add(&text).await,
+            Action::NoteAdd(text) => self.note_add(given(&text)?).await,
             Action::Send(args) => self.send(&args).await,
             Action::CancelMessage(id) => self.cancel_message(&id).await,
             Action::Reply { id, text } => self.reply(&id, &text).await,
@@ -147,7 +181,7 @@ impl Cx {
             Action::Remove(id) => self.end(&id, false).await,
             Action::PlanCheck(source) => self.plan_check(&source).await,
             Action::PlanApply(source) => self.plan_apply(&source).await,
-            Action::Do(request) => self.hand_to_orchestrator(&request).await,
+            Action::Do(request) => self.hand_to_orchestrator(given(&request)?).await,
             Action::Help(_) | Action::Guide => Ok(()),
         }
     }
@@ -358,7 +392,7 @@ impl Cx {
             .ok_or_else(|| DhError::msg("The line was saved but is not in the list"))
     }
 
-    async fn task_add(&self, title: &str, details: Option<String>) -> Result<(), DhError> {
+    async fn task_add(&self, title: &str, details: Option<&str>) -> Result<(), DhError> {
         let (repo_root, _, doc) = self.board().await?;
         let before = TaskList::parse(&doc.text);
         let after = self
@@ -572,27 +606,13 @@ impl Cx {
         Err(DhError::msg("The note kept changing while saving; try again"))
     }
 
-    /// A message's text, given or from stdin.
-    fn read_text(source: &TextSource) -> Result<String, DhError> {
-        match source {
-            TextSource::Given(text) => Ok(text.clone()),
-            TextSource::Stdin => {
-                let mut text = String::new();
-                std::io::stdin()
-                    .read_to_string(&mut text)
-                    .map_err(|error| DhError::msg(format!("Cannot read the message from stdin: {error}")))?;
-                Ok(text.trim_end_matches('\n').to_owned())
-            }
-        }
-    }
-
     async fn send(&mut self, args: &SendArgs) -> Result<(), DhError> {
-        let text = Self::read_text(&args.text)?;
+        let text = given(&args.text)?;
         let (sessions, _) = self.sessions().await?;
         let target = find_session(&args.to, &sessions)?.clone();
         let result = self
             .client
-            .send_message(&target.id, &text, args.wait, self.caller.clone())
+            .send_message(&target.id, text, args.wait, self.caller.clone())
             .await?;
         if let Some(outcome) = &result.outcome {
             let code = wait_exit_status(outcome.kind);
@@ -621,8 +641,7 @@ impl Cx {
     }
 
     async fn reply(&self, id: &str, text: &TextSource) -> Result<(), DhError> {
-        let text = Self::read_text(text)?;
-        let reply: MessageRecord = self.client.reply_message(id, &text, self.caller.clone()).await?;
+        let reply: MessageRecord = self.client.reply_message(id, given(text)?, self.caller.clone()).await?;
         if self.json {
             return print_json(&reply);
         }
@@ -636,11 +655,9 @@ impl Cx {
             PlanSource::File(path) => std::fs::read_to_string(path)
                 .map_err(|error| DhError::msg(format!("Cannot read the plan {path}: {error}")))?,
             PlanSource::Stdin => {
-                let mut text = String::new();
-                std::io::stdin()
-                    .read_to_string(&mut text)
-                    .map_err(|error| DhError::msg(format!("Cannot read the plan from stdin: {error}")))?;
-                text
+                let stdin = std::io::stdin();
+                let piped = !stdin.is_terminal();
+                piped_text("the plan", "deckhand plan check|apply -", piped, stdin.lock())?
             }
         };
         serde_json::from_str(&text).map_err(|error| DhError::msg(format!("The plan is not valid JSON: {error}")))
@@ -744,5 +761,40 @@ impl Cx {
         let verb = if stop { "Ending" } else { "Removed" };
         print_line(&format!("{verb} {} {}", short_id(&session.id), session_path(&session)));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const FORM: &str = "deckhand new --prompt -";
+
+    #[test]
+    fn a_dash_takes_what_is_piped_in_without_the_heredoc_s_last_newline() {
+        let text = piped_text(
+            "the prompt",
+            FORM,
+            true,
+            "Fix the login.\n\n  Then \"test\" it.\n".as_bytes(),
+        );
+        assert_eq!(text.unwrap(), "Fix the login.\n\n  Then \"test\" it.");
+    }
+
+    #[test]
+    fn a_dash_with_nothing_piped_in_is_refused_with_the_exact_form() {
+        let refusal = |piped: bool, input: &str| {
+            piped_text("the prompt", FORM, piped, input.as_bytes())
+                .unwrap_err()
+                .to_string()
+        };
+        let expected = "deckhand new --prompt - reads the prompt from stdin, but nothing was piped in. Pass it in a \
+                        quoted heredoc, EOF alone on the last line:\ndeckhand new --prompt - <<'EOF'\n<text>\nEOF\nor \
+                        give the text itself in place of -.";
+        // Empty, or only blank lines.
+        assert_eq!(refusal(true, ""), expected);
+        assert_eq!(refusal(true, "\n  \n"), expected);
+        // A terminal: nothing is read (it would wait for the user), whatever it holds.
+        assert_eq!(refusal(false, "typed"), expected);
     }
 }

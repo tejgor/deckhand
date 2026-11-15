@@ -36,7 +36,8 @@ The plan:
  \"tasks\": [{\"title\": \"Remove legacy endpoint\", \"details\": \"Waits for Auth rework to merge. <brief>\"}],
  \"brief\": \"<what was agreed>\"}
 - key: unique in the plan. parent: another session's key, one of your sessions' IDs from `deckhand ls`, or null: \
-your own sub-session. title: at most 64 characters. agent: claude, codex or pi (default: the repository's).
+your own sub-session. title: 2-4 words naming the work (\"Token storage\"), not a sentence; tasks' titles too. \
+agent: claude, codex or pi (default: the repository's).
 - worktree: new (the default), same (its parent's worktree) or none (the main checkout). base and flat: only for \
 new. task: an open line's ID from `deckhand task list` for the session to take on.
 - Each prompt is sent as the session's first message and is all it knows: write a complete standalone brief with \
@@ -84,6 +85,7 @@ mod tests {
             "what was agreed",
             "\"brief\"",
             "You stay open",
+            "title: 2-4 words naming the work (\"Token storage\"), not a sentence; tasks' titles too.",
         ] {
             assert!(ORCHESTRATOR_GUIDE.contains(needle), "{needle}");
         }

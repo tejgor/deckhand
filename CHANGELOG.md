@@ -7,7 +7,14 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 ### Changed
 
 - **`deckhand ls` in a session lists its whole tree**: its top-level session and every session under it, in any checkout, indented under their parents, the sessions it can message. `--all`, or running it by hand, lists the checkout's sessions as before. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
+- **One rule for long text**: `deckhand new --prompt -`, `task add --details -`, `note add -` and `do -` now read the text from stdin, as `send -` and `reply -` already did, so a quoted heredoc works for every long text. The guide agents read shows the exact form. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
+- **Short session names**: the guides tell agents and orchestrators to name every session (and parked task) in 2 to 4 words naming the work, not a sentence, and to always pass `--title` to `deckhand new`. Without one, a session is named after its prompt's first sentence, not its whole first line. See [Starting a session from a command](docs/features.md#starting-a-session-from-a-command).
 - **Codex replies through its tool**: a message that wants an answer tells a Codex that has the `deckhand` tool to reply with the tool rather than a shell command its sandbox would block.
+
+### Fixed
+
+- **`deckhand new --prompt -` sent the literal `-`** as the new session's prompt. It now reads the prompt from stdin, and a `-` with nothing piped in is refused before anything starts.
+- **Mistakes refused, not ignored**: a blank `--prompt`, `--title` or `--details` (once silently dropped), and `-` as a title or step (never read from stdin), are refused with what to do instead. Through Codex's `deckhand` tool, which has no stdin, a `-` is refused with the call to make, the text as one word.
 
 ## [3.3.0] - 2026-11-15
 

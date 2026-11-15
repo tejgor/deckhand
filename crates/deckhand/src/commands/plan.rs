@@ -12,7 +12,7 @@ use deckhand_protocol::data::{
 };
 use deckhand_ui::app::{fork_stays_in_parent, session_title_from_task};
 
-use super::args::{NewArgs, WorktreeChoice};
+use super::args::{NewArgs, TextSource, WorktreeChoice};
 
 /// The longest session name the daemon takes.
 const MAX_TITLE: usize = 64;
@@ -124,7 +124,7 @@ pub fn create_input(args: &NewArgs, cx: &NewContext<'_>) -> Result<CreateSession
         fork_from_session_id: caller
             .filter(|_| args.fork && parent.is_none())
             .map(|caller| caller.id.clone()),
-        prompt: args.prompt.clone(),
+        prompt: args.prompt.as_ref().and_then(TextSource::given).map(str::to_owned),
         submit: args.draft.then_some(false),
         // Absent: the daemon stacks a sub-session's new worktree on its parent's where it can.
         stacked: (args.flat && worktree_mode == WorktreeMode::New).then_some(false),
@@ -137,12 +137,23 @@ fn clean_title(text: &str) -> Option<String> {
     Some(session_title_from_task(text)).filter(|title| !title.is_empty())
 }
 
+/// A prompt's first line made a name: its first sentence, without the punctuation that ends it (`Fix the login. Then
+/// test it.` is `Fix the login`), since a name is not a sentence. Still cut to 64 characters by [`clean_title`].
+fn first_sentence(line: &str) -> &str {
+    let end = [". ", "? ", "! "]
+        .iter()
+        .filter_map(|stop| line.find(stop))
+        .min()
+        .unwrap_or(line.len());
+    line[..end].trim_end_matches(['.', '?', '!', ':', ';', ',', ' '])
+}
+
 /// A session's path (`parent / child`), as the daemon projects it.
 pub fn session_path(session: &SessionRecord) -> &str {
     session.path_title.as_deref().unwrap_or(&session.title)
 }
 
-/// `--title`; else the task's title, the prompt's first line or the agent (`fork` for a fork), made unique among
+/// `--title`; else the task's title, the prompt's first sentence or the agent (`fork` for a fork), made unique among
 /// the active sessions of the repository with the same parent (`claude 2`), as the daemon refuses a clash.
 fn session_title(
     args: &NewArgs,
@@ -156,12 +167,13 @@ fn session_title(
     }
     let first_line = args
         .prompt
-        .as_deref()
+        .as_ref()
+        .and_then(TextSource::given)
         .and_then(|prompt| prompt.lines().map(str::trim).find(|line| !line.is_empty()));
     let base = cx
         .task
         .and_then(|task| clean_title(&task.title))
-        .or_else(|| first_line.and_then(clean_title))
+        .or_else(|| first_line.map(first_sentence).and_then(clean_title))
         .unwrap_or_else(|| if args.fork { "fork" } else { program.as_str() }.to_owned());
     let taken = |title: &str| {
         let path = match parent {
@@ -298,7 +310,7 @@ mod tests {
 
     fn prompt(text: &str) -> NewArgs {
         NewArgs {
-            prompt: Some(text.to_owned()),
+            prompt: Some(TextSource::Given(text.to_owned())),
             ..NewArgs::default()
         }
     }
@@ -315,7 +327,7 @@ mod tests {
         assert_eq!(
             input,
             CreateSessionInput {
-                title: "Write the tests.".into(),
+                title: "Write the tests".into(),
                 program: ProgramKey::Codex,
                 cwd: "/wt/lead".into(),
                 repo_root: "/repo".into(),
@@ -365,7 +377,7 @@ mod tests {
         let args = |worktree: Option<WorktreeChoice>| NewArgs {
             parent: Some("auth".into()),
             worktree,
-            prompt: Some("Token storage".into()),
+            prompt: Some(TextSource::Given("Token storage".into())),
             ..NewArgs::default()
         };
         let under = |caller: Option<&SessionRecord>, worktree: Option<WorktreeChoice>| {
@@ -445,7 +457,7 @@ mod tests {
     fn a_draft_is_typed_and_a_base_applies_to_a_new_worktree() {
         let caller = in_worktree("lead", "claude");
         let args = NewArgs {
-            prompt: Some("Review this".into()),
+            prompt: Some(TextSource::Given("Review this".into())),
             draft: true,
             base: Some("main".into()),
             ..NewArgs::default()
@@ -476,7 +488,7 @@ mod tests {
         cx.task = Some(&found);
         let args = NewArgs {
             task: Some("ab12".into()),
-            prompt: Some("Brief".into()),
+            prompt: Some(TextSource::Given("Brief".into())),
             ..NewArgs::default()
         };
         let input = create_input(&args, &cx).expect("input");
@@ -555,6 +567,35 @@ mod tests {
             let error = create_input(&args, &cx(None, &[])).expect_err("refused").to_string();
             assert!(error.contains("needs a Deckhand session to act for"), "{error}");
         }
+    }
+
+    #[test]
+    fn without_a_title_the_name_is_the_prompt_s_first_sentence_without_its_stop() {
+        let caller = session("lead", json!({"pathTitle": "Lead"}));
+        let title = |text: &str| {
+            create_input(&prompt(text), &cx(Some(&caller), &[]))
+                .map(|input| input.title)
+                .unwrap_or_default()
+        };
+        assert_eq!(
+            title("Fix the login redirect. Keep the cookie.\nThen test it."),
+            "Fix the login redirect"
+        );
+        assert_eq!(title("Why does the cache miss? Find out."), "Why does the cache miss");
+        assert_eq!(title("\n  Token storage:\n- keychain"), "Token storage");
+        // Dots inside words are not a sentence's end.
+        assert_eq!(title("Bump serde to 1.0.200"), "Bump serde to 1.0.200");
+        // An explicit title is not cut at a sentence's end.
+        let explicit = NewArgs {
+            title: Some("Release 2. Part 1".into()),
+            ..prompt("Fix it. Now.")
+        };
+        assert_eq!(
+            create_input(&explicit, &cx(Some(&caller), &[]))
+                .map(|input| input.title)
+                .ok(),
+            Some("Release 2. Part 1".into())
+        );
     }
 
     #[test]

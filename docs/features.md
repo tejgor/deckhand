@@ -434,21 +434,35 @@ An agent in a Deckhand session can take Deckhand actions when you ask it to: "st
 | `deckhand new [options]` | Starts a session; see [Starting a session from a command](#starting-a-session-from-a-command) |
 | `deckhand ls [--all]` | From a session: its tree, the sessions it can message, whichever checkout each is in: its top-level session and every session under it, indented under their parents (`◎` before an orchestrator, `*` before the caller), with ID, state, agent, name, branch and task. Run by hand, or with `--all`: the sessions of the checkout it runs in, as the sidebar there does, with each one's parent. Archived sessions are left out |
 | `deckhand task list` | The repository's list as a tree: open lines, and those ticked in the last 7 days, with who is on each, `ticked/total` and `✎` for a brief |
-| `deckhand task add <title> [--details <text>]` | Adds a line to the backlog; `--details` becomes its note |
+| `deckhand task add <title> [--details <text>\|-]` | Adds a line to the backlog; `--details` becomes its note |
 | `deckhand task done <id>`, `deckhand task reopen <id>` | Ticks a line, or reopens it |
 | `deckhand task move <id> --to backlog\|<session id>\|<line id>` | Moves a line to the backlog (taking its session off), under a line, or onto a session by the rules of `w` on the board (see [Tasks](#tasks)) |
 | `deckhand step add <text>`, `step done\|reopen <id>`, `step list` | The calling session's steps: lines under its line (made on demand) |
-| `deckhand note add <text>` | Adds a paragraph to the calling session's line note (its line is made on demand) |
-| `deckhand send <id> <message> [--wait [--timeout <time>]]` | Sends a message to another session, typed into its agent once it is idle; `--wait` prints the first reply. See [Messages between sessions](#messages-between-sessions) |
+| `deckhand note add <text>\|-` | Adds a paragraph to the calling session's line note (its line is made on demand) |
+| `deckhand send <id> <message>\|- [--wait [--timeout <time>]]` | Sends a message to another session, typed into its agent once it is idle; `--wait` prints the first reply. See [Messages between sessions](#messages-between-sessions) |
 | `deckhand send --cancel <message id>` | Cancels a message the calling session sent that is still queued (by hand: any) |
-| `deckhand reply <message id> <answer>` | Answers a message sent to the calling session: to the sender's waiting `--wait`, else queued to the sender |
+| `deckhand reply <message id> <answer>\|-` | Answers a message sent to the calling session: to the sender's waiting `--wait`, else queued to the sender |
 | `deckhand kill <id>` | Ends a running session. Its worktree and branch are kept |
 | `deckhand plan check\|apply [<file>\|-]` | Checks a plan of sessions, or creates it once you confirm it in Deckhand; see [The orchestrator](#the-orchestrator) |
-| `deckhand do <idea>` | Starts a new [orchestrator](#the-orchestrator) for the idea, every time; for you, not for agents |
+| `deckhand do <idea>\|-` | Starts a new [orchestrator](#the-orchestrator) for the idea, every time; for you, not for agents |
 | `deckhand remove <id>` | Removes an exited session from the list |
 | `deckhand guide` | Prints the guide agents read (see [What agents are told](#what-agents-are-told)) |
 
 Every command takes `--json` for machine-readable output, and `deckhand <command> --help` describes it. IDs may be shortened to any unique prefix; the text output shows their first 8 characters. The commands reach the daemon as the UI does, and start it when it isn't running; `guide` and `--help` need no daemon. `deckhand help` lists them too.
+
+**Long text**: a prompt (`new --prompt`), details (`task add --details`), a note, a message, an answer or an idea can be given as `-`, and the command reads it from stdin. From a shell that is a quoted heredoc, with `EOF` alone on its last line:
+
+```sh
+deckhand new --title "Fix login" --prompt - <<'EOF'
+The whole brief, any length, "quotes" and $signs as they are.
+EOF
+```
+
+- **Nothing piped in**: when stdin is a terminal or brings nothing but blank lines, the command is refused and nothing is done (no session is started, nothing is sent).
+- **Titles and steps** are given inline, never from stdin: `-` as a title (`task add -`, `new --title -`) or a step (`step add -`) is refused.
+- **Blank text** is refused too: `--prompt`, `--title` or `--details` with only spaces is a mistake, not a way to leave it out.
+- **Options go anywhere**, also after the text: `deckhand send <id> hello --wiat` is refused as an unknown option. Text that starts with `-` goes after `--` (`deckhand send <id> -- --verbose is broken`), or comes from stdin.
+- **Codex's `deckhand` tool** has no shell and no stdin: it takes the text itself as one word of `args`, newlines and quotes as they are. A `-` there is refused before anything runs, with the call to make instead.
 
 ### The caller
 
@@ -465,13 +479,13 @@ A command run inside a session acts for that session, the **caller**. It finds i
 
 Inside a session, `deckhand new` starts a **sub-session of the caller in a new worktree**, so sub-sessions working side by side don't edit the same checkout. It waits up to 20 seconds for the worktree, then prints the session (with `--json`, its record).
 
-- **`--prompt <text>`**: the agent's first message, sent when it starts. It arrives whole, however long, as one message. Only the session's first launch sends it; resuming never sends it again.
+- **`--prompt <text>|-`**: the agent's first message, sent when it starts. It arrives whole, however long, as one message. `-` reads it from stdin (see **Long text** above), so a long brief needs no shell quoting. Only the session's first launch sends it; resuming never sends it again.
 - **`--draft`**: types the prompt into the agent's input without sending it, as starting a task does (see [Tasks](#tasks)), for you to review and send. Prefer sending long prompts: Claude collapses a multi-line paste into a placeholder you can't edit.
 - **`--worktree new|same|none|<path>`**: `same` runs in the caller's worktree (what `N` does by default), `none` runs without a worktree in the [launch checkout](#checkouts-and-the-session-list) and a path joins that existing worktree.
 - **`--top-level`**: a top-level session instead of a sub-session.
 - **`--fork`**: forks the caller's conversation, as **⑂ Fork parent** does. It keeps the caller's agent, and a Codex fork stays in the caller's worktree (see [Sessions and sub-sessions](#sessions-and-sub-sessions)).
 - **`--agent claude|codex|pi`**: by default the caller's agent. Run by hand, the repository's `defaultAgent`, else Claude.
-- **`--title <title>`**: the name, at most 64 characters. By default the task's title, else the prompt's first line, else the agent's name (`fork` for a fork), with ` 2`, ` 3`… added while an active session of the same name and parent has it.
+- **`--title <title>`**: the name, at most 64 characters, given inline. Keep it short: 2 to 4 words naming the work (`Token storage`, `Fix login redirect`), not a sentence; the guide tells agents to always pass one. By default the task's title, else the prompt's first sentence without its full stop (`Fix the login. Then test it.` is named `Fix the login`), else the agent's name (`fork` for a fork), with ` 2`, ` 3`… added while an active session of the same name and parent has it.
 - **`--base <branch>`**: where the new worktree's branch starts, instead of `worktree.branchFrom`. Only for a new worktree.
 - **`--flat`**: a new worktree that is not [stacked](#stacked-sub-sessions) on the caller's, starting from `worktree.branchFrom` and merging into the launch checkout. Only for a new worktree.
 - **`--parent <id>`**: a sub-session of that session instead of the caller: one under the caller. Run by hand, any session of the repository. Not with `--top-level` or `--fork`.
@@ -481,7 +495,7 @@ A new worktree runs setup as usual. A command can't review `deckhand.json` for y
 
 ### Messages between sessions
 
-A session can ask another one something, or give it an instruction, without you relaying it: `deckhand send <id> "<message>"` (the message can also come from stdin with `-`, as a quoted heredoc). It returns at once with the message's ID; the message is typed into the other session's agent later, under a header saying who sent it:
+A session can ask another one something, or give it an instruction, without you relaying it: `deckhand send <id> "<message>"` (the message can also come from stdin with `-`, as a quoted heredoc: `deckhand send <id> - <<'EOF'`). It returns at once with the message's ID; the message is typed into the other session's agent later, under a header saying who sent it:
 
 ```
 [Message 7a3f01 from "Login UI", which wants an answer.
@@ -495,7 +509,7 @@ Without `--wait` the header is `[Message 7a3f01 from "Login UI" via deckhand]` (
 - **One queue per session**: messages, replies and notices to a session arrive one at a time, in the order sent. A message is **held** while that session starts, works on a turn, waits on a question or permission (it is never typed into a dialog) or shows a menu, has a task draft waiting, or while you are typing into it (and for 3 s after a key) or have typed text into it you have not sent: Enter, `ctrl+c` or `ctrl+u` releases it. It is typed once the agent is idle at its input with its screen settled, as one bracketed paste, then Enter submits it. The next one waits for the turn it starts to end.
 - **Checking it started**: for an agent that reports turn signals (Claude, Codex with hooks), a turn must start within 10 s of the Enter. If none does, the message is marked so, a waiting `--wait` returns, and that session's queue stops until a turn starts there or you press Enter in it: nothing is typed again blindly. Without signals, the screen's activity stands in.
 - **`--wait`** waits for the first reply (9 minutes unless `--timeout 90s|5m|1h`) and prints it; that reply is not also typed into the sender. It returns early, with its own exit status, when the other session waits on a question or permission (`Token storage is waiting on: wants to run: …`, 3), ends its turn without replying (4, only with turn signals), exits (5) or did not start a turn (6); after the timeout it exits with 2. Later replies then reach the sender as ordinary queued messages, so nothing is lost. An agent runs it with a long tool timeout (Claude: `Bash` timeout 600000; Codex's `deckhand` tool allows it up to 9½ minutes).
-- **Replies**: `deckhand reply <id> "<answer>"` answers only a message sent to the session it runs in, as often as needed. Each reply goes to the sender: to its waiting `--wait`, else into its queue. A reply to a message you sent by hand comes back to you: `e` on the session that answered shows it. The guide tells agents to answer a message that asks for an answer even though they otherwise act only when you ask.
+- **Replies**: `deckhand reply <id> "<answer>"` (or `-` and a heredoc) answers only a message sent to the session it runs in, as often as needed. Each reply goes to the sender: to its waiting `--wait`, else into its queue. A reply to a message you sent by hand comes back to you: `e` on the session that answered shows it. The guide tells agents to answer a message that asks for an answer even though they otherwise act only when you ask.
 - **Exits**: a session that exits with messages still held drops them; each sender is told, its waiting `--wait` returns, or a notice `[Not delivered: "Token storage" exited]` with the start of the message goes into its queue. A session Deckhand stops and resumes at once (restarting it on a new agent version) keeps them, and so does one the daemon left behind when it stopped (see **Kept**).
 - **Cancelling**: `deckhand send --cancel <id>` cancels a held message the calling session sent (by hand, any).
 - **Size**: at most 20 KB a message. For more, put it in your line's note (`deckhand note add`) and point at it.
@@ -504,11 +518,11 @@ Without `--wait` the header is `[Message 7a3f01 from "Login UI" via deckhand]` (
 
 ### What agents are told
 
-At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent about these commands, keeping what stays in its context small, since most sessions never use them. Always loaded is a sentence or two: use the commands only when the user asks for a Deckhand action, and read the guide once per conversation, unless it is still in context. The guide itself, `deckhand guide`, costs context only when the agent first reads it. It lists the commands and tells the agent never to start sessions, move tasks or end sessions on its own, with one exception: a message that asks for an answer is answered with `deckhand reply`. It also says to write a sub-session's prompt as a complete brief and to park work it is told to leave for later with `task add`.
+At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent about these commands, keeping what stays in its context small, since most sessions never use them. Always loaded is a sentence or two: use the commands only when the user asks for a Deckhand action, and read the guide once per conversation, unless it is still in context. The guide itself, `deckhand guide`, costs context only when the agent first reads it. It lists the commands and tells the agent never to start sessions, move tasks or end sessions on its own, with one exception: a message that asks for an answer is answered with `deckhand reply`. It also says to write a sub-session's prompt as a complete brief and give it a short `--title` (2 to 4 words, not a sentence), to park work it is told to leave for later with `task add`, and how to pass long text: `-` and a quoted heredoc, or through Codex's tool, the text as one word.
 
 - **Claude** gets a plugin with a `deckhand` skill (`--plugin-dir`). Claude keeps only a skill's name and description in context until it uses it, and the skill's body is the guide. Without `--plugin-dir`, the short instruction goes in with `--append-system-prompt`.
 - **Pi** gets the same skill (`--skill`), else the short instruction with `--append-system-prompt`.
-- **Codex** gets the short instruction as `developer_instructions` (`-c`), placed after your own top-level `developer_instructions` from `$CODEX_HOME/config.toml` (by default `~/.codex/config.toml`), which the option would otherwise replace. Codex runs shell commands in a sandbox that keeps `deckhand` from reaching the daemon, so Codex 0.122.0 and later also get a small MCP server, `deckhand mcp`, added with one more `-c` (`mcp_servers.deckhand`, next to your own MCP servers, which stay as they are). Codex starts it itself, outside the sandbox, and its one tool, `deckhand`, runs the same commands for the session: the agent passes the command's words as `args`, as in `["task", "add", "Fix login"]`. The short instruction then says to call the tool with `["guide"]` once per conversation. An older Codex, or one whose version Deckhand couldn't read, gets only the instruction to run `deckhand guide`.
+- **Codex** gets the short instruction as `developer_instructions` (`-c`), placed after your own top-level `developer_instructions` from `$CODEX_HOME/config.toml` (by default `~/.codex/config.toml`), which the option would otherwise replace. Codex runs shell commands in a sandbox that keeps `deckhand` from reaching the daemon, so Codex 0.122.0 and later also get a small MCP server, `deckhand mcp`, added with one more `-c` (`mcp_servers.deckhand`, next to your own MCP servers, which stay as they are). Codex starts it itself, outside the sandbox, and its one tool, `deckhand`, runs the same commands for the session: the agent passes the command's words as `args`, as in `["task", "add", "Fix login"]`, a long text as one word (the tool has no stdin). The short instruction then says to call the tool with `["guide"]` once per conversation. An older Codex, or one whose version Deckhand couldn't read, gets only the instruction to run `deckhand guide`.
 
 Each option is passed only when the installed agent's `--help` lists it. Nothing is written to the agents' own configuration: the plugin lives in the state directory, in `~/.deckhand/agent-plugin/`, and is rewritten when a new version of Deckhand changes it.
 
@@ -540,7 +554,7 @@ An orchestrator is a session whose job is to split one idea into sessions. You s
 - **Confirming**: `deckhand plan apply` checks the whole plan first (every problem at once, nothing created), then waits for you. Deckhand shows **Create this plan?** with the idea it is for, the tree, the parked work, the start of the idea's brief and when it expires: `enter` creates, `esc` cancels, `J`/`K` scroll a long plan. If you are attached to a session (the orchestrator, usually), Deckhand detaches to show it and attaches you again once it is answered. In a form or another screen, the header says `◎ Plan waiting` and the dialog opens when you close it; nothing you typed is touched. Several plans wait their turn. Unanswered, a plan expires after 15 minutes. Only an orchestrator, or you by hand, can apply a plan.
 - **Creating**: the idea's brief first, then the sessions, parents first, waiting for each parent's worktree so its children can stack on it; then the parked lines. If one fails, creation stops there; what was created is kept and the output says what failed.
 - **By hand**: a plan applied from a terminal has no idea: its top-level entries are top-level sessions, its tasks go to the backlog, and it can't have a `brief`.
-- **`deckhand plan check`** validates a plan and prints its tree without asking anything (from the orchestrator, under `Under ◎ <idea>:`). Plans are JSON (`deckhand guide` and the orchestrator's instructions describe it): `sessions` with `key`, `title`, `prompt`, and optional `agent`, `parent`, `worktree` (`new`, `same` or `none`), `base`, `flat` and `task`; `tasks` with `title` and `details`; and `brief`, at most 50 000 characters.
+- **`deckhand plan check`** validates a plan and prints its tree without asking anything (from the orchestrator, under `Under ◎ <idea>:`). Plans are JSON (`deckhand guide` and the orchestrator's instructions describe it): `sessions` with `key`, `title` (2 to 4 words naming the work, not a sentence, as for parked tasks' titles), `prompt`, and optional `agent`, `parent`, `worktree` (`new`, `same` or `none`), `base`, `flat` and `task`; `tasks` with `title` and `details`; and `brief`, at most 50 000 characters.
 
 ## Agent identity
 
