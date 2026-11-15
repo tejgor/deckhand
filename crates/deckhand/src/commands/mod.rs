@@ -43,7 +43,8 @@ use crate::hook::HookEnv;
 
 use args::{Action, Invocation, MoveTo, NewArgs, PlanSource, SendArgs, TextSource, WorktreeChoice};
 use plan::{
-    MovePlan, MoveTarget, NewContext, create_input, find_line, find_session, find_task, plan_move, session_path,
+    MovePlan, MoveTarget, NewContext, caller_tree, create_input, find_line, find_session, find_task, is_archived,
+    plan_move, session_path,
 };
 use view::{line_view, short_id};
 
@@ -128,7 +129,7 @@ impl Cx {
     async fn act(&mut self, action: Action) -> Result<(), DhError> {
         match action {
             Action::New(args) => self.new_session(&args).await,
-            Action::Ls => self.ls().await,
+            Action::Ls { all } => self.ls(all).await,
             Action::TaskList => self.task_list().await,
             Action::TaskAdd { title, details } => self.task_add(&title, details).await,
             Action::TaskDone(id) => self.task_tick(&id, true).await,
@@ -277,13 +278,27 @@ impl Cx {
         sessions
     }
 
-    async fn ls(&self) -> Result<(), DhError> {
+    /// Inside a session (unless `all`): the caller's tree, from every session the daemon has; else, or when the
+    /// daemon does not know the caller, the sessions of the current checkout.
+    async fn ls(&self, all: bool) -> Result<(), DhError> {
+        if let Some(caller) = self.caller.as_ref().filter(|_| !all) {
+            let sessions = self.client.list_sessions().await?;
+            if let Some((root, tree)) = caller_tree(&sessions, &caller.session_id) {
+                if self.json {
+                    return print_json(&tree);
+                }
+                let list = self
+                    .list(&root.repo_root)
+                    .await
+                    .map(|doc| TaskList::parse(&doc.text))
+                    .unwrap_or_default();
+                print_line(&view::tree_table(root, &tree, &list, &caller.session_id));
+                return Ok(());
+            }
+        }
         let repo_root = self.repo_root().await?;
         let sessions = self.client.subscribe(&repo_root).await?;
-        let listed: Vec<SessionRecord> = sessions
-            .into_iter()
-            .filter(|session| session.archived_at.as_deref().is_none_or(str::is_empty))
-            .collect();
+        let listed: Vec<SessionRecord> = sessions.into_iter().filter(|session| !is_archived(session)).collect();
         let ordered = sort_sessions_for_sidebar(&listed);
         if self.json {
             return print_json(&ordered);

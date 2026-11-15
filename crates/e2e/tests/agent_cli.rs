@@ -161,7 +161,7 @@ fn by_hand_new_starts_a_prompted_session_and_tasks_and_ls_list_the_repository() 
 }
 
 #[test]
-fn inside_a_session_new_starts_a_sub_session_it_may_end_and_steps_and_notes_go_on_its_line() {
+fn inside_a_session_new_starts_a_sub_session_it_may_end_ls_lists_their_tree_and_steps_go_on_its_line() {
     let root = repo();
     let sandbox = Sandbox::new("agent-cli-caller");
     let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
@@ -191,11 +191,52 @@ fn inside_a_session_new_starts_a_sub_session_it_may_end_and_steps_and_notes_go_o
     assert_eq!(child["parentSessionId"], lead_id.as_str(), "{child}");
     assert_eq!(child["title"], "Write the tests");
     assert_eq!(child["requestedWorktreeMode"], "new");
-    running(&sandbox.socket(), &child_id);
+    let child = running(&sandbox.socket(), &child_id);
 
+    // In a session, ls is the caller's tree: its top-level session and everything under it, indented.
     let table = text(&as_lead(&["ls"]).stdout);
+    assert!(
+        table.starts_with("Your tree (everything under Lead): you can message any of these with deckhand send."),
+        "{table}"
+    );
     assert!(table.contains(&format!("*  {}", &lead_id[..8])), "{table}");
-    assert!(table.contains("Lead / Write the tests"), "{table}");
+    assert!(table.contains("    Write the tests"), "{table}");
+    assert!(!table.contains("PARENT"), "{table}");
+    // From the sub-session, in its own worktree, the tree is the same: the lead too, the caller marked.
+    let child_identity = trace(&sandbox, &child_id);
+    let child_env = [
+        ("DECKHAND_SESSION_ID", child_id.as_str()),
+        (
+            "DECKHAND_LAUNCH_ID",
+            child_identity["launchId"].as_str().unwrap_or_default(),
+        ),
+        (
+            "DECKHAND_HOOK_TOKEN",
+            child_identity["token"].as_str().unwrap_or_default(),
+        ),
+    ];
+    let child_cwd = PathBuf::from(child["cwd"].as_str().unwrap_or_default());
+    assert_ne!(child_cwd, lead_cwd, "the child works in its own worktree");
+    let from_child = text(&cli(&sandbox, &bin, &child_cwd, &["ls"], &child_env).stdout);
+    assert!(
+        from_child.starts_with("Your tree (everything under Lead)"),
+        "{from_child}"
+    );
+    assert!(from_child.contains(&format!("   {}", &lead_id[..8])), "{from_child}");
+    assert!(from_child.contains(&format!("*  {}", &child_id[..8])), "{from_child}");
+    let records = json_of(&cli(&sandbox, &bin, &child_cwd, &["ls", "--json"], &child_env));
+    let ids: Vec<&str> = records
+        .as_array()
+        .map(|records| records.iter().filter_map(|record| record["id"].as_str()).collect())
+        .unwrap_or_default();
+    assert_eq!(ids, [lead_id.as_str(), child_id.as_str()], "{records}");
+    // --all: the sessions of the checkout it runs in, as by hand, with each one's parent.
+    let checkout = text(&as_lead(&["ls", "--all"]).stdout);
+    assert!(
+        checkout.contains("PARENT") && checkout.contains("Lead / Write the tests"),
+        "{checkout}"
+    );
+    assert!(!checkout.contains("Your tree"), "{checkout}");
 
     // Lines on demand: the lead has none until its first step, which makes it (named after it), with the step under.
     let none = text(&as_lead(&["step", "list"]).stdout);

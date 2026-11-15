@@ -60,6 +60,42 @@ pub fn sessions_in_scope<'a, S: SessionLike>(sessions: &'a [S], repo_root: &str)
         .collect()
 }
 
+/// The top-level session above `session_id`, among `sessions`: the last of its parents the list has (itself when it
+/// has none), as the daemon finds it for messages. `None` when the list does not have `session_id`.
+pub fn tree_root<'a, S: SessionLike>(sessions: &'a [S], session_id: &str) -> Option<&'a S> {
+    root_in(&by_id(sessions), session_id)
+}
+
+/// The tree `session_id` is in: every session under the same top-level session as it (that one and `session_id`
+/// included), whichever checkout each is in, in list order. These are the sessions it may message.
+pub fn session_tree<'a, S: SessionLike>(sessions: &'a [S], session_id: &str) -> Vec<&'a S> {
+    let by_id = by_id(sessions);
+    let Some(root) = root_in(&by_id, session_id).map(|root| root.session().id.as_str()) else {
+        return Vec::new();
+    };
+    sessions
+        .iter()
+        .filter(|item| root_in(&by_id, &item.session().id).is_some_and(|other| other.session().id == root))
+        .collect()
+}
+
+fn by_id<S: SessionLike>(sessions: &[S]) -> HashMap<&str, &S> {
+    sessions.iter().map(|item| (item.session().id.as_str(), item)).collect()
+}
+
+fn root_in<'a, S: SessionLike>(by_id: &HashMap<&str, &'a S>, session_id: &str) -> Option<&'a S> {
+    // The daemon's walk (`messages.rs`), so a parent cycle splits the same way there and here.
+    let mut current = *by_id.get(session_id)?;
+    let mut seen: HashSet<&str> = HashSet::new();
+    while seen.insert(current.session().id.as_str()) {
+        match parent_of(current.session()).and_then(|id| by_id.get(id).copied()) {
+            Some(parent) => current = parent,
+            None => break,
+        }
+    }
+    Some(current)
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -180,5 +216,42 @@ pub(crate) mod tests {
         );
         assert_eq!(ids("/wt/feature-child"), ["child", "grandchild"]);
         assert!(ids("/elsewhere").is_empty());
+    }
+
+    #[test]
+    fn a_session_s_tree_is_everything_under_its_top_level_session_in_any_checkout() {
+        // A stacked tree spread over worktrees launched from two checkouts, beside another top-level session.
+        let session = |id: &str, parent: Option<&str>, repo_root: &str| {
+            partial_session(&json!({
+                "id": id, "parentSessionId": parent, "repoRoot": repo_root, "cwd": format!("/wt/{id}"),
+                "worktree": {"mode": "managed", "path": format!("/wt/{id}")},
+            }))
+            .unwrap()
+        };
+        let list = [
+            session("lead", None, "/repo"),
+            session("tokens", Some("lead"), "/repo"),
+            session("refresh", Some("tokens"), "/wt/tokens"),
+            session("login", Some("lead"), "/repo"),
+            session("other", None, "/repo"),
+            session("other-child", Some("other"), "/repo"),
+            session("orphan", Some("gone"), "/repo"),
+        ];
+        let tree = |id: &str| -> Vec<&str> {
+            session_tree(&list, id)
+                .into_iter()
+                .map(|session| session.id.as_str())
+                .collect()
+        };
+        let lead_tree = ["lead", "tokens", "refresh", "login"];
+        assert_eq!(tree("refresh"), lead_tree, "from a grandchild in another checkout");
+        assert_eq!(tree("login"), lead_tree, "from a sibling");
+        assert_eq!(tree("lead"), lead_tree, "from the top-level session");
+        assert_eq!(tree_root(&list, "refresh").map(|root| root.id.as_str()), Some("lead"));
+        assert_eq!(tree("other-child"), ["other", "other-child"]);
+        // A parent the list doesn't have: the session is its own top-level session.
+        assert_eq!(tree("orphan"), ["orphan"]);
+        assert!(tree("unknown").is_empty());
+        assert!(tree_root(&list, "unknown").is_none());
     }
 }

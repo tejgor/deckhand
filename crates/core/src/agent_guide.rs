@@ -45,10 +45,10 @@ deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <i
   prompt is sent at once (--draft: typed for the user to send). It knows nothing of this chat unless --fork: brief
   it fully (context, constraints, what done is). Long prompts: a quoted heredoc (new --help). --task: it works on
   that line, ticked when merged or done.
-deckhand ls  the sessions (* is this one)
+deckhand ls  your tree, who you can message (* is you)
 deckhand kill <id>  ends a session below you; deckhand remove <id> takes an ended one off the list
 
-deckhand send <id> <message> [--wait]  messages a session in your tree (under the same top-level session),
+deckhand send <id> <message> [--wait]  messages a session in your tree (deckhand ls shows them),
   typed in once it is idle. --wait prints the first reply (Bash timeout 600000) or why none came: it waits on a
   question, ended its turn without replying, or exited. Later replies come as messages.
 deckhand reply <message id> <answer>  answers a message sent to you (its header has the ID)
@@ -93,5 +93,11 @@ mod tests {
         assert!(GUIDE.contains("deckhand reply <message id> <answer>"));
         assert!(GUIDE.contains("deckhand send <id> <message> [--wait]"));
         assert!(GUIDE.contains("Bash timeout 600000"));
+    }
+
+    #[test]
+    fn the_guide_says_ls_shows_who_a_session_can_message() {
+        assert!(GUIDE.contains("deckhand ls  your tree, who you can message"));
+        assert!(GUIDE.contains("messages a session in your tree (deckhand ls shows them)"));
     }
 }

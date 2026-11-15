@@ -49,10 +49,15 @@ elsewhere, a top-level session of the current repository.
 
 /// `deckhand ls --help`.
 pub const LS_USAGE: &str = "\
-Usage: deckhand ls [--json]
+Usage: deckhand ls [--all] [--json]
 
-Lists the sessions of the checkout it runs in (archived ones left out): ID, state, agent, name (a sub-session under
-its parent's), worktree branch and task. * marks the session the command runs in. --json prints the records.";
+Inside a Deckhand session: this session's tree, the sessions you can message with deckhand send. That is its
+top-level session and every session under it, in whichever checkout each one is; indented under their parents,
+* marking this session, ◎ an orchestrator. Run by hand, or with --all: the sessions of the checkout it runs in,
+with each one's parent. Archived sessions are left out. Columns: ID, state, agent, name, worktree branch, task.
+
+  --all   The sessions of this checkout, not this session's tree
+  --json  Print the records, in the same order";
 
 /// `deckhand task --help`.
 pub const TASK_USAGE: &str = "\
@@ -199,7 +204,10 @@ pub enum Action {
     Help(&'static str),
     Guide,
     New(NewArgs),
-    Ls,
+    /// `ls`; `--all`: the checkout's sessions even inside a session.
+    Ls {
+        all: bool,
+    },
     TaskList,
     TaskAdd {
         title: String,
@@ -448,7 +456,19 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
     let rest = args.get(1..).unwrap_or_default();
     match word {
         "new" => parse_new(rest),
-        "ls" => simple(rest, LS_USAGE, Action::Ls),
+        "ls" => {
+            let scanned = scan(rest, &[("--all", Kind::Switch)], LS_USAGE)?;
+            if scanned.help {
+                return Ok(help(LS_USAGE));
+            }
+            none(&scanned, LS_USAGE)?;
+            Ok(Invocation {
+                action: Action::Ls {
+                    all: scanned.switch("--all"),
+                },
+                json: scanned.json,
+            })
+        }
         "guide" => simple(rest, GUIDE_USAGE, Action::Guide),
         "task" => parse_task(rest),
         "step" => parse_step(rest),
@@ -1026,7 +1046,14 @@ mod tests {
             }
         );
         assert_eq!(parsed(&["remove", "1f2e"]).action, Action::Remove("1f2e".into()));
-        assert_eq!(parsed(&["ls"]).action, Action::Ls);
+        assert_eq!(parsed(&["ls"]).action, Action::Ls { all: false });
+        assert_eq!(
+            parsed(&["ls", "--all", "--json"]),
+            Invocation {
+                action: Action::Ls { all: true },
+                json: true
+            }
+        );
         assert!(refused(&["ls", "all"]).starts_with("Unexpected argument: all"));
         assert_eq!(parsed(&["guide"]).action, Action::Guide);
     }

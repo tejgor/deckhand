@@ -2,6 +2,8 @@
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::js_len;
+use deckhand_core::session_order::sort_sessions_for_sidebar;
+use deckhand_core::session_scope::{session_tree, tree_root};
 use deckhand_core::task_list::Line;
 pub use deckhand_core::task_list::{MovePlan, MoveTarget, plan_move};
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
@@ -203,6 +205,26 @@ fn find_by_id<'a, T>(
         ))),
         _ => Err(DhError::msg(format!("No {what} {id} (see {list})"))),
     }
+}
+
+/// Whether `session` is archived: `ls` leaves it out.
+pub fn is_archived(session: &SessionRecord) -> bool {
+    session.archived_at.as_deref().is_some_and(|at| !at.is_empty())
+}
+
+/// What `deckhand ls` lists inside a session: the caller's top-level session, and every session of its tree (under
+/// that top-level session, in whichever checkout) that is not archived, parents first, as the sidebar orders them.
+/// `None` when `sessions` (all the daemon has) lacks the caller.
+pub fn caller_tree<'a>(
+    sessions: &'a [SessionRecord],
+    caller: &str,
+) -> Option<(&'a SessionRecord, Vec<&'a SessionRecord>)> {
+    let root = tree_root(sessions, caller)?;
+    let tree: Vec<&SessionRecord> = session_tree(sessions, caller)
+        .into_iter()
+        .filter(|session| !is_archived(session))
+        .collect();
+    Some((root, sort_sessions_for_sidebar(&tree).into_iter().copied().collect()))
 }
 
 /// The session `id` names (in full, or a unique prefix).
@@ -592,5 +614,37 @@ mod tests {
             find_task("zz", &[]).map_err(|error| error.to_string()).err().as_deref(),
             Some("No task zz (see deckhand task list)")
         );
+    }
+
+    #[test]
+    fn inside_a_session_ls_lists_its_whole_tree_in_any_checkout_without_archived_ones() {
+        // The caller is a stacked grandchild in its own worktree; its tree spans the checkout and two worktrees.
+        let lead = session("lead", json!({"sidebarOrder": 1}));
+        let tokens = in_worktree("tokens", "claude");
+        let tokens = SessionRecord {
+            parent_session_id: Some("lead".into()),
+            ..tokens
+        };
+        let refresh = session(
+            "refresh",
+            json!({"parentSessionId": "tokens", "repoRoot": "/wt/tokens", "cwd": "/wt/refresh"}),
+        );
+        let login = session("login", json!({"parentSessionId": "lead", "sidebarOrder": 2}));
+        let archived = session(
+            "archived",
+            json!({"parentSessionId": "lead", "archivedAt": "2026-11-01T00:00:00.000Z"}),
+        );
+        let other = session("other", json!({"sidebarOrder": 0}));
+        // Listed children before their parents, as the daemon might send them.
+        let sessions = [refresh, other, archived, login, tokens, lead];
+        let (root, listed) = caller_tree(&sessions, "refresh").expect("the caller is known");
+        assert_eq!(root.id, "lead");
+        let ids: Vec<&str> = listed.iter().map(|session| session.id.as_str()).collect();
+        assert_eq!(ids, ["lead", "tokens", "refresh", "login"]);
+        // From the top-level session it is the same tree.
+        let (_, from_lead) = caller_tree(&sessions, "lead").expect("known");
+        assert_eq!(from_lead.len(), 4);
+        // A caller the daemon doesn't know lists the checkout instead.
+        assert!(caller_tree(&sessions, "gone").is_none());
     }
 }

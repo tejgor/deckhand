@@ -78,7 +78,7 @@ Commands:
 
 Deckhand actions, for the agents in its sessions (and for you):
   new [options]                Start a session (inside one: a sub-session in a new worktree)
-  ls                           List the checkout's sessions
+  ls [--all]                   List this session's tree, who it can message (by hand, --all: the checkout's)
   task list|add|done|reopen|move  List, add, tick or move the repository's tasks
   note add <item>              Add a step to this session's note
   send <id> <message> [--wait] Send a message to a session, typed in once it is idle (--wait: print its reply)

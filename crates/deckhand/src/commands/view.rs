@@ -2,15 +2,15 @@
 
 use serde::Serialize;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use deckhand_core::jsstr::{js_len, js_pad_end};
-use deckhand_core::sidebar_model::status_words;
+use deckhand_core::sidebar_model::{ORCHESTRATOR_MARKER, status_words};
 use deckhand_core::task_list::{Line, TaskList};
 use deckhand_core::tasks::{RECENT_DONE_DAYS, today};
 use deckhand_protocol::data::{
     MessageRecord, MessageStatus, OrchestratorResult, PlanOutcome, PlanStatus, SendMessageResult, SessionRecord,
-    SessionWorktreeMode, WaitOutcomeKind, WorkNote, WorkNoteKind, WorktreeMode,
+    SessionRole, SessionWorktreeMode, WaitOutcomeKind, WorkNote, WorkNoteKind, WorktreeMode,
 };
 
 use super::plan::session_path;
@@ -67,7 +67,7 @@ fn table(rows: &[Vec<String>]) -> String {
         .join("\n")
 }
 
-/// `deckhand ls`: one row per session in sidebar order, `*` marking `caller`.
+/// `deckhand ls` by hand or with `--all`: one row per session of the checkout in sidebar order, `*` marking `caller`.
 pub fn session_table(sessions: &[&SessionRecord], list: &TaskList, caller: Option<&str>) -> String {
     if sessions.is_empty() {
         return "No sessions in this repository.".to_owned();
@@ -78,10 +78,6 @@ pub fn session_table(sessions: &[&SessionRecord], list: &TaskList, caller: Optio
             .to_vec(),
     ];
     for session in sessions {
-        let task = list
-            .line_of_session(&session.id)
-            .map(|line| format!("{} {}", short_id(&line.id), line.title))
-            .unwrap_or_default();
         rows.push(vec![
             if Some(session.id.as_str()) == caller { "*" } else { "" }.to_owned(),
             short_id(&session.id).to_owned(),
@@ -93,10 +89,62 @@ pub fn session_table(sessions: &[&SessionRecord], list: &TaskList, caller: Optio
             session.program.to_string(),
             session_path(session).to_owned(),
             worktree_text(session),
-            task,
+            task_text(list, session),
         ]);
     }
     table(&rows)
+}
+
+/// The task column: the line `session` is on.
+fn task_text(list: &TaskList, session: &SessionRecord) -> String {
+    list.line_of_session(&session.id)
+        .map(|line| format!("{} {}", short_id(&line.id), line.title))
+        .unwrap_or_default()
+}
+
+/// A session's own title, after `◎` for an orchestrator.
+fn marked_title(session: &SessionRecord) -> String {
+    if session.role == Some(SessionRole::Orchestrator) {
+        format!("{ORCHESTRATOR_MARKER} {}", session.title)
+    } else {
+        session.title.clone()
+    }
+}
+
+/// `deckhand ls` inside a session: the caller's tree under `root` (`sessions` in sidebar order, parents first), each
+/// title indented two spaces per level below the top, `*` marking `caller`.
+pub fn tree_table(root: &SessionRecord, sessions: &[&SessionRecord], list: &TaskList, caller: &str) -> String {
+    let header = format!(
+        "Your tree (everything under {}): you can message any of these with deckhand send.",
+        marked_title(root)
+    );
+    if sessions.is_empty() {
+        return format!("{header}\nNo sessions in it (archived ones are left out).");
+    }
+    let mut rows = vec![
+        ["", "ID", "STATE", "AGENT", "SESSION", "WORKTREE", "TASK"]
+            .map(str::to_owned)
+            .to_vec(),
+    ];
+    let mut depths: HashMap<&str, usize> = HashMap::new();
+    for session in sessions {
+        let depth = session
+            .parent_session_id
+            .as_deref()
+            .and_then(|parent| depths.get(parent))
+            .map_or(0, |depth| depth + 1);
+        depths.insert(&session.id, depth);
+        rows.push(vec![
+            if session.id == caller { "*" } else { "" }.to_owned(),
+            short_id(&session.id).to_owned(),
+            status_words(session).to_owned(),
+            session.program.to_string(),
+            format!("{}{}", "  ".repeat(depth), marked_title(session)),
+            worktree_text(session),
+            task_text(list, session),
+        ]);
+    }
+    format!("{header}\n{}", table(&rows))
 }
 
 /// A line as `--json` prints it.
@@ -480,6 +528,38 @@ mod tests {
              9f8e7d6c  1a2b3c4d  starting  codex   Fix auth / tests  checkout"
         );
         assert_eq!(session_table(&[], &list, None), "No sessions in this repository.");
+    }
+
+    #[test]
+    fn ls_in_a_session_shows_its_tree_indented_with_the_caller_and_the_orchestrator_marked() {
+        let lead = session(json!({
+            "id": "a1b2c3d4-0000", "title": "Rework auth", "role": "orchestrator", "pathTitle": "Rework auth",
+        }));
+        let tokens = session(json!({
+            "id": "e5f6a7b8-0000", "title": "Token storage", "pathTitle": "Rework auth / Token storage",
+            "parentSessionId": lead.id, "agentStatus": "active",
+            "worktree": {"mode": "managed", "path": "/wt/token_storage", "branch": "token_storage", "id": "wt1"},
+        }));
+        let refresh = session(json!({
+            "id": "9c0d1e2f-0000", "title": "refresh tokens", "program": "codex",
+            "pathTitle": "Rework auth / Token storage / refresh tokens", "parentSessionId": tokens.id,
+            "worktree": {"mode": "managed", "path": "/wt/refresh_tokens", "branch": "refresh_tokens", "id": "wt2"},
+        }));
+        let list = TaskList::parse(&format!("- [ ] Store tokens <!-- dh:t=5e6f7a8b s={} -->\n", tokens.id));
+        assert_eq!(
+            tree_table(&lead, &[&lead, &tokens, &refresh], &list, &refresh.id),
+            "Your tree (everything under ◎ Rework auth): you can message any of these with deckhand send.\n   \
+             ID        STATE    AGENT   SESSION             WORKTREE          TASK\n   \
+             a1b2c3d4  idle     claude  ◎ Rework auth       checkout\n   \
+             e5f6a7b8  working  claude    Token storage     ⎇ token_storage   5e6f7a8b Store tokens\n\
+             *  9c0d1e2f  idle     codex       refresh tokens  ⎇ refresh_tokens"
+        );
+        // A plain top-level session is named without the marker.
+        let plain = session(json!({"id": "a1b2c3d4-0000", "title": "Fix auth"}));
+        assert!(
+            tree_table(&plain, &[&plain], &list, &plain.id)
+                .starts_with("Your tree (everything under Fix auth): you can message")
+        );
     }
 
     #[test]
