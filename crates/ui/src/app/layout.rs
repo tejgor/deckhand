@@ -39,6 +39,7 @@ use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, create_base_options, create_stack_branch,
     filtered_worktrees, fork_option_shown, render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
+use crate::app::modes::idea::render_idea_dialog;
 use crate::app::modes::messages::{MessagesDialogProps, render_messages_dialog, shown_rows, shown_title};
 use crate::app::modes::plan::{PlanDialogProps, plan_waiting_hidden, render_plan_dialog};
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
@@ -431,8 +432,6 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             format!("Search: /{} • enter keep • esc clear", app.browse.session_query),
             THEME.active,
         ),
-        // Drawn with its own styles below.
-        Mode::EnterIdea => (String::new(), THEME.active),
         Mode::Tasks | Mode::Worktrees => (flow_hint(app, derived, cols).unwrap_or_default(), THEME.hint),
         mode => {
             let action = &app.panes.action;
@@ -485,12 +484,7 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             (text, THEME.hint)
         }
     };
-    let hint_row = if app.mode == Mode::EnterIdea {
-        crate::app::modes::idea::prompt_row(&app.browse.idea, cols)
-    } else {
-        vec![Seg::new(hint, TextStyle::fg(color))]
-    };
-    let hint_row = truncate_row(&hint_row, cols, Wrap::TruncateEnd);
+    let hint_row = truncate_row(&[Seg::new(hint, TextStyle::fg(color))], cols, Wrap::TruncateEnd);
     let messages = footer_messages_for(app, selected);
     let message_row = if messages.is_empty() {
         vec![Seg::plain(" ")]
@@ -881,6 +875,9 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 };
                 app.dialog.last = render_plan_dialog(&props, buf, right, view);
             }
+        }
+        Mode::EnterIdea => {
+            app.browse.idea.idea_width = render_idea_dialog(&app.browse.idea, buf, right);
         }
         Mode::Messages => {
             let (rows, selected) = shown_rows(app);
@@ -1863,33 +1860,38 @@ mod tests {
         });
     }
 
+    /// Two sessions, the first selected with 24 lines of agent output in its Preview: what a dialog floats over.
+    fn sessions_with_output(app: &mut App) {
+        let mut auth = session("a", "auth refactor", SessionStatus::Running);
+        let mut tests = session("b", "write tests", SessionStatus::Exited);
+        // Updated just now, so the details' age reads the same every day.
+        let now = deckhand_core::jsstr::date::to_iso_string(deckhand_core::jsstr::date::now_ms());
+        for record in [&mut auth, &mut tests] {
+            record.cwd = "<TMP>/demo".to_owned();
+            record.repo_root = "<TMP>/demo".to_owned();
+            record.agent_status_updated_at.clone_from(&now);
+        }
+        app.data.repo_sessions = vec![auth, tests];
+        app.set_selected_id(Some("a".to_owned()));
+        app.panes.preview = deckhand_protocol::data::PreviewRecord {
+            session_id: Some("a".to_owned()),
+            content: (1..=24)
+                .map(|n| format!("agent output line {n}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            live: true,
+            status: Some(SessionStatus::Running),
+            agent_status: None,
+            scroll_offset: None,
+            max_scroll_offset: None,
+            screen: None,
+        };
+    }
+
     #[test]
     fn a_dialog_floats_over_the_faded_session_pane() {
         let buffer = assert_screen("07-dialog-over-dashboard", |app| {
-            let mut auth = session("a", "auth refactor", SessionStatus::Running);
-            let mut tests = session("b", "write tests", SessionStatus::Exited);
-            // Updated just now, so the details' age reads the same every day.
-            let now = deckhand_core::jsstr::date::to_iso_string(deckhand_core::jsstr::date::now_ms());
-            for record in [&mut auth, &mut tests] {
-                record.cwd = "<TMP>/demo".to_owned();
-                record.repo_root = "<TMP>/demo".to_owned();
-                record.agent_status_updated_at.clone_from(&now);
-            }
-            app.data.repo_sessions = vec![auth, tests];
-            app.set_selected_id(Some("a".to_owned()));
-            app.panes.preview = deckhand_protocol::data::PreviewRecord {
-                session_id: Some("a".to_owned()),
-                content: (1..=24)
-                    .map(|n| format!("agent output line {n}"))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                live: true,
-                status: Some(SessionStatus::Running),
-                agent_status: None,
-                scroll_offset: None,
-                max_scroll_offset: None,
-                screen: None,
-            };
+            sessions_with_output(app);
             app.set_mode(Mode::PickProgram);
         });
         let layout = app_layout(TerminalSize { cols: 130, rows: 36 }, None);
@@ -2023,15 +2025,31 @@ mod tests {
     }
 
     #[test]
-    fn renders_the_idea_prompt_snapshot() {
-        // O: a name and the idea on one line in the footer, the list kept in sight; typing in the idea.
+    fn renders_the_new_orchestrator_dialog_snapshots() {
+        use crate::app::modes::idea::{IdeaField, IdeaPrompt};
+        // O: the dialog over the faded session pane, as just opened (the name first, empty)...
         assert_screen("11-enter-idea", |app| {
+            sessions_with_output(app);
             app.set_mode(Mode::EnterIdea);
-            app.browse.idea = crate::app::modes::idea::IdeaPrompt {
-                name: "Auth tokens".to_owned(),
-                idea: "Store session tokens encrypted at rest".to_owned(),
-                field: crate::app::modes::idea::IdeaField::Idea,
-            };
         });
+        // ...and filled in: a name and an idea of two paragraphs, one wrapped, typing at the idea's end.
+        let idea = "Store session tokens encrypted at rest, with the key in the system keychain rather than a file \
+                    next to the database.\n\nRotate them on every login.";
+        let filled = assert_screen("12-enter-idea-filled", |app| {
+            sessions_with_output(app);
+            app.set_mode(Mode::EnterIdea);
+            app.browse.idea = IdeaPrompt::with("Auth tokens", idea, IdeaField::Idea);
+        });
+        // The sidebar and the pane behind it are drawn as without the dialog: only faded around it.
+        let without = assert_screen("07-dialog-over-dashboard", |app| {
+            sessions_with_output(app);
+            app.set_mode(Mode::PickProgram);
+        });
+        let sidebar_width = app_layout(TerminalSize { cols: 130, rows: 36 }, None).sidebar_width;
+        for y in 0..filled.area.height {
+            for x in 0..sidebar_width {
+                assert_eq!(filled[(x, y)], without[(x, y)], "the sidebar at {x},{y}");
+            }
+        }
     }
 }

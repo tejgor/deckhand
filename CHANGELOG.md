@@ -6,6 +6,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ### Changed
 
+- **`O` opens a dialog**: **New orchestrator** asks for the name and *What do you want to do?* in a pop-up over the session pane instead of the footer, so the idea can be a paragraph: `enter` starts a new line in it, a paste keeps its lines, `ctrl+s` starts the orchestrator, and `esc` keeps what you typed for the next `O`. See [The orchestrator](docs/features.md#the-orchestrator).
 - **Orchestrators are listed by their state**: sections by state (`V`) no longer pin orchestrators in an **Orchestrator** section at the top. Each is listed like any session, so one asking you something is under **Needs you**, and idle ones no longer pile up at the top. See [Organizing and inspecting sessions](docs/features.md#organizing-and-inspecting-sessions).
 
 ## [3.4.0] - 2026-11-15

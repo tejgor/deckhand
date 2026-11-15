@@ -1243,7 +1243,7 @@ fn branches_effect(app: &mut App) {
 }
 
 /// TS: the terminal-mode effects: bracketed paste in notes focus (and, not in the TS, in preview focus, so a paste
-/// reaches the agent as one), mouse reporting in preview focus (escape sequences written to stdout, undone when the
+/// reaches the agent as one, and in `O`'s dialog, so a pasted line break is text), mouse reporting in preview focus (escape sequences written to stdout, undone when the
 /// mode ends).
 pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     let mode = app.mode;
@@ -1254,7 +1254,10 @@ pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     ran(app);
     // React runs every cleanup before the new setups.
     let mut text = String::new();
-    let pastes = matches!(mode, Mode::NotesFocus | Mode::PreviewFocus | Mode::TerminalFocus);
+    let pastes = matches!(
+        mode,
+        Mode::NotesFocus | Mode::PreviewFocus | Mode::TerminalFocus | Mode::EnterIdea
+    );
     if app.effects.paste_on && !pastes {
         app.effects.paste_on = false;
         text.push_str(PASTE_OFF);
@@ -1644,6 +1647,11 @@ mod tests {
             app.set_mode(Mode::Browse);
             sync_terminal_modes(&mut app, &mut out);
             assert_eq!(String::from_utf8_lossy(&out), PASTE_OFF);
+            out.clear();
+            // O's dialog: a pasted line break is text, not enter.
+            app.set_mode(Mode::EnterIdea);
+            sync_terminal_modes(&mut app, &mut out);
+            assert_eq!(String::from_utf8_lossy(&out), PASTE_ON);
         });
     }
 
