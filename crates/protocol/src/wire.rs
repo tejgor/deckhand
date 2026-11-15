@@ -948,8 +948,8 @@ pub struct PlanDecide {
     pub approve: Option<bool>,
 }
 
-/// Not in the TS: a new orchestrator for an idea (`prompt`, required): its first message, its title (the first line),
-/// and a new top-level line it is put on.
+/// Not in the TS: a new orchestrator for an idea (`prompt`, required): its first message, its title (`title`, else
+/// the idea's first line), and a new top-level line of that title it is put on.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -960,6 +960,10 @@ pub struct OpenOrchestrator {
     pub cwd: Loose<String>,
     #[serde(default, deserialize_with = "lenient::opt_string")]
     pub prompt: Option<String>,
+    /// Its name (`O`'s *Name*, `deckhand do --title`): the orchestrator's title and its line's. Absent, or without
+    /// text: the idea's first line.
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub title: Option<String>,
     #[serde(default, deserialize_with = "lenient::size")]
     pub cols: Option<i64>,
     #[serde(default, deserialize_with = "lenient::size")]

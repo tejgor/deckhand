@@ -68,7 +68,7 @@ pub enum Mode {
     ConfirmResume,
     /// Not in the TS: an orchestrator's plan waits for `enter` (create it) or `esc` (cancel it).
     ConfirmPlan,
-    /// Not in the TS: `O`'s one-line prompt, "What do you want to do?": a new orchestrator for the idea.
+    /// Not in the TS: `O`'s prompt, a name and "What do you want to do?": a new orchestrator for the idea.
     EnterIdea,
     /// Not in the TS: `e`, the selected session's messages (sent, received, and replies to yours).
     Messages,
@@ -294,8 +294,8 @@ pub struct BrowseState {
     /// Not in the TS: the state view's Exited section is folded (`c`): its sessions are hidden but the selected one.
     pub exited_collapsed: bool,
     pub session_query: String,
-    /// Not in the TS: what `O`'s prompt holds (kept after a failed start, so `O` offers it again).
-    pub idea: String,
+    /// Not in the TS: what `O`'s prompt holds, its name and idea (kept after a failed start: `O` offers it again).
+    pub idea: crate::app::modes::idea::IdeaPrompt,
     pub collapsed_session_ids: IndexSet<String>,
     pub hidden_exited_session_ids: IndexSet<String>,
     pub selected_id: Option<String>,
@@ -737,7 +737,7 @@ impl App {
                 session_view: props.initial_session_view.unwrap_or(SessionView::Order),
                 exited_collapsed: props.initial_exited_collapsed.unwrap_or(false),
                 session_query: props.initial_session_query.clone().unwrap_or_default(),
-                idea: String::new(),
+                idea: Default::default(),
                 collapsed_session_ids: props.initial_collapsed_session_ids.iter().flatten().cloned().collect(),
                 hidden_exited_session_ids: props
                     .initial_hidden_exited_session_ids

@@ -1617,6 +1617,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::app::event_loop::{UiModel, Update};
+    use crate::app::modes::idea::{IdeaField, IdeaPrompt};
     use crate::app::state::{AppCallbacks, AppProps};
     use crate::app::test_support::{app, session};
     use crate::keymap::{undocumented_in_guide, unknown_topics};
@@ -2935,19 +2936,41 @@ pub(crate) mod tests {
         orchestrator
     }
 
-    /// Types `idea` into `O`'s prompt and presses enter.
-    fn submit_idea(app: &mut App, idea: &str) {
-        handle_browse(app, &text("O"));
-        assert_eq!(app.mode, Mode::EnterIdea);
-        app.handle_input(&text(idea));
-        app.handle_input(&named(Key {
+    fn enter() -> Input {
+        named(Key {
             return_: true,
             ..Key::NONE
-        }));
+        })
+    }
+
+    fn tab(shift: bool) -> Input {
+        named(Key {
+            tab: true,
+            shift,
+            ..Key::NONE
+        })
+    }
+
+    /// Types `name`, then (after `tab`) `idea` into `O`'s prompt and presses enter.
+    fn submit_idea(app: &mut App, name: &str, idea: &str) {
+        handle_browse(app, &text("O"));
+        assert_eq!(app.mode, Mode::EnterIdea);
+        app.handle_input(&text(name));
+        app.handle_input(&tab(false));
+        app.handle_input(&text(idea));
+        app.handle_input(&enter());
+    }
+
+    fn prompt(name: &str, idea: &str, field: IdeaField) -> IdeaPrompt {
+        IdeaPrompt {
+            name: name.to_owned(),
+            idea: idea.to_owned(),
+            field,
+        }
     }
 
     #[test]
-    fn o_asks_what_you_want_to_do_and_starts_a_new_orchestrator_for_the_idea() {
+    fn o_asks_for_a_name_and_what_you_want_to_do_and_starts_a_new_orchestrator_for_the_idea() {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
@@ -2958,28 +2981,34 @@ pub(crate) mod tests {
             handle_browse(&mut app, &text("O"));
             assert_eq!(app.mode, Mode::EnterIdea);
             assert_eq!(app.connection.exit, None);
+            // It starts in the name.
+            assert_eq!(app.browse.idea.field, IdeaField::Name);
+            app.handle_input(&text("Build speed"));
+            app.handle_input(&tab(false));
+            assert_eq!(app.browse.idea.field, IdeaField::Idea);
             app.handle_input(&text("Speed up"));
             app.handle_input(&text(" the\nbuild"));
-            assert_eq!(app.browse.idea, "Speed up the build");
+            assert_eq!(
+                app.browse.idea,
+                prompt("Build speed", "Speed up the build", IdeaField::Idea)
+            );
             app.handle_input(&named(Key {
                 backspace: true,
                 ..Key::NONE
             }));
             app.handle_input(&text("d"));
-            app.handle_input(&named(Key {
-                return_: true,
-                ..Key::NONE
-            }));
+            app.handle_input(&enter());
             assert_eq!(app.mode, Mode::Browse);
             assert!(app.messages.busy);
             let request = daemon.next().await;
             assert_eq!(request["type"], "open-orchestrator");
             assert_eq!(request["cwd"], "/repo");
             assert_eq!(request["prompt"], "Speed up the build");
+            assert_eq!(request["title"], "Build speed");
             let layout = app.layout();
             assert_eq!(request["cols"], layout.preview_cols);
             assert_eq!(request["rows"], layout.preview_rows);
-            let started = json_of(&orchestrator("second", "Speed up the build", SessionStatus::Starting));
+            let started = json_of(&orchestrator("second", "Build speed", SessionStatus::Starting));
             daemon
                 .ok(&request, json!({"session": started, "lineId": "ab12cd34"}))
                 .await;
@@ -2990,9 +3019,49 @@ pub(crate) mod tests {
             assert_eq!(app.connection.exit, None);
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("◎ Speed up the build is starting · enter attaches once it runs")
+                Some("◎ Build speed is starting · enter attaches once it runs")
             );
-            assert_eq!(app.browse.idea, "");
+            assert_eq!(app.browse.idea, IdeaPrompt::default());
+        });
+    }
+
+    #[test]
+    fn tab_and_shift_tab_switch_fields_and_enter_starts_from_either() {
+        local(async {
+            let (mut app, _rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            // The idea first, then back to the name with shift+tab; enter from the name starts it.
+            handle_browse(&mut app, &text("O"));
+            app.handle_input(&tab(false));
+            app.handle_input(&text("Store session tokens encrypted"));
+            app.handle_input(&tab(true));
+            assert_eq!(app.browse.idea.field, IdeaField::Name);
+            app.handle_input(&text("  Auth tokens "));
+            app.handle_input(&tab(true));
+            assert_eq!(app.browse.idea.field, IdeaField::Idea);
+            // A tab read with the typing still switches.
+            app.handle_input(&text(" now\t"));
+            assert_eq!(
+                app.browse.idea,
+                prompt("  Auth tokens ", "Store session tokens encrypted now", IdeaField::Name)
+            );
+            app.handle_input(&enter());
+            assert_eq!(app.mode, Mode::Browse);
+            let request = daemon.next().await;
+            assert_eq!(
+                (request["title"].as_str(), request["prompt"].as_str()),
+                (Some("Auth tokens"), Some("Store session tokens encrypted now"))
+            );
+            daemon.fail(&request, "later").await;
+        });
+        local(async {
+            // No name: no title, so the daemon names it after the idea.
+            let (mut app, _rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            submit_idea(&mut app, " ", "Speed up the build");
+            let request = daemon.next().await;
+            assert_eq!(request["prompt"], "Speed up the build");
+            assert!(request.get("title").is_none(), "{request}");
         });
     }
 
@@ -3002,50 +3071,107 @@ pub(crate) mod tests {
             let (mut app, _rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
             handle_browse(&mut app, &text("O"));
+            // A name is one line too.
+            app.handle_input(&text("\u{1b}[200~Auth\r\ntokens\u{1b}[201~"));
+            app.handle_input(&tab(false));
             app.handle_input(&text("\u{1b}[200~Rework auth\r\nfor tokens\r\u{1b}[201~"));
             assert_eq!(
-                (app.mode, app.browse.idea.as_str()),
-                (Mode::EnterIdea, "Rework auth for tokens ")
+                (app.mode, &app.browse.idea),
+                (
+                    Mode::EnterIdea,
+                    &prompt("Auth tokens", "Rework auth for tokens ", IdeaField::Idea)
+                )
             );
             app.handle_input(&text(" now\r"));
             assert_eq!(app.mode, Mode::Browse);
             let request = daemon.next().await;
             assert_eq!(request["prompt"], "Rework auth for tokens  now");
+            assert_eq!(request["title"], "Auth tokens");
         });
     }
 
     #[test]
-    fn esc_cancels_the_idea_and_enter_on_nothing_starts_nothing() {
+    fn esc_cancels_the_idea_and_enter_without_an_idea_starts_nothing() {
         local(async {
             let (mut app, _rx) = with_sessions(1);
             let _daemon = Daemon::connect(&mut app);
             handle_browse(&mut app, &text("O"));
-            app.handle_input(&named(Key {
-                return_: true,
-                ..Key::NONE
-            }));
-            assert_eq!(app.mode, Mode::EnterIdea);
+            // From the name with no idea yet, enter goes on to the idea; there, it does nothing.
+            app.handle_input(&text("Auth tokens"));
+            app.handle_input(&enter());
+            assert_eq!((app.mode, app.browse.idea.field), (Mode::EnterIdea, IdeaField::Idea));
+            app.handle_input(&text("   "));
+            app.handle_input(&enter());
+            assert_eq!((app.mode, app.browse.idea.field), (Mode::EnterIdea, IdeaField::Idea));
             assert!(!app.messages.busy);
             app.handle_input(&text("Half a thought"));
             app.handle_input(&named(Key {
                 escape: true,
                 ..Key::NONE
             }));
-            assert_eq!((app.mode, app.browse.idea.as_str()), (Mode::Browse, ""));
+            assert_eq!((app.mode, &app.browse.idea), (Mode::Browse, &IdeaPrompt::default()));
             assert!(!app.messages.busy);
         });
     }
 
     #[test]
-    fn the_prompt_shows_the_end_of_a_long_idea() {
+    fn a_name_is_at_most_64_characters() {
+        local(async {
+            let (mut app, _rx) = with_sessions(1);
+            let _daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("O"));
+            app.handle_input(&text(&"n".repeat(70)));
+            assert_eq!(app.browse.idea.name, "n".repeat(64));
+            assert_eq!(app.messages.error.as_deref(), Some("A name is at most 64 characters"));
+            // Backspace edits the field being typed in.
+            app.handle_input(&tab(false));
+            app.handle_input(&text("ab"));
+            app.handle_input(&named(Key {
+                backspace: true,
+                ..Key::NONE
+            }));
+            assert_eq!((app.browse.idea.name.len(), app.browse.idea.idea.as_str()), (64, "a"));
+        });
+    }
+
+    #[test]
+    fn the_prompt_shows_both_fields_the_cursor_in_the_one_typed_in() {
+        use crate::app::modes::idea::prompt_line;
+        let keys = " • tab next field • enter start • esc cancel";
         assert_eq!(
-            crate::app::modes::idea::prompt_line("Rework auth", 80),
-            "What do you want to do? Rework auth▏ • enter start • esc cancel"
+            prompt_line(&IdeaPrompt::default(), 130),
+            format!("Name: ▏(optional, 2–4 words) · What do you want to do?{keys}")
         );
-        let line = crate::app::modes::idea::prompt_line(&format!("{}the end", "x".repeat(80)), 60);
-        assert!(line.starts_with("What do you want to do? …"), "{line}");
-        assert!(line.ends_with("the end▏ • enter start • esc cancel"), "{line}");
-        assert!(crate::primitives::string_width(&line) <= 60, "{line}");
+        assert_eq!(
+            prompt_line(&prompt("Auth tokens", "Rework auth", IdeaField::Name), 130),
+            format!("Name: Auth tokens▏ · What do you want to do? Rework auth{keys}")
+        );
+        assert_eq!(
+            prompt_line(&prompt("", "Rework auth", IdeaField::Idea), 130),
+            format!("Name: (optional, 2–4 words) · What do you want to do? Rework auth▏{keys}")
+        );
+        // Too long: the field typed in shows its end, the other its start.
+        let long = format!("{}the end", "x".repeat(80));
+        let line = prompt_line(&prompt("Auth tokens", &long, IdeaField::Idea), 100);
+        assert!(
+            line.starts_with("Name: Auth tokens · What do you want to do? …"),
+            "{line}"
+        );
+        assert!(
+            line.ends_with("the end▏ • tab next field • enter start • esc cancel"),
+            "{line}"
+        );
+        assert!(crate::primitives::string_width(&line) <= 100, "{line}");
+        let line = prompt_line(&prompt("Auth tokens", &long, IdeaField::Name), 100);
+        assert!(
+            line.starts_with("Name: Auth tokens▏ · What do you want to do? xxx"),
+            "{line}"
+        );
+        assert!(
+            line.ends_with("x… • tab next field • enter start • esc cancel"),
+            "{line}"
+        );
+        assert!(crate::primitives::string_width(&line) <= 100, "{line}");
     }
 
     #[test]
@@ -3053,15 +3179,18 @@ pub(crate) mod tests {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
-            submit_idea(&mut app, "Rework auth");
+            submit_idea(&mut app, "Auth", "Rework auth");
             let request = daemon.next().await;
             daemon.fail(&request, "claude is not installed").await;
             apply(&mut app, &mut rx).await;
             assert!(!app.messages.busy);
             assert_eq!(app.messages.error.as_deref(), Some("claude is not installed"));
-            // O again offers what was typed.
+            // O again offers what was typed, in the name.
             handle_browse(&mut app, &text("O"));
-            assert_eq!((app.mode, app.browse.idea.as_str()), (Mode::EnterIdea, "Rework auth"));
+            assert_eq!(
+                (app.mode, &app.browse.idea),
+                (Mode::EnterIdea, &prompt("Auth", "Rework auth", IdeaField::Name))
+            );
         });
     }
 }

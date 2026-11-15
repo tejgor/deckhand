@@ -181,7 +181,7 @@ impl Cx {
             Action::Remove(id) => self.end(&id, false).await,
             Action::PlanCheck(source) => self.plan_check(&source).await,
             Action::PlanApply(source) => self.plan_apply(&source).await,
-            Action::Do(request) => self.hand_to_orchestrator(given(&request)?).await,
+            Action::Do { idea, title } => self.hand_to_orchestrator(given(&idea)?, title.as_deref()).await,
             Action::Help(_) | Action::Guide => Ok(()),
         }
     }
@@ -727,8 +727,8 @@ impl Cx {
         }
     }
 
-    /// `deckhand do`: a new orchestrator for the idea, always (one per idea).
-    async fn hand_to_orchestrator(&self, request: &str) -> Result<(), DhError> {
+    /// `deckhand do`: a new orchestrator for the idea, always (one per idea), named `title` when given.
+    async fn hand_to_orchestrator(&self, request: &str, title: Option<&str>) -> Result<(), DhError> {
         if self.caller.is_some() {
             return Err(DhError::msg(
                 "deckhand do is for you, from a terminal in the repository, not for a session: ask the user to run it",
@@ -737,7 +737,7 @@ impl Cx {
         let repo_root = self.repo_root().await?;
         let result = self
             .client
-            .open_orchestrator(&repo_root, request, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS)
+            .open_orchestrator(&repo_root, request, title, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS)
             .await?;
         if self.json {
             return print_json(&result);

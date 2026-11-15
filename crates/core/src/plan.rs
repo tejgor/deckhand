@@ -626,22 +626,57 @@ pub fn idea_title(idea: &str) -> String {
     if js_len(&line) <= MAX_TITLE {
         return line;
     }
-    let room = MAX_TITLE - 1;
+    format!("{}…", cut_at_word(&line, MAX_TITLE - 1))
+}
+
+/// An orchestrator's title from the name it was given (`O`'s *Name*, `deckhand do --title`): one line (line breaks
+/// and tabs as spaces, other control characters dropped), spaces collapsed, and past [`MAX_TITLE`] cut at a word
+/// (where that keeps at least half of it), as `deckhand new --title` cuts a name. `None` when it has no text: the
+/// idea names it then ([`idea_title`]).
+pub fn name_title(name: &str) -> Option<String> {
+    let line: String = name
+        .chars()
+        .map(|c| if matches!(c, '\n' | '\r' | '\t') { ' ' } else { c })
+        .filter(|c| !c.is_control())
+        .collect();
+    let line = js_collapse_whitespace(js_trim(&line));
+    if line.is_empty() {
+        return None;
+    }
+    if js_len(&line) <= MAX_TITLE {
+        return Some(line);
+    }
+    Some(cut_at_word(&line, MAX_TITLE))
+}
+
+/// A new orchestrator's title: its name when it was given one with text, else its idea's ([`idea_title`]).
+pub fn orchestrator_title(name: Option<&str>, idea: &str) -> String {
+    name.and_then(name_title).unwrap_or_else(|| idea_title(idea))
+}
+
+/// The start of `line` that fits in `room` UTF-16 units, cut at its last space when that keeps at least half (and
+/// the limit does not already fall between two words).
+fn cut_at_word(line: &str, room: usize) -> String {
     let mut units = 0;
     let mut kept = String::new();
+    let mut next = None;
     for c in line.chars() {
         units += c.len_utf16();
         if units > room {
+            next = Some(c);
             break;
         }
         kept.push(c);
+    }
+    if next == Some(' ') {
+        return kept.trim_end().to_owned();
     }
     if let Some(space) = kept.rfind(' ')
         && js_len(&kept[..space]) >= room / 2
     {
         kept.truncate(space);
     }
-    format!("{}…", kept.trim_end())
+    kept.trim_end().to_owned()
 }
 
 /// `base` numbered `n` (`Rework auth 2`), cut so the number fits in [`MAX_TITLE`]: for a title an active session
@@ -1212,6 +1247,27 @@ mod tests {
         assert_eq!(numbered_title("Rework auth", 2), "Rework auth 2");
         let numbered = numbered_title(&"b".repeat(64), 12);
         assert_eq!((js_len(&numbered), numbered.ends_with(" 12")), (MAX_TITLE, true));
+    }
+
+    #[test]
+    fn a_name_titles_its_orchestrator_instead_of_the_idea() {
+        let idea = "Rework auth so tokens are stored encrypted";
+        assert_eq!(orchestrator_title(Some("  Auth   tokens "), idea), "Auth tokens");
+        // No name, or one without text: the idea's first line, as before.
+        assert_eq!(orchestrator_title(None, idea), idea);
+        assert_eq!(orchestrator_title(Some(" \t "), idea), idea);
+        // One line: a pasted line break is a space, other control characters go.
+        assert_eq!(name_title("Auth\r\ntokens\u{1b}"), Some("Auth tokens".to_owned()));
+        // Past 64 characters it is cut at a word, without an ellipsis (as `deckhand new --title`).
+        let long = "Move the session store to an encrypted file so that tokens never sit in plain text";
+        let title = name_title(long).unwrap_or_default();
+        assert_eq!(
+            title,
+            "Move the session store to an encrypted file so that tokens never"
+        );
+        assert!(js_len(&title) <= MAX_TITLE);
+        let word = name_title(&"a".repeat(100)).unwrap_or_default();
+        assert_eq!(word, "a".repeat(MAX_TITLE));
     }
 
     #[test]

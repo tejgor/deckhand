@@ -10,6 +10,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **One rule for long text**: `deckhand new --prompt -`, `task add --details -`, `note add -` and `do -` now read the text from stdin, as `send -` and `reply -` already did, so a quoted heredoc works for every long text. The guide agents read shows the exact form. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
 - **Short session names**: the guides tell agents and orchestrators to name every session (and parked task) in 2 to 4 words naming the work, not a sentence, and to always pass `--title` to `deckhand new`. Without one, a session is named after its prompt's first sentence, not its whole first line. See [Starting a session from a command](docs/features.md#starting-a-session-from-a-command).
 - **Codex replies through its tool**: a message that wants an answer tells a Codex that has the `deckhand` tool to reply with the tool rather than a shell command its sandbox would block.
+- **`O` asks for a name, then the idea**: two fields, `tab` between them. The name (2–4 words, optional) names the orchestrator and its idea's line instead of the idea's first line; `deckhand do --title <name>` does the same. See [The orchestrator](docs/features.md#the-orchestrator).
 
 ### Fixed
 

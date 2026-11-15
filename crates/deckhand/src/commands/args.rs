@@ -180,12 +180,16 @@ lines under the idea's line, nobody on them (by hand: in the backlog), their det
 
 /// `deckhand do --help`.
 pub const DO_USAGE: &str = "\
-Usage: deckhand do <idea>|- [--json]
+Usage: deckhand do [--title <name>] <idea>|- [--json]
 
 Starts a new orchestrator for an idea, which splits it into sessions for you to confirm: the idea is its first
-message, its first line the orchestrator's name, and a new top-level line of that name is the idea's, with the
-orchestrator on it. Every call starts a new one; several can run at once. - reads the idea from stdin. Run it from a
-terminal in the repository, not inside a session.";
+message, and a new top-level line of the orchestrator's name is the idea's, with the orchestrator on it. Every call
+starts a new one; several can run at once. - reads the idea from stdin. Run it from a terminal in the repository,
+not inside a session.
+
+  --title <name>  The orchestrator's name and its line's: short, 2-4 words (at most 64 characters; longer is cut
+                  at a word). Default: the idea's first line
+  --json          Print the new orchestrator's record and its line's ID as JSON";
 
 /// `deckhand guide --help`.
 pub const GUIDE_USAGE: &str = "\
@@ -242,8 +246,11 @@ pub enum Action {
     PlanCheck(PlanSource),
     /// `plan apply`.
     PlanApply(PlanSource),
-    /// `do <idea>`.
-    Do(TextSource),
+    /// `do [--title <name>] <idea>|-`.
+    Do {
+        idea: TextSource,
+        title: Option<String>,
+    },
 }
 
 /// A long text (a prompt, details, a note, a message, an answer, an idea): given, or `-` (stdin).
@@ -283,7 +290,7 @@ impl Action {
             Action::NoteAdd(slot) => (slot, "the note", "deckhand note add -"),
             Action::Send(SendArgs { text: slot, .. }) => (slot, "the message", "deckhand send <id> -"),
             Action::Reply { text: slot, .. } => (slot, "the answer", "deckhand reply <message id> -"),
-            Action::Do(slot) => (slot, "the idea", "deckhand do -"),
+            Action::Do { idea: slot, .. } => (slot, "the idea", "deckhand do -"),
             _ => return None,
         };
         if *slot == TextSource::Stdin {
@@ -561,12 +568,15 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "reply" => parse_reply(rest),
         "plan" => parse_plan(rest),
         "do" => {
-            let scanned = scan_text(rest, &[], DO_USAGE)?;
+            let scanned = scan_text(rest, &[("--title", Kind::Value)], DO_USAGE)?;
             if scanned.help {
                 return Ok(help(DO_USAGE));
             }
             Ok(Invocation {
-                action: Action::Do(long_text(&scanned, "an idea", "do", DO_USAGE)?),
+                action: Action::Do {
+                    idea: long_text(&scanned, "an idea", "do", DO_USAGE)?,
+                    title: scanned.value("--title"),
+                },
                 json: scanned.json,
             })
         }
@@ -1041,7 +1051,21 @@ mod tests {
             }
         );
         assert_eq!(parsed(&["note", "add", "-"]).action, Action::NoteAdd(TextSource::Stdin));
-        assert_eq!(parsed(&["do", "-"]).action, Action::Do(TextSource::Stdin));
+        assert_eq!(
+            parsed(&["do", "-"]).action,
+            Action::Do {
+                idea: TextSource::Stdin,
+                title: None
+            }
+        );
+        // A name and an idea read from stdin go together.
+        assert_eq!(
+            parsed(&["do", "--title", "Auth tokens", "-"]).action,
+            Action::Do {
+                idea: TextSource::Stdin,
+                title: Some("Auth tokens".into())
+            }
+        );
     }
 
     #[test]
@@ -1292,9 +1316,27 @@ mod tests {
         assert!(refused(&["plan", "run"]).starts_with("Unknown plan command: run"));
         assert_eq!(
             parsed(&["do", "Split", "the", "auth", "rework"]).action,
-            Action::Do(TextSource::Given("Split the auth rework".into()))
+            Action::Do {
+                idea: TextSource::Given("Split the auth rework".into()),
+                title: None
+            }
         );
         assert!(refused(&["do"]).starts_with("deckhand do needs an idea"));
+        // --title names the orchestrator, before or after the idea, its value as given (the daemon cleans it).
+        for args in [
+            &["do", "--title", "Auth tokens", "Store", "tokens", "encrypted"][..],
+            &["do", "Store", "tokens", "encrypted", "--title=Auth tokens"],
+        ] {
+            assert_eq!(
+                parsed(args).action,
+                Action::Do {
+                    idea: TextSource::Given("Store tokens encrypted".into()),
+                    title: Some("Auth tokens".into())
+                }
+            );
+        }
+        assert!(refused(&["do", "Store tokens", "--title"]).starts_with("--title needs a value"));
+        assert!(refused(&["do", "--title", "Auth tokens"]).starts_with("deckhand do needs an idea"));
         // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.
         assert!(deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE.contains("deckhand plan apply"));
     }

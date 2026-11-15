@@ -32,5 +32,5 @@ deckhand                                                                        
 │                                     │ │                                                                                        │
 │                                     │ │                                                                                        │
 ╰─────────────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────╯
-What do you want to do? Rework auth so tokens are stored encrypted▏ • enter start • esc cancel
+Name: Auth tokens · What do you want to do? Store session tokens encrypted at rest▏ • tab next field • enter start • esc cancel
 

@@ -88,7 +88,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `merge-worktree` | 4 | 0 |
 | c2d | - | `new-terminal` | 0 | 1 |
 | c2d | - | `open-note` | 1 | 0 |
-| c2d | - | `open-orchestrator` | 0 | 1 |
+| c2d | - | `open-orchestrator` | 0 | 2 |
 | c2d | - | `open-tasks` | 0 | 1 |
 | c2d | - | `ping` | 1 | 0 |
 | c2d | - | `plan-apply` | 0 | 1 |

@@ -11,8 +11,8 @@
 //! - An orchestrator's plan belongs to its idea (docs/future/orchestrator.md, 3b): its entries without a parent become
 //!   the orchestrator's sub-sessions (their lines go under the idea's line, the orchestrator's), its tasks lines under
 //!   the idea's line, and its `brief` the idea's line's brief. Run by hand, they are top-level and go to the backlog.
-//! - `open-orchestrator` starts a new orchestrator for an idea, always: titled after it, the idea its first message,
-//!   on a new top-level line of the same title (the idea's line). Several run at once.
+//! - `open-orchestrator` starts a new orchestrator for an idea, always: titled by its name (else after the idea), the
+//!   idea its first message, on a new top-level line of the same title (the idea's line). Several run at once.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -20,7 +20,7 @@ use std::time::Duration;
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{date, path};
 use deckhand_core::plan::{
-    PlanContext, PlanParent, ValidPlan, idea_title, numbered_title, plan_problems_message, validate_plan,
+    PlanContext, PlanParent, ValidPlan, numbered_title, orchestrator_title, plan_problems_message, validate_plan,
 };
 use deckhand_core::project_config::resolve_settings;
 use deckhand_core::session_scope::is_path_inside;
@@ -617,8 +617,9 @@ impl Daemon {
         }
     }
 
-    /// `open-orchestrator`: a new orchestrator for the idea `prompt` (its first message), titled after it (numbered
-    /// while an active session has the title), put on a new top-level line of the same title: the idea's line.
+    /// `open-orchestrator`: a new orchestrator for the idea `prompt` (its first message), titled `title` or else after
+    /// the idea (numbered while an active session has the title), put on a new top-level line of the same title: the
+    /// idea's line.
     pub async fn handle_open_orchestrator(&self, request: &OpenOrchestrator) -> Result<OrchestratorResult> {
         let cwd = match &request.cwd {
             Loose::Known(cwd) if !cwd.is_empty() => cwd.clone(),
@@ -628,22 +629,7 @@ impl Daemon {
             return Err(DhError::msg(NO_IDEA));
         };
         let repo_root = find_repo_root(Some(&cwd)).await?;
-        let base = idea_title(&idea);
-        let taken = |title: &str| {
-            self.all_sessions().iter().any(|session| {
-                session.repo_root == repo_root
-                    && session.status != SessionStatus::Exited
-                    && self.session_path(session) == title
-            })
-        };
-        let title = if taken(&base) {
-            (2..)
-                .map(|n| numbered_title(&base, n))
-                .find(|title| !taken(title))
-                .unwrap_or(base)
-        } else {
-            base
-        };
+        let title = self.new_orchestrator_title(&repo_root, request.title.as_deref(), &idea);
         let input = CreateSessionInput {
             title,
             program: ProgramKey::Claude,
@@ -681,6 +667,26 @@ impl Daemon {
             session: self.get_session(&session.id).unwrap_or(session),
             line_id,
         })
+    }
+
+    /// A new orchestrator's title in `repo_root`: its `name` when it has text, else its idea's first line
+    /// ([`orchestrator_title`]), numbered ` 2`, ` 3`… while an active session of the repository has it.
+    fn new_orchestrator_title(&self, repo_root: &str, name: Option<&str>, idea: &str) -> String {
+        let base = orchestrator_title(name, idea);
+        let taken = |title: &str| {
+            self.all_sessions().iter().any(|session| {
+                session.repo_root == repo_root
+                    && session.status != SessionStatus::Exited
+                    && self.session_path(session) == title
+            })
+        };
+        if !taken(&base) {
+            return base;
+        }
+        (2..)
+            .map(|n| numbered_title(&base, n))
+            .find(|title| !taken(title))
+            .unwrap_or(base)
     }
 }
 
@@ -1080,6 +1086,34 @@ mod tests {
             }
             assert!(daemon.all_sessions().is_empty());
         });
+    }
+
+    #[test]
+    fn an_orchestrator_is_named_by_its_name_else_its_idea_numbered_while_taken() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let daemon = test_daemon(dir.path());
+        let idea = "Rework auth so tokens are stored encrypted\nand rotated weekly";
+        let title = |name: Option<&str>| daemon.new_orchestrator_title("/repo", name, idea);
+        assert_eq!(title(Some("  Auth   tokens ")), "Auth tokens");
+        // No name, or a blank one: the idea's first line, as before.
+        assert_eq!(title(None), "Rework auth so tokens are stored encrypted");
+        assert_eq!(title(Some(" ")), "Rework auth so tokens are stored encrypted");
+        // Past 64 characters, a name is cut at a word.
+        let long = "Rework the authentication layer so that tokens are stored encrypted";
+        assert_eq!(
+            title(Some(long)),
+            "Rework the authentication layer so that tokens are stored"
+        );
+        // Taken by an active session of the repository: numbered, as an idea's title is.
+        orchestrator(&daemon, "first", "/repo", "Auth tokens");
+        orchestrator(&daemon, "second", "/repo", "Auth tokens 2");
+        assert_eq!(title(Some("Auth tokens")), "Auth tokens 3");
+        // Not by an exited one, nor by another repository's.
+        daemon.patch_session("first", |session| session.status = SessionStatus::Exited);
+        orchestrator(&daemon, "elsewhere", "/other", "Login UI");
+        assert_eq!(title(Some("Auth tokens")), "Auth tokens");
+        assert_eq!(title(Some("Login UI")), "Login UI");
     }
 
     #[test]
