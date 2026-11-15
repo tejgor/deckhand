@@ -9,6 +9,15 @@
 - **Claude: the `PATH` link.** Deckhand puts `<DECKHAND_HOME>/agent-plugin/bin` first on the agent's `PATH`. Not checked: whether a shell Claude's Bash tool starts keeps it first when the user's shell startup files set `PATH` themselves. If not, a dev build's agents would run the installed `deckhand`.
 - **Pi**: `--skill` is passed when `pi --help` lists it; not yet checked that Pi then keeps only the skill's description in context.
 
+## Open: renaming a session
+
+`deckhand rename <id> <name>`, and a key in the UI, to rename a session. An orchestrator that has understood its idea can give itself a short name, and you can fix a sentence-long name (one made before `O` asked for a name, or with no name given). Nothing renames a session today. Notes:
+
+- **Its line**: keep the line's title separate by default, since a line may have been retitled on its own in Tasks; offer both (`--line`, or a choice in the UI's rename). An orchestrator's idea's line is the exception worth defaulting: it was named with it.
+- **Sub-sessions** need nothing: their path titles (`Auth tokens / Token storage`) are built from their parents' names, so they follow. Check the 64-character rule on paths still holds (`sub_session_title`).
+- **Worktree and branch** names don't change.
+- The same rules as a new name: at most 64 characters, numbered or refused on a clash with an active session under the same parent; from a session, only itself or a session in its tree (*The caller*).
+
 ## Later: orchestration
 
 Once agents should drive sessions themselves (wait for children, read results, follow up):
