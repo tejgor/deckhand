@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/1cebcf63-9fed-4a9e-bbb1-283c77e789d6
 
 Running several coding agents on one repository brings three chores. Deckhand takes care of each:
 
-- **Keeping their work apart.** Two agents in one checkout edit the same files. Deckhand starts each session in its own git worktree: a separate checkout on its own branch, with its own shell, Git view, dev command and notes.
+- **Keeping their work apart.** Two agents in one checkout edit the same files. Deckhand starts each session in its own git worktree: a separate checkout on its own branch, with its own shell, Git view and dev command.
 - **Knowing which one needs you.** One sidebar lists every session in sections: needs you, unread, working, idle and exited, beside a live preview. You attach to an agent only when it needs you.
 - **Landing the work and tidying up.** Merging shows the commits and diff first, then stages the result for you to review. The Worktrees screen shows which worktrees are merged and what deleting each one would lose.
 
@@ -51,7 +51,7 @@ curl -fsSL https://github.com/tejgor/deckhand/releases/latest/download/deckhand-
 
 Deckhand runs on macOS and Linux, and on Windows inside WSL2. It needs `git` and at least one agent on your `PATH`: [Claude Code](https://code.claude.com) (`claude`), [Codex](https://github.com/openai/codex) (`codex`) or [Pi](https://pi.dev) (`pi`). `deckhand setup` installs any that are missing with their official installers.
 
-Release archives, `cargo install`, optional tools, updating and uninstalling are in [docs/install.md](docs/install.md). Coming from Deckhand 2 on npm? See [Upgrading from npm](docs/upgrading-from-npm.md).
+Release archives, `cargo install`, optional tools, updating and uninstalling are in [docs/install.md](docs/install.md). Coming from Deckhand 2 on npm? See [Upgrading from npm](docs/upgrading-from-npm.md). What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick start
 
@@ -75,15 +75,18 @@ More in [docs/architecture.md](docs/architecture.md).
 ## Features
 
 - **[Worktree sessions](docs/features.md#sessions-and-sub-sessions)**: start an agent in a new worktree, an existing one or none. Sub-sessions (`N`) add a clean agent in the parent's worktree or fork the parent's conversation.
+- **[Stacked sub-sessions](docs/features.md#stacked-sub-sessions)**: a sub-session in a new worktree branches from its parent's branch and merges back into it, so related work comes together in the parent before it merges on.
+- **[Orchestrators](docs/features.md#the-orchestrator)** (`O`): describe an idea and an orchestrator proposes a plan of sessions. You revise it in its chat and confirm it in Deckhand, and each session starts on its brief.
 - **[Shared worktree tabs](docs/features.md#terminal-git-and-dev-panes)**: sessions in one worktree share its shells, Git view and Dev command, which keep running after the agents exit.
 - **[Agent signals](docs/features.md#lifecycle-signals-and-notifications)**: the sidebar shows when an agent is waiting for you, has finished or has failed, with optional desktop notifications.
 - **[Resume](docs/features.md#resume-and-handoffs)**: `s` reopens an exited session's conversation where it stopped. Deckhand never quietly starts a blank one instead.
 - **[Merge from the sidebar](docs/features.md#merging-and-done)**: preview the commits, then merge or squash-merge, staged for review. Worktrees merged elsewhere, such as through a pull request, are marked too.
 - **[Careful deletes](docs/features.md#cleanup)**: Deckhand lists the uncommitted files and unmerged commits you would lose, and asks before deleting them.
 - **[Git tab](docs/features.md#git-changes)**: the worktree's changes, with diffs and staging, like your editor's source control panel.
-- **[Notes](docs/features.md#notes)**: one Markdown note with checklists per worktree, editable in Deckhand or your own editor.
-- **[Tasks](docs/features.md#tasks)** (`b`): one task list per repository. Start a session from a task, and merging its worktree ticks it off.
-- **[Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents)**: ask an agent to start sub-sessions, add tasks or add steps to its note, and it does so with `deckhand` commands. It can end only the sub-sessions it started, and merging and deleting stay with you.
+- **[Tasks](docs/features.md#tasks)** (`b`): one nested list per repository. A session takes on a line (its task) and the lines under it are its steps. Merging its worktree ticks it off.
+- **[Notes](docs/features.md#notes)**: Markdown notes for each line (shared by whoever works on it), for each session and a scratchpad per repository, editable in Deckhand or your own editor.
+- **[Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents)**: ask an agent to start sub-sessions, add tasks or add steps to its line, and it does so with `deckhand` commands. It can end only the sessions under it, and merging and deleting stay with you.
+- **[Messages between sessions](docs/features.md#messages-between-sessions)**: one session can ask another a question or give it an instruction (`deckhand send`). The message is typed in once that agent is idle, and `e` shows a session's messages.
 - **[Project settings](docs/features.md#configuration)**: a per-repository `deckhand.json` for defaults, a Dev command and named actions, reviewed before any of it runs.
 
 ## Essential keys
@@ -98,6 +101,7 @@ More in [docs/architecture.md](docs/architecture.md).
 | `!` | Jump to the next session that needs you |
 | `s` / `S` `S` | Resume an exited session / restart it fresh (press twice) |
 | `m` | Merge the session's worktree |
+| `O` | Start an orchestrator for an idea |
 | `b` / `W` / `C` | Tasks / Worktrees / Settings |
 | `?` | Every key, in the app |
 | `q` | Quit; sessions keep running |
@@ -133,6 +137,7 @@ See [Troubleshooting](docs/troubleshooting.md).
 - [Architecture](docs/architecture.md): processes, state and code layout
 - [Troubleshooting](docs/troubleshooting.md)
 - [Upgrading from Deckhand 2 (npm)](docs/upgrading-from-npm.md)
+- [Changelog](CHANGELOG.md): what changed in each release
 
 ## Contributing
 

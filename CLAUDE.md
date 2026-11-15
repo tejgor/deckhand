@@ -4,4 +4,10 @@
 - `promo/` (the promo videos) is its own private repository, `tejgor/deckhand-promo`, cloned into that folder and ignored by Deckhand. Commit and push promo changes inside `promo/`; Deckhand's history never records them.
 - Run only the tests a change can affect: `cargo test -p <crate>` for each crate you changed (or a nextest filter), not `scripts/test.sh`. The full script builds everything and runs E2E; use it only when the change touches what E2E drives (daemon/worker lifecycle, PTYs, persistence and recovery, CLI flows) or once before merging. CI runs it anyway.
 - Tests describe current behavior. Prefer named scenarios and assertions, keep useful low-churn corpora, and preserve compatibility inputs. See [docs/testing.md](docs/testing.md).
+- Record every change people will notice, in the same commit as the change:
+  - `docs/features.md` (and `docs/keys.md` for keys) says how it works now;
+  - `CHANGELOG.md` gets one line under **Unreleased** (Added, Changed, Fixed or Removed);
+  - `README.md` changes only when what Deckhand is or does at a glance changes.
+- A release (`chore(release): X.Y.Z`, then tag `vX.Y.Z`) renames **Unreleased** in `CHANGELOG.md` to that version and date, and opens a new empty **Unreleased**. The release workflow copies that version's section into the GitHub release notes; check it did. Say in the entry when the daemon must be restarted (a protocol change).
+- `docs/future/` holds designs not yet built. When one ships, move how it works into `HANDOFF.md` and what users see into `docs/features.md`, then trim the design doc to what is still open (see [docs/future/README.md](docs/future/README.md)).
 - Changing behaviour that a fixture or snapshot records (a failing `deckhand_testkit` replay or `assert_snapshot`): the TypeScript app is no longer the reference. If the change is intended, rerun only the affected tests with `DECKHAND_BLESS=1`, review `git diff fixtures/`, then rerun without the variable; never bless to silence a failure you have not understood. `fixtures/state` is never blessed. See [fixtures/cases/README.md](fixtures/cases/README.md), "Changing behaviour".

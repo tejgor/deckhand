@@ -53,9 +53,10 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | `~/.deckhand/state.json` | The session list (with done markers) and per-worktree merged and deleted markers |
 | `~/.deckhand/config.json` | User configuration: global `defaults`, agent signals, notifications, scroll sensitivity, whether agents may run `deckhand` commands without asking and repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, tree, filter and search preferences |
-| `~/.deckhand/notes/` | Notes as Markdown: `sessions/`, `worktrees/` and `repos/` (the main checkout's) |
-| `~/.deckhand/notes/tasks/` | Each repository's task list, one Markdown file per repository |
-| `~/.deckhand/notes/trash/` | Removed notes, named by date and what they belonged to |
+| `~/.deckhand/notes/` | Notes as Markdown: `lines/` (a note per line of the list), `briefs/` (a line's brief), `sessions/` (a session's own note) and `repos/` (each repository's scratchpad). `worktrees/` is no longer read: its notes moved into the list once (`work-items-migrated.json` records that) |
+| `~/.deckhand/notes/tasks/` | Each repository's list (tasks and their steps), one nested Markdown checklist per repository |
+| `~/.deckhand/notes/trash/` | Removed notes, named by date and what they belonged to, and the migration's backup and report |
+| `~/.deckhand/messages.json` | Messages between sessions: those still waiting to be delivered, and the last 50 per session |
 | `~/.deckhand/notes.vim` | The vim keys for notes, rewritten each time a note opens in vim or nvim |
 | `~/.deckhand/handoffs/` | Private, inspectable Markdown handoffs |
 | `~/.deckhand/daemon.log` | Daemon diagnostics |

@@ -40,7 +40,7 @@ Every message about a session concerns its own target and its direct children. D
   Not in this branch yet:
     Login UI (+2 under it)   → will merge into main directly afterwards
   ```
-- **Quiet retargeting.** When a target is merged or deleted, its children move to the next target up (as stacked pull requests are retargeted). The session's details say `target: main (Auth rework merged)`; no dialog.
+- **Quiet retargeting.** When a target is merged or deleted, its children move to the next target up (as stacked pull requests are retargeted). The session's details say `→ into main (was auth-rework)`; no dialog.
 - **Merged means in its target.** A child shows `✓` once its tip is in its target branch; whether its commits reached main is the parent's `✓`. Merged detection (today: tip in the default branch, see *Merging and done*) checks the target instead, falling back to any target further up.
 - **Tasks tick at the target.** Merging a child into its parent ticks the child's task; the parent's task tracks shipping.
 
@@ -111,7 +111,6 @@ What is built (one long-lived orchestrator per repository, its sessions top-leve
 - **Sidebar**: the `◎ started by` details line is gone; a sub-session's parent line names an orchestrator `↳ sub-session of ◎ <idea> · <state>`, and in sections by state the line naming the parent is `◎ <idea> ┄┄┄`. The Orchestrator section already listed every running orchestrator.
 - **Lifecycle**: nothing ends an orchestrator after a plan; `s` resumes one whatever else runs. The idea ticks by the list's roll-up (`auto=lines`) when every line under it is ticked, and reopens with one of them (tested through the daemon and `deckhand task done`).
 - **Guide** (`crates/core/src/orchestrator_guide.rs`, 3 600-byte budget kept): one idea per conversation (press `O` for an unrelated one), `null` parent = its own sub-session (flat), tasks parked under the idea's line, the plan's `brief`, and reading `deckhand ls` / `deckhand task list` (its sub-sessions, its idea's line and the lines under it) to extend the idea later.
-- **Left as it was**: `features.md` *Organizing and inspecting sessions* still describes the Orchestrator section as "the repository's orchestrator" (it was outside what this step edited).
 
 ## Decided (2026-11-13)
 
