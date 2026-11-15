@@ -39,8 +39,8 @@ use std::time::{Duration, Instant};
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::date;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AttentionState, MessageKind, MessageRecord, MessageStatus, SendMessageResult, SessionRecord,
-    SessionStatus, WaitOutcome, WaitOutcomeKind,
+    AgentActivityStatus, AttentionState, MessageKind, MessageRecord, MessageStatus, ProgramKey, SendMessageResult,
+    SessionRecord, SessionStatus, WaitOutcome, WaitOutcomeKind,
 };
 use deckhand_protocol::events::{MessagesUpdated, ServerMessage};
 use deckhand_protocol::wire::{CancelMessage, ListMessages, ReplyMessage, SendMessage};
@@ -240,8 +240,27 @@ fn checked_text(text: Option<&str>, what: &str) -> Result<String> {
     Ok(text.to_owned())
 }
 
-/// The bracketed line(s) above a message, as its receiver sees them (a notice is its own text).
-pub fn header(message: &MessageRecord) -> Option<String> {
+/// How a session answers a message: a shell command, or (`Tool`) a call of the `deckhand` MCP tool, for a Codex that
+/// has it, since its sandbox keeps its shell from reaching the daemon.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplyBy {
+    Shell,
+    Tool,
+}
+
+impl ReplyBy {
+    /// How `session` replies: by the tool when it is a Codex launched with it (`codex_takes_mcp`, by the version it
+    /// runs).
+    pub fn of(session: &SessionRecord) -> ReplyBy {
+        let tool = session.program == ProgramKey::Codex
+            && deckhand_sys::agent_commands::codex_takes_mcp(session.agent_version.as_deref());
+        if tool { ReplyBy::Tool } else { ReplyBy::Shell }
+    }
+}
+
+/// The bracketed line(s) above a message, as its receiver sees them (a notice is its own text); `by` says how the
+/// receiver replies.
+pub fn header(message: &MessageRecord, by: ReplyBy) -> Option<String> {
     let id = &message.id;
     let from = match (&message.from_session_id, &message.from_title) {
         (Some(_), Some(title)) => format!("from \"{title}\""),
@@ -254,16 +273,22 @@ pub fn header(message: &MessageRecord) -> Option<String> {
             let to = message.in_reply_to.as_deref().unwrap_or_default();
             Some(format!("[Reply {from} to your message {to}]"))
         }
-        MessageKind::Message if message.wants_answer == Some(true) => Some(format!(
-            "[Message {id} {from}, which wants an answer.\n Reply once you have it: deckhand reply {id} \"<answer>\"]"
-        )),
+        MessageKind::Message if message.wants_answer == Some(true) => {
+            let how = match by {
+                ReplyBy::Shell => format!("deckhand reply {id} \"<answer>\""),
+                ReplyBy::Tool => format!("the deckhand tool, args [\"reply\", \"{id}\", \"<answer>\"]"),
+            };
+            Some(format!(
+                "[Message {id} {from}, which wants an answer.\n Reply once you have it: {how}]"
+            ))
+        }
         MessageKind::Message => Some(format!("[Message {id} {from} via deckhand]")),
     }
 }
 
 /// What is typed into the target: the header, then the text.
-pub fn rendered(message: &MessageRecord) -> String {
-    match header(message) {
+pub fn rendered(message: &MessageRecord, by: ReplyBy) -> String {
+    match header(message, by) {
         Some(header) => format!("{header}\n{}", message.text),
         None => message.text.clone(),
     }
@@ -922,7 +947,10 @@ impl Daemon {
             stalled: false,
             timer: None,
         });
-        let text = rendered(&message);
+        let by = self
+            .get_session(target)
+            .map_or(ReplyBy::Shell, |session| ReplyBy::of(&session));
+        let text = rendered(&message, by);
         let delivered = self.update_message(&id, |message| {
             message.status = MessageStatus::Delivered;
             message.delivered_at = Some(now_iso());

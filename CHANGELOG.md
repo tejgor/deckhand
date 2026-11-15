@@ -7,6 +7,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 ### Changed
 
 - **`deckhand ls` in a session lists its whole tree**: its top-level session and every session under it, in any checkout, indented under their parents, the sessions it can message. `--all`, or running it by hand, lists the checkout's sessions as before. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
+- **Codex replies through its tool**: a message that wants an answer tells a Codex that has the `deckhand` tool to reply with the tool rather than a shell command its sandbox would block.
 
 ## [3.3.0] - 2026-11-15
 

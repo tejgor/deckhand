@@ -223,24 +223,46 @@ fn record(id: &str, from: Option<&str>, to: &str, status: MessageStatus) -> Mess
 }
 
 #[test]
+fn a_codex_with_the_deckhand_tool_is_told_to_reply_through_it_and_every_other_agent_by_shell() {
+    let with = |program: ProgramKey, version: Option<&str>| {
+        let mut target = (*session("b", "/r", "/r")).clone();
+        target.program = program;
+        target.agent_version = version.map(str::to_owned);
+        ReplyBy::of(&target)
+    };
+    assert_eq!(with(ProgramKey::Codex, Some("0.163.0")), ReplyBy::Tool);
+    // Too old for the tool, or a version Deckhand could not read: no tool was given, so its shell.
+    assert_eq!(with(ProgramKey::Codex, Some("0.121.0")), ReplyBy::Shell);
+    assert_eq!(with(ProgramKey::Codex, None), ReplyBy::Shell);
+    assert_eq!(with(ProgramKey::Claude, Some("2.1.0")), ReplyBy::Shell);
+    assert_eq!(with(ProgramKey::Pi, Some("1.0.0")), ReplyBy::Shell);
+}
+
+#[test]
 fn headers_say_who_sent_it_and_how_to_answer() {
     let mut message = record("7a3f01", Some("a"), "b", MessageStatus::Held);
     message.from_title = Some("Login UI".into());
     message.text = "Which token store?".into();
     assert_eq!(
-        rendered(&message),
+        rendered(&message, ReplyBy::Shell),
         "[Message 7a3f01 from \"Login UI\" via deckhand]\nWhich token store?"
     );
     message.wants_answer = Some(true);
     assert_eq!(
-        rendered(&message),
+        rendered(&message, ReplyBy::Shell),
         "[Message 7a3f01 from \"Login UI\", which wants an answer.\n Reply once you have it: deckhand reply 7a3f01 \
          \"<answer>\"]\nWhich token store?"
+    );
+    // A Codex with the deckhand tool replies through it: its shell cannot reach the daemon.
+    assert_eq!(
+        rendered(&message, ReplyBy::Tool),
+        "[Message 7a3f01 from \"Login UI\", which wants an answer.\n Reply once you have it: the deckhand tool, args \
+         [\"reply\", \"7a3f01\", \"<answer>\"]]\nWhich token store?"
     );
     let mut by_hand = record("7a3f02", None, "b", MessageStatus::Held);
     by_hand.text = "Rebase first".into();
     assert_eq!(
-        rendered(&by_hand),
+        rendered(&by_hand, ReplyBy::Shell),
         "[Message 7a3f02 from you (the user) via deckhand]\nRebase first"
     );
     let mut answer = record("9c0d11", Some("b"), "a", MessageStatus::Held);
@@ -249,13 +271,13 @@ fn headers_say_who_sent_it_and_how_to_answer() {
     answer.in_reply_to = Some("7a3f01".into());
     answer.text = "The keychain".into();
     assert_eq!(
-        rendered(&answer),
+        rendered(&answer, ReplyBy::Shell),
         "[Reply from \"Token storage\" to your message 7a3f01]\nThe keychain"
     );
     let mut notice = record("5e6f22", None, "a", MessageStatus::Held);
     notice.kind = MessageKind::Notice;
     notice.text = "[Not delivered: \"Token storage\" exited]\nYour message 7a3f01: Which token store?".into();
-    assert_eq!(rendered(&notice), notice.text);
+    assert_eq!(rendered(&notice, ReplyBy::Shell), notice.text);
 }
 
 #[test]
