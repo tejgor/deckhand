@@ -1176,8 +1176,12 @@ impl<C: Console> Proxy<'_, C> {
         if let Some(done) = self.on_status_message(&message) {
             return done;
         }
-        // Not in the TS: the plan is what you wait for while you talk to the orchestrator, and Deckhand asks for it.
-        if self.options.detach_on_plan && self.attached && matches!(message, ServerMessage::PlanPending(_)) {
+        // Not in the TS: the plan is what you wait for while you talk to the orchestrator, and Deckhand asks for it. A
+        // plan you put aside waits without ending the attach (it is sent again to every subscriber).
+        if self.options.detach_on_plan
+            && self.attached
+            && matches!(&message, ServerMessage::PlanPending(pending) if pending.plan.parked != Some(true))
+        {
             self.detach();
             return Some(Ok(AttachEnd::PlanPending));
         }
@@ -2124,15 +2128,17 @@ mod tests {
     }
 
     /// A plan waiting in the attached session's repository ends the attach (for Deckhand to ask), even without a
-    /// status line; without `detach_on_plan` it is ignored.
+    /// status line, unless you put it aside; without `detach_on_plan` it is ignored.
     #[tokio::test(flavor = "current_thread")]
     async fn a_waiting_plan_detaches_when_asked_to() {
         let plan = json!({"type": "plan-pending", "plan": {
             "id": "p1", "repoRoot": "/r", "plan": {"sessions": [], "tasks": []},
             "summary": {"sessions": [], "tasks": [], "counts": "nothing"},
-            "createdAt": "2026-01-01T00:00:00.000Z", "expiresAt": "2026-01-01T00:15:00.000Z"}});
+            "createdAt": "2026-01-01T00:00:00.000Z"}});
+        let mut parked = plan.clone();
+        parked["plan"]["parked"] = json!(true);
         // Not a TTY: no status line, but the attach still subscribes to hear of plans.
-        let (mut console, _state, client, mut daemon) = setup(false, None);
+        let (mut console, state, client, mut daemon) = setup(false, None);
         let options = AttachSessionOptions {
             detach_on_plan: true,
             ..AttachSessionOptions::default()
@@ -2155,6 +2161,10 @@ mod tests {
             daemon
                 .send(json!({"type": "response", "requestId": subscribe["requestId"], "ok": true, "data": sessions}))
                 .await;
+            // One put aside is sent again after the subscribe: it does not end the attach; a new one does.
+            daemon.send(parked.clone()).await;
+            send_input(&state, ConsoleEvent::Data(b"x".to_vec()));
+            assert_eq!(daemon.recv().await["type"], "input");
             daemon.send(plan.clone()).await;
             assert_eq!(daemon.recv().await, json!({"type": "detach", "sessionId": "s1"}));
         };

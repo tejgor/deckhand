@@ -2,12 +2,19 @@
 //!
 //! - `plan-check` validates a plan against the repository ([`deckhand_core::plan`]) and answers its summary.
 //! - `plan-apply` validates it the same way (problems come back at once, nothing is created), then holds it as a
-//!   [`PendingPlan`] and tells the repository's UIs (`plan-pending`; a UI that subscribes later is sent the pending
-//!   plans of its repository right after its `subscribe` answer). The first `plan-decide` wins (`plan-settled` to
-//!   everyone); unanswered, the plan expires after [`PLAN_EXPIRY`]. Approved, its sessions are created in order,
-//!   parents first, each child once its parent's worktree is ready (so stacking sees the parent's live record), then
-//!   its tasks; the request is answered with what was created. Creation stops at the first failure and keeps what was
-//!   created. The confirmation only gates [`Daemon::create_plan`], so dropping it would be a small change.
+//!   [`PendingPlan`], tells the repository's UIs (`plan-pending`; a UI that subscribes later is sent the pending plans
+//!   of its repository right after its `subscribe` answer) and answers at once ([`PlanWaiting`]): nothing blocks on the
+//!   user. `plan-park` puts a plan aside (it keeps waiting, without opening by itself). The first `plan-decide` wins
+//!   (`plan-settled` to everyone). Approved, its sessions are created in order, parents first, each child once its
+//!   parent's worktree is ready (so stacking sees the parent's live record), then its tasks; creation stops at the
+//!   first failure and keeps what was created. The confirmation only gates [`Daemon::create_plan`].
+//! - **The answer is a message.** The orchestrator that applied the plan is told through its message queue (a notice,
+//!   delivered once it is idle): what was created ([`approved_text`]), or that the user cancelled it, with their note
+//!   ([`cancelled_text`]). A plan applied by hand has nobody to tell.
+//! - **Lifetime.** A plan waits until it is answered, or its orchestrator exits (it is told when it runs again,
+//!   [`dropped_text`]) or is removed. Pending plans are kept in `plans.json` in the state directory, as `messages.json`
+//!   keeps held messages, so they wait through a daemon restart (which leaves every session exited, not exiting: an
+//!   orchestrator's plan stays, and the answer waits in its queue until it is resumed).
 //! - An orchestrator's plan belongs to its idea (docs/future/orchestrator.md, 3b): its entries without a parent become
 //!   the orchestrator's sub-sessions (their lines go under the idea's line, the orchestrator's), its tasks lines under
 //!   the idea's line, and its `brief` the idea's line's brief. Run by hand, they are top-level and go to the backlog.
@@ -15,12 +22,14 @@
 //!   idea its first message, on a new top-level line of the same title (the idea's line). Several run at once.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{date, path};
 use deckhand_core::plan::{
-    PlanContext, PlanParent, ValidPlan, numbered_title, orchestrator_title, plan_problems_message, validate_plan,
+    PlanContext, PlanParent, ValidPlan, approved_text, cancelled_text, dropped_text, numbered_title,
+    orchestrator_title, plan_problems_message, validate_plan,
 };
 use deckhand_core::project_config::resolve_settings;
 use deckhand_core::session_scope::is_path_inside;
@@ -28,29 +37,34 @@ use deckhand_core::tasks::new_task_id;
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
     CreateSessionInput, OkResult, OrchestratorResult, PendingPlan, PlanCreatedSession, PlanCreatedTask, PlanDecision,
-    PlanFailure, PlanOutcome, PlanSession, PlanStatus, PlanSummary, PlanWorktree, ProgramKey, SessionRecord,
-    SessionRole, SessionStatus, SubSessionKind, WorktreeMode,
+    PlanFailure, PlanOutcome, PlanSession, PlanStatus, PlanSummary, PlanWaiting, PlanWorktree, ProgramKey,
+    SessionRecord, SessionRole, SessionStatus, SubSessionKind, WorktreeMode,
 };
 use deckhand_protocol::events::{PlanPending, PlanSettled, ServerMessage};
-use deckhand_protocol::wire::{Loose, OpenOrchestrator, PlanDecide, PlanRequest};
+use deckhand_protocol::wire::{Loose, OpenOrchestrator, PlanDecide, PlanPark, PlanRequest};
+use deckhand_sys::async_util::{Coalescer, SharedTask, spawn};
 use deckhand_sys::config::load_project_config;
 use deckhand_sys::git::{current_branch, find_repo_root, optional_git};
-use deckhand_sys::storage::load_app_config;
+use deckhand_sys::storage::{self, load_app_config};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::oneshot;
 
 use crate::daemon::Daemon;
 use crate::server::{ClientHandle, ClientSubscription, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS, send_message};
 use crate::stacking::is_live_target;
 
-/// How long a plan waits for the user's answer in Deckhand.
-pub const PLAN_EXPIRY: Duration = Duration::from_secs(15 * 60);
+/// The file in the state directory that keeps the pending plans.
+pub const PLANS_FILE: &str = "plans.json";
 
 /// How long creating a plan waits for a new parent's worktree before giving up on its children.
 pub const PARENT_PREPARE_WAIT: Duration = Duration::from_secs(120);
 
-/// How often that wait looks again.
+/// How long telling the orchestrator what was created waits for the new sessions' worktrees (so it can name their
+/// branches).
+pub const CREATED_SETTLE_WAIT: Duration = Duration::from_secs(20);
+
+/// How often those waits look again.
 const PARENT_PREPARE_POLL: Duration = Duration::from_millis(50);
 
 /// `plan apply` from a session that is not an orchestrator.
@@ -64,25 +78,42 @@ pub struct PendingEntry {
     pub plan: PendingPlan,
     /// What creating it needs (its parents resolved).
     pub valid: ValidPlan,
-    /// Wakes the `plan-apply` that waits for the answer.
-    pub answer: Option<oneshot::Sender<PlanDecision>>,
+}
+
+impl PendingEntry {
+    fn of(plan: PendingPlan) -> PendingEntry {
+        let valid = ValidPlan::from_validated(plan.plan.clone(), plan.summary.clone());
+        PendingEntry { plan, valid }
+    }
 }
 
 /// The plans' part of the daemon state.
+#[derive(Default)]
 pub struct PlansState {
     /// Pending plans by ID, oldest first.
     pub pending: IndexMap<String, PendingEntry>,
-    /// [`PLAN_EXPIRY`], shorter in tests.
-    pub expiry: Duration,
+    /// Records of `plans.json` another version wrote that this one cannot read: written back as they were.
+    pub foreign: Vec<Value>,
+    /// The file's other keys.
+    pub file_extra: IndexMap<String, Value>,
+    /// The coalesced write of `plans.json` (made by the first save).
+    pub save: Option<Coalescer<Result<()>>>,
 }
 
-impl Default for PlansState {
-    fn default() -> Self {
-        PlansState {
-            pending: IndexMap::new(),
-            expiry: PLAN_EXPIRY,
-        }
-    }
+/// `plans.json`.
+#[derive(Default, Serialize, Deserialize)]
+struct PlansFile {
+    #[serde(default)]
+    plans: Vec<Value>,
+    #[serde(flatten)]
+    extra: IndexMap<String, Value>,
+}
+
+/// The message for a plan that is no longer pending.
+fn not_waiting(plan_id: &str) -> DhError {
+    DhError::msg(format!(
+        "No plan {plan_id} is waiting for an answer (it was answered already, or its orchestrator ended)"
+    ))
 }
 
 /// `new Date(ms).toISOString()`.
@@ -275,96 +306,290 @@ impl Daemon {
             .summary)
     }
 
-    /// `plan-apply`: validates, waits for the user's answer in Deckhand (or the expiry), then creates the plan.
-    pub async fn handle_plan_apply(&self, request: &PlanRequest) -> Result<PlanOutcome> {
+    /// A new plan ID: 8 hex digits, as the commands show IDs, that no pending plan's starts with (nor the reverse).
+    fn new_plan_id(&self) -> String {
+        let plans = self.plans.borrow();
+        loop {
+            let id: String = uuid::Uuid::new_v4().simple().to_string().chars().take(8).collect();
+            if !plans
+                .pending
+                .keys()
+                .any(|other| other.starts_with(&id) || id.starts_with(other.as_str()))
+            {
+                return id;
+            }
+        }
+    }
+
+    /// `plan-apply`: validates, holds the plan for the user's answer in Deckhand and answers at once; the answer
+    /// reaches the orchestrator as a message ([`Daemon::handle_plan_decide`]).
+    pub async fn handle_plan_apply(&self, request: &PlanRequest) -> Result<PlanWaiting> {
         let (repo_root, caller) = self.plan_origin(request, true).await?;
-        let valid = self
-            .validate_plan_in(&repo_root, request.plan.as_ref(), caller.as_deref())
-            .await?;
-        let id = uuid::Uuid::new_v4().to_string();
-        let expiry = self.plans.borrow().expiry;
-        let now = date::now_ms();
+        self.apply_plan(&repo_root, request.plan.as_ref(), caller.as_deref())
+            .await
+    }
+
+    /// [`Daemon::handle_plan_apply`] for `caller` (authenticated; `None` by hand) in `repo_root`.
+    pub async fn apply_plan(
+        &self,
+        repo_root: &str,
+        raw: Option<&Value>,
+        caller: Option<&SessionRecord>,
+    ) -> Result<PlanWaiting> {
+        let repo_root = repo_root.to_owned();
+        let valid = self.validate_plan_in(&repo_root, raw, caller).await?;
+        let id = self.new_plan_id();
         let pending = PendingPlan {
             id: id.clone(),
             repo_root: repo_root.clone(),
-            caller_session_id: caller.as_ref().map(|caller| caller.id.clone()),
-            caller_title: caller.as_ref().map(|caller| self.session_path(caller)),
+            caller_session_id: caller.map(|caller| caller.id.clone()),
+            caller_title: caller.map(|caller| self.session_path(caller)),
             plan: valid.plan.clone(),
             summary: valid.summary.clone(),
-            created_at: iso(now),
-            expires_at: iso(now + i64::try_from(expiry.as_millis()).unwrap_or(i64::MAX)),
+            created_at: iso(date::now_ms()),
+            parked: None,
+            extra: IndexMap::new(),
         };
-        let (answer, mut answered) = oneshot::channel();
+        let summary = valid.summary.clone();
         self.plans.borrow_mut().pending.insert(
             id.clone(),
             PendingEntry {
                 plan: pending.clone(),
-                valid: valid.clone(),
-                answer: Some(answer),
+                valid,
             },
         );
-        self.log(&format!("plan {id} waits for an answer ({})", pending.summary.counts))
+        self.save_plans_soon();
+        self.log(&format!("plan {id} waits for an answer ({})", summary.counts))
             .await;
         self.broadcast_plan(
             &repo_root,
             &ServerMessage::PlanPending(Box::new(PlanPending { plan: pending })),
         )
         .await;
-        let decision = match tokio::time::timeout(expiry, &mut answered).await {
-            Ok(Ok(decision)) => decision,
-            // The sender went with the entry (the daemon is going away): nothing is created.
-            Ok(Err(_)) => PlanDecision::Rejected,
-            Err(_) => {
-                let removed = self.plans.borrow_mut().pending.shift_remove(&id);
-                if removed.is_some() {
-                    self.settle_plan(&repo_root, &id, PlanDecision::Expired).await;
-                    PlanDecision::Expired
-                } else {
-                    // Answered as it expired: the answer is in.
-                    answered.try_recv().unwrap_or(PlanDecision::Expired)
-                }
-            }
-        };
-        let outcome = |status| PlanOutcome {
-            plan_id: id.clone(),
-            status,
-            sessions: Vec::new(),
-            tasks: Vec::new(),
-            failed: None,
-        };
-        match decision {
-            PlanDecision::Approved => {
-                let caller_id = caller.as_ref().map(|caller| caller.id.clone());
-                Ok(self.create_plan(&id, &repo_root, &valid, caller_id).await)
-            }
-            PlanDecision::Rejected => Ok(outcome(PlanStatus::Cancelled)),
-            PlanDecision::Expired => Ok(outcome(PlanStatus::Expired)),
-        }
+        Ok(PlanWaiting { plan_id: id, summary })
     }
 
-    /// `plan-decide`: the first answer to a pending plan wins; a later one (or one for an expired plan) is refused.
+    /// `plan-decide`: the first answer to a pending plan wins; a later one is refused. Approved, the plan is created in
+    /// the background and the orchestrator told what was; cancelled, it is told so, with the user's note.
     pub async fn handle_plan_decide(&self, request: &PlanDecide) -> Result<OkResult> {
         let removed = self.plans.borrow_mut().pending.shift_remove(&request.plan_id);
-        let Some(mut entry) = removed else {
-            return Err(DhError::msg(format!(
-                "No plan {} is waiting for an answer (it was answered already, or it expired)",
-                request.plan_id
-            )));
+        let Some(entry) = removed else {
+            return Err(not_waiting(&request.plan_id));
         };
+        self.save_plans_soon();
         let decision = if request.approve == Some(true) {
             PlanDecision::Approved
         } else {
             PlanDecision::Rejected
         };
-        if let Some(answer) = entry.answer.take() {
-            let _ = answer.send(decision);
-        }
         self.settle_plan(&entry.plan.repo_root, &request.plan_id, decision)
             .await;
+        match decision {
+            PlanDecision::Approved => {
+                let daemon = self.clone();
+                drop(spawn(async move { daemon.create_approved(entry).await }));
+            }
+            _ => {
+                if let Some(caller) = entry.plan.caller_session_id.as_deref() {
+                    self.queue_notice(caller, cancelled_text(&entry.plan.id, request.note.as_deref()));
+                }
+            }
+        }
         Ok(OkResult::default())
     }
 
-    /// Tells the repository's clients that plan `id` was answered or expired.
+    /// Creates an approved plan, then tells the orchestrator that applied it what was created (by hand: nobody).
+    pub async fn create_approved(&self, entry: PendingEntry) {
+        let plan = entry.plan;
+        let mut outcome = self
+            .create_plan(&plan.id, &plan.repo_root, &entry.valid, plan.caller_session_id.clone())
+            .await;
+        let Some(caller) = plan.caller_session_id.as_deref() else {
+            return;
+        };
+        // The new worktrees' branches, once they are made, say where each session works.
+        let deadline = tokio::time::Instant::now() + CREATED_SETTLE_WAIT;
+        while tokio::time::Instant::now() < deadline
+            && outcome
+                .sessions
+                .iter()
+                .any(|created| self.sessions.borrow().preparing.contains(&created.session.id))
+        {
+            tokio::time::sleep(PARENT_PREPARE_POLL).await;
+        }
+        for created in &mut outcome.sessions {
+            if let Some(current) = self.get_session(&created.session.id) {
+                created.session = current;
+            }
+        }
+        let text = approved_text(&outcome, |session| self.session_path(session));
+        self.queue_notice(caller, text);
+    }
+
+    /// `plan-park`: the user put a pending plan aside. It keeps waiting; the UIs hear it (`plan-pending`, parked) so
+    /// it no longer opens by itself or detaches an attach.
+    pub async fn handle_plan_park(&self, request: &PlanPark) -> Result<OkResult> {
+        let plan = {
+            let mut plans = self.plans.borrow_mut();
+            let Some(entry) = plans.pending.get_mut(&request.plan_id) else {
+                return Err(not_waiting(&request.plan_id));
+            };
+            entry.plan.parked = Some(true);
+            entry.plan.clone()
+        };
+        self.save_plans_soon();
+        self.broadcast_plan(
+            &plan.repo_root.clone(),
+            &ServerMessage::PlanPending(Box::new(PlanPending { plan })),
+        )
+        .await;
+        Ok(OkResult::default())
+    }
+
+    /// Session `session_id` exited for good (`removed`: or was removed): the plans it applied are dropped and the UIs
+    /// close them. One that exited is told when it runs again (held in its queue); one removed has no queue.
+    pub async fn plans_on_exit(&self, session_id: &str, removed: bool) {
+        let dropped: Vec<PendingPlan> = {
+            let mut plans = self.plans.borrow_mut();
+            let ids: Vec<String> = plans
+                .pending
+                .values()
+                .filter(|entry| entry.plan.caller_session_id.as_deref() == Some(session_id))
+                .map(|entry| entry.plan.id.clone())
+                .collect();
+            ids.iter()
+                .filter_map(|id| plans.pending.shift_remove(id))
+                .map(|entry| entry.plan)
+                .collect()
+        };
+        if dropped.is_empty() {
+            return;
+        }
+        self.save_plans_soon();
+        for plan in dropped {
+            self.settle_plan(&plan.repo_root, &plan.id, PlanDecision::Dropped).await;
+            if !removed {
+                self.queue_notice(session_id, dropped_text(&plan.id));
+            }
+        }
+    }
+
+    fn plans_path(&self) -> PathBuf {
+        self.paths.config_dir.join(PLANS_FILE)
+    }
+
+    /// Reads `plans.json` at startup: a plan whose orchestrator is gone is dropped; the rest wait for their answer.
+    pub async fn load_plans(&self) -> Result<()> {
+        let path = self.plans_path();
+        let text = match tokio::fs::read_to_string(&path).await {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(DhError::io(&error, "open", &path.to_string_lossy())),
+        };
+        let file: PlansFile = match serde_json::from_str(&text) {
+            Ok(file) => file,
+            Err(error) => {
+                // Kept aside rather than overwritten by the next save.
+                let aside = self.paths.config_dir.join(format!("{PLANS_FILE}.unreadable"));
+                let _ = tokio::fs::rename(&path, &aside).await;
+                self.log(&format!(
+                    "{PLANS_FILE} is unreadable ({error}); moved to {} and starting empty",
+                    aside.to_string_lossy()
+                ))
+                .await;
+                return Ok(());
+            }
+        };
+        let mut pending = IndexMap::new();
+        let mut foreign = Vec::new();
+        let mut gone = 0;
+        for value in file.plans {
+            match serde_json::from_value::<PendingPlan>(value.clone()) {
+                Ok(plan)
+                    if plan
+                        .caller_session_id
+                        .as_deref()
+                        .is_some_and(|caller| self.get_session(caller).is_none()) =>
+                {
+                    gone += 1;
+                }
+                Ok(plan) => {
+                    pending.insert(plan.id.clone(), PendingEntry::of(plan));
+                }
+                Err(_) => foreign.push(value),
+            }
+        }
+        let waiting = pending.len();
+        {
+            let mut plans = self.plans.borrow_mut();
+            plans.pending = pending;
+            plans.foreign = foreign;
+            plans.file_extra = file.extra;
+        }
+        if gone > 0 {
+            self.save_plans_soon();
+        }
+        if waiting > 0 || gone > 0 {
+            self.log(&format!(
+                "{waiting} plan(s) wait for an answer; {gone} dropped (their orchestrator was removed)"
+            ))
+            .await;
+        }
+        Ok(())
+    }
+
+    /// Writes `plans.json` (coalesced: callers before the queued write starts share it).
+    pub fn save_plans(&self) -> SharedTask<Result<()>> {
+        let coalescer = {
+            let mut plans = self.plans.borrow_mut();
+            plans
+                .save
+                .get_or_insert_with(|| {
+                    let weak = self.downgrade();
+                    Coalescer::new(move || {
+                        let contents = weak.upgrade().map(|daemon| {
+                            let plans = daemon.plans.borrow();
+                            let mut records: Vec<Value> = plans
+                                .pending
+                                .values()
+                                .filter_map(|entry| serde_json::to_value(&entry.plan).ok())
+                                .collect();
+                            records.extend(plans.foreign.iter().cloned());
+                            let file = PlansFile {
+                                plans: records,
+                                extra: plans.file_extra.clone(),
+                            };
+                            (daemon.plans_path(), serde_json::to_string_pretty(&file))
+                        });
+                        async move {
+                            match contents {
+                                Some((path, Ok(text))) => {
+                                    storage::write_atomic(&path, format!("{text}\n").as_bytes(), storage::FILE_MODE)
+                                        .await
+                                }
+                                Some((_, Err(error))) => Err(DhError::msg(error.to_string())),
+                                None => Ok(()),
+                            }
+                        }
+                    })
+                })
+                .clone()
+        };
+        coalescer.request()
+    }
+
+    /// [`Daemon::save_plans`] in the background, a failure logged.
+    fn save_plans_soon(&self) {
+        let saved = self.save_plans();
+        let daemon = self.clone();
+        drop(spawn(async move {
+            if let Err(error) = saved.await {
+                daemon.log(&format!("saving {PLANS_FILE} failed: {error}")).await;
+            }
+        }));
+    }
+
+    /// Tells the repository's clients that plan `id` was answered or dropped.
     async fn settle_plan(&self, repo_root: &str, id: &str, decision: PlanDecision) {
         self.log(&format!("plan {id} {decision}")).await;
         let message = ServerMessage::PlanSettled(PlanSettled {
@@ -696,6 +921,7 @@ mod tests {
     use crate::hooks::tests::Home;
     use crate::server::tests::{local, session, test_client, test_daemon};
     use crate::server::{Client, ClientId};
+    use deckhand_protocol::data::{MessageKind, MessageRecord, MessageStatus};
     use deckhand_protocol::wire::AgentCaller;
     use serde_json::json;
     use std::path::Path;
@@ -766,21 +992,59 @@ mod tests {
         serde_json::from_value(json!({"requestId": "d", "planId": plan_id, "approve": approve})).unwrap()
     }
 
+    fn park(plan_id: &str) -> PlanPark {
+        serde_json::from_value(json!({"requestId": "k", "planId": plan_id})).unwrap()
+    }
+
     /// A plan of tasks only (creating it needs no agent).
     fn tasks_plan() -> Value {
         json!({"tasks": [{"title": "Remove legacy endpoint", "details": "After Auth rework merges"}]})
     }
 
-    /// Runs `apply` until its plan is pending, and answers its ID.
-    async fn pending_id(daemon: &Daemon) -> String {
-        for _ in 0..200 {
-            if let Some(id) = daemon.plans.borrow().pending.keys().next().cloned() {
-                return id;
+    /// The lines of `root`'s list, once creating a plan in the background added `count` of them.
+    async fn lines_once(daemon: &Daemon, root: &str, count: usize) -> Vec<deckhand_core::task_list::Line> {
+        let key = daemon.tasks_key_for(root).await.unwrap();
+        for _ in 0..400 {
+            let lines = daemon.task_list(&key).lines().to_vec();
+            if lines.len() >= count {
+                return lines;
             }
-            tokio::task::yield_now().await;
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
-        panic!("no plan became pending");
+        panic!("the plan's lines were not added");
+    }
+
+    /// The notices queued to session `to`, once there are `count`.
+    async fn notices_once(daemon: &Daemon, to: &str, count: usize) -> Vec<MessageRecord> {
+        for _ in 0..400 {
+            let notices = notices_to(daemon, to);
+            if notices.len() >= count {
+                return notices;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        panic!("no notice reached {to}");
+    }
+
+    fn notices_to(daemon: &Daemon, to: &str) -> Vec<MessageRecord> {
+        daemon
+            .messages
+            .borrow()
+            .messages
+            .iter()
+            .filter(|message| message.to_session_id.as_deref() == Some(to))
+            .cloned()
+            .collect()
+    }
+
+    /// Session `by` (as if authenticated) applies `plan` in `root`: the plan's ID.
+    async fn apply_as(daemon: &Daemon, root: &str, by: &str, plan: Value) -> String {
+        let caller = daemon.get_session(by).unwrap();
+        daemon
+            .apply_plan(root, Some(&plan), Some(&caller))
+            .await
+            .unwrap()
+            .plan_id
     }
 
     #[test]
@@ -807,7 +1071,7 @@ mod tests {
     }
 
     #[test]
-    fn an_approved_plan_adds_its_tasks_and_the_first_answer_wins() {
+    fn applying_answers_at_once_and_the_first_answer_creates_the_plan() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         let root = repo(&dir.path().join("repo"));
@@ -815,95 +1079,63 @@ mod tests {
         local(async {
             let (_ui, mut ui_rx) = subscribe(&daemon, 1, &root);
             let (_elsewhere, mut other_rx) = subscribe(&daemon, 2, "/elsewhere");
-            let applying = {
-                let daemon = daemon.clone();
-                let request = request(&root, tasks_plan());
-                tokio::task::spawn_local(async move { daemon.handle_plan_apply(&request).await })
-            };
-            let id = pending_id(&daemon).await;
+            // Nobody has answered: apply comes back with the plan's ID and what it holds, and the plan waits.
+            let waiting = daemon.handle_plan_apply(&request(&root, tasks_plan())).await.unwrap();
+            let id = waiting.plan_id.clone();
+            assert_eq!(id.len(), 8, "{id}");
+            assert_eq!(waiting.summary.counts, "1 task");
+            assert!(daemon.plans.borrow().pending.contains_key(&id));
             let pending = of(&received(&mut ui_rx), "plan-pending");
             assert_eq!(pending.len(), 1);
             assert_eq!(pending[0]["plan"]["id"], id.as_str());
             assert_eq!(pending[0]["plan"]["repoRoot"], root.as_str());
             assert_eq!(pending[0]["plan"]["summary"]["counts"], "1 task");
             assert!(pending[0]["plan"].get("callerSessionId").is_none());
+            assert!(pending[0]["plan"].get("parked").is_none());
             // Another repository's UI hears nothing of it.
             assert!(of(&received(&mut other_rx), "plan-pending").is_empty());
 
             daemon.handle_plan_decide(&decide(&id, json!(true))).await.unwrap();
             let error = daemon.handle_plan_decide(&decide(&id, json!(false))).await.unwrap_err();
-            assert!(
-                error.to_string().starts_with(&format!("No plan {id} is waiting")),
-                "{error}"
+            assert_eq!(
+                error.to_string(),
+                format!("No plan {id} is waiting for an answer (it was answered already, or its orchestrator ended)")
             );
-            let outcome = applying.await.unwrap().unwrap();
-            assert_eq!(outcome.status, PlanStatus::Created, "{outcome:?}");
-            assert_eq!(outcome.tasks.len(), 1);
-            assert_eq!(outcome.tasks[0].title, "Remove legacy endpoint");
             let settled = of(&received(&mut ui_rx), "plan-settled");
             assert_eq!(settled.len(), 1);
             assert_eq!(settled[0]["planId"], id.as_str());
             assert_eq!(settled[0]["decision"], "approved");
             // The task is a line in the backlog; its details are the line's note.
-            let key = daemon.tasks_key_for(&root).await.unwrap();
-            let list = daemon.task_list(&key);
-            let added = list.get(&outcome.tasks[0].id).unwrap();
+            let lines = lines_once(&daemon, &root, 1).await;
+            let added = &lines[0];
             assert_eq!(added.title, "Remove legacy endpoint");
             assert!(added.body.is_empty() && added.parent.is_none() && !added.is_taken());
             let note = daemon.work_note(deckhand_protocol::data::WorkNoteKind::Line, &added.id);
             assert!(note.text.contains("After Auth rework merges"), "{note:?}");
+            // Applied by hand, there is no orchestrator to tell.
+            assert!(daemon.messages.borrow().messages.is_empty());
+            assert!(daemon.plans.borrow().pending.is_empty());
         });
     }
 
     #[test]
-    fn a_rejected_plan_creates_nothing() {
+    fn a_cancelled_plan_by_hand_creates_nothing_and_tells_nobody() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         let root = repo(&dir.path().join("repo"));
         let daemon = test_daemon(dir.path());
         local(async {
-            let applying = {
-                let daemon = daemon.clone();
-                let request = request(&root, tasks_plan());
-                tokio::task::spawn_local(async move { daemon.handle_plan_apply(&request).await })
-            };
-            let id = pending_id(&daemon).await;
-            // Anything but `true` rejects.
+            let id = daemon
+                .handle_plan_apply(&request(&root, tasks_plan()))
+                .await
+                .unwrap()
+                .plan_id;
+            // Anything but `true` cancels.
             daemon.handle_plan_decide(&decide(&id, json!("yes"))).await.unwrap();
-            let outcome = applying.await.unwrap().unwrap();
-            assert_eq!(outcome.status, PlanStatus::Cancelled);
-            assert!(outcome.tasks.is_empty() && outcome.sessions.is_empty());
+            tokio::time::sleep(Duration::from_millis(50)).await;
             let key = daemon.tasks_key_for(&root).await.unwrap();
             assert!(daemon.task_list(&key).lines().is_empty());
-        });
-    }
-
-    #[test]
-    fn an_unanswered_plan_expires() {
-        let dir = tempfile::tempdir().unwrap();
-        let _home = Home::set(dir.path());
-        let root = repo(&dir.path().join("repo"));
-        let daemon = test_daemon(dir.path());
-        daemon.plans.borrow_mut().expiry = Duration::from_millis(200);
-        local(async {
-            let (_ui, mut ui_rx) = subscribe(&daemon, 1, &root);
-            let outcome = daemon.handle_plan_apply(&request(&root, tasks_plan())).await.unwrap();
-            assert_eq!(outcome.status, PlanStatus::Expired);
-            assert!(daemon.plans.borrow().pending.is_empty());
-            let messages = received(&mut ui_rx);
-            let pending = of(&messages, "plan-pending");
-            assert_eq!(pending.len(), 1);
-            let expires = pending[0]["plan"]["expiresAt"].as_str().unwrap().to_owned();
-            assert!(expires.as_str() > pending[0]["plan"]["createdAt"].as_str().unwrap());
-            // The UI was told, so its confirmation closes; a late answer is refused.
-            let settled = of(&messages, "plan-settled");
-            assert_eq!(settled.len(), 1);
-            assert_eq!(settled[0]["decision"], "expired");
-            let error = daemon
-                .handle_plan_decide(&decide(&outcome.plan_id, json!(true)))
-                .await
-                .unwrap_err();
-            assert!(error.to_string().contains("expired"), "{error}");
+            assert!(daemon.messages.borrow().messages.is_empty());
         });
     }
 
@@ -914,12 +1146,11 @@ mod tests {
         let root = repo(&dir.path().join("repo"));
         let daemon = test_daemon(dir.path());
         local(async {
-            let applying = {
-                let daemon = daemon.clone();
-                let request = request(&root, tasks_plan());
-                tokio::task::spawn_local(async move { daemon.handle_plan_apply(&request).await })
-            };
-            let id = pending_id(&daemon).await;
+            let id = daemon
+                .handle_plan_apply(&request(&root, tasks_plan()))
+                .await
+                .unwrap()
+                .plan_id;
             let (late, mut late_rx) = subscribe(&daemon, 3, &root);
             daemon.send_pending_plans(&late).await;
             let pending = of(&received(&mut late_rx), "plan-pending");
@@ -929,8 +1160,243 @@ mod tests {
             let (other, mut other_rx) = subscribe(&daemon, 4, "/elsewhere");
             daemon.send_pending_plans(&other).await;
             assert!(of(&received(&mut other_rx), "plan-pending").is_empty());
-            daemon.handle_plan_decide(&decide(&id, json!(false))).await.unwrap();
-            assert_eq!(applying.await.unwrap().unwrap().status, PlanStatus::Cancelled);
+        });
+    }
+
+    #[test]
+    fn a_plan_put_aside_keeps_waiting_and_tells_nobody() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            orchestrator(&daemon, "orch", &root, "Rework auth");
+            let (_ui, mut ui_rx) = subscribe(&daemon, 1, &root);
+            let id = apply_as(&daemon, &root, "orch", tasks_plan()).await;
+            received(&mut ui_rx);
+            daemon.handle_plan_park(&park(&id)).await.unwrap();
+            // Still waiting, marked parked: the UIs hear it (so it no longer opens by itself), and a late one too.
+            assert_eq!(daemon.plans.borrow().pending[&id].plan.parked, Some(true));
+            let events = received(&mut ui_rx);
+            let pending = of(&events, "plan-pending");
+            assert_eq!(pending.len(), 1);
+            assert_eq!(pending[0]["plan"]["parked"], true);
+            assert!(of(&events, "plan-settled").is_empty());
+            let (late, mut late_rx) = subscribe(&daemon, 2, &root);
+            daemon.send_pending_plans(&late).await;
+            assert_eq!(of(&received(&mut late_rx), "plan-pending")[0]["plan"]["parked"], true);
+            // The orchestrator hears nothing until it is answered; it can still be answered.
+            assert!(notices_to(&daemon, "orch").is_empty());
+            let error = daemon.handle_plan_park(&park("nope")).await.unwrap_err();
+            assert!(error.to_string().starts_with("No plan nope is waiting"), "{error}");
+            daemon.handle_plan_decide(&decide(&id, json!(true))).await.unwrap();
+            notices_once(&daemon, "orch", 1).await;
+        });
+    }
+
+    #[test]
+    fn approving_an_orchestrators_plan_tells_it_what_was_created() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            orchestrator(&daemon, "orch", &root, "Rework auth");
+            let plan = json!({"tasks": [{"title": "Remove legacy endpoint"}, {"title": "Update the docs"}]});
+            let id = apply_as(&daemon, &root, "orch", plan).await;
+            assert_eq!(
+                daemon.plans.borrow().pending[&id].plan.caller_session_id.as_deref(),
+                Some("orch")
+            );
+            daemon.handle_plan_decide(&decide(&id, json!(true))).await.unwrap();
+            let notices = notices_once(&daemon, "orch", 1).await;
+            assert_eq!(notices.len(), 1);
+            let notice = &notices[0];
+            // A notice, from nobody (no header, nothing to reply to), held until the orchestrator is idle.
+            assert_eq!(notice.kind, MessageKind::Notice);
+            assert_eq!(
+                (notice.from_session_id.as_deref(), notice.status),
+                (None, MessageStatus::Held)
+            );
+            let (key, idea) = daemon.session_line("orch").unwrap();
+            let list = daemon.task_list(&key);
+            let parked: Vec<String> = list
+                .lines()
+                .iter()
+                .filter(|line| line.parent.as_deref() == Some(idea.id.as_str()))
+                .map(|line| format!("{}  ☐ {}  (parked under your idea)", line.id, line.title))
+                .collect();
+            assert_eq!(parked.len(), 2);
+            assert_eq!(
+                notice.text,
+                format!(
+                    "[The user approved your plan {id}]\n\
+                     Created 0 sessions and 2 tasks; each session got its brief as its first message:\n{}",
+                    parked.join("\n")
+                )
+            );
+        });
+    }
+
+    #[test]
+    fn cancelling_an_orchestrators_plan_tells_it_with_the_users_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            orchestrator(&daemon, "orch", &root, "Rework auth");
+            let first = apply_as(&daemon, &root, "orch", tasks_plan()).await;
+            let second = apply_as(&daemon, &root, "orch", tasks_plan()).await;
+            let mut with_note = decide(&first, json!(false));
+            with_note.note = Some("Split the tests into their own session".into());
+            daemon.handle_plan_decide(&with_note).await.unwrap();
+            daemon.handle_plan_decide(&decide(&second, json!(false))).await.unwrap();
+            let texts: Vec<String> = notices_to(&daemon, "orch")
+                .into_iter()
+                .map(|notice| notice.text)
+                .collect();
+            assert_eq!(
+                texts,
+                [
+                    format!(
+                        "[The user cancelled your plan {first}: nothing was created]\n\
+                         Their note: Split the tests into their own session"
+                    ),
+                    format!("[The user cancelled your plan {second}: nothing was created]"),
+                ]
+            );
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            assert!(daemon.task_list(&key).lines().is_empty());
+        });
+    }
+
+    #[test]
+    fn several_plans_wait_side_by_side_oldest_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            let first = daemon
+                .handle_plan_apply(&request(&root, tasks_plan()))
+                .await
+                .unwrap()
+                .plan_id;
+            let second = daemon
+                .handle_plan_apply(&request(&root, json!({"tasks": [{"title": "Other"}]})))
+                .await
+                .unwrap()
+                .plan_id;
+            assert_ne!(first, second);
+            let (late, mut late_rx) = subscribe(&daemon, 1, &root);
+            daemon.send_pending_plans(&late).await;
+            let ids: Vec<Value> = of(&received(&mut late_rx), "plan-pending")
+                .iter()
+                .map(|event| event["plan"]["id"].clone())
+                .collect();
+            assert_eq!(ids, [json!(first), json!(second)]);
+            // Answering one leaves the other waiting.
+            daemon.handle_plan_decide(&decide(&second, json!(false))).await.unwrap();
+            let left: Vec<String> = daemon.plans.borrow().pending.keys().cloned().collect();
+            assert_eq!(left, [first]);
+        });
+    }
+
+    #[test]
+    fn an_orchestrator_that_exits_or_is_removed_drops_its_plans() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            orchestrator(&daemon, "orch", &root, "Rework auth");
+            orchestrator(&daemon, "other", &root, "Login");
+            let (_ui, mut ui_rx) = subscribe(&daemon, 1, &root);
+            let mine = apply_as(&daemon, &root, "orch", tasks_plan()).await;
+            let by_hand = daemon
+                .handle_plan_apply(&request(&root, tasks_plan()))
+                .await
+                .unwrap()
+                .plan_id;
+            received(&mut ui_rx);
+            // It exits: its plan is dropped (the UIs close it), the other waits on, and it is told when it runs again.
+            daemon.patch_session("orch", |session| session.status = SessionStatus::Exited);
+            daemon.plans_on_exit("orch", false).await;
+            let left: Vec<String> = daemon.plans.borrow().pending.keys().cloned().collect();
+            assert_eq!(left, std::slice::from_ref(&by_hand));
+            let settled = of(&received(&mut ui_rx), "plan-settled");
+            assert_eq!(settled.len(), 1);
+            assert_eq!(settled[0]["planId"], mine.as_str());
+            assert_eq!(settled[0]["decision"], "dropped");
+            let notices = notices_to(&daemon, "orch");
+            assert_eq!(notices.len(), 1);
+            assert_eq!(notices[0].status, MessageStatus::Held);
+            assert!(
+                notices[0].text.starts_with(&format!("[Your plan {mine} was dropped")),
+                "{}",
+                notices[0].text
+            );
+            // Answering it now is refused.
+            let error = daemon
+                .handle_plan_decide(&decide(&mine, json!(true)))
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("its orchestrator ended"), "{error}");
+
+            // Removed (an orchestrator a daemon restart left exited): its plan goes, with nobody to tell.
+            let theirs = apply_as(&daemon, &root, "other", tasks_plan()).await;
+            daemon.patch_session("other", |session| session.status = SessionStatus::Exited);
+            daemon.remove_session("other").await.unwrap();
+            assert!(!daemon.plans.borrow().pending.contains_key(&theirs));
+            assert!(daemon.plans.borrow().pending.contains_key(&by_hand));
+            assert!(notices_to(&daemon, "other").is_empty());
+        });
+    }
+
+    #[test]
+    fn pending_plans_wait_through_a_daemon_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        local(async {
+            let daemon = test_daemon(&state);
+            orchestrator(&daemon, "orch", &root, "Rework auth");
+            orchestrator(&daemon, "gone", &root, "Gone");
+            daemon.set_session(session("lead", &root, &root));
+            let plan = json!({"sessions": [
+                {"key": "a", "title": "Token storage", "prompt": "Store them", "parent": "lead", "worktree": "same"},
+                {"key": "b", "title": "Tests", "prompt": "Test them", "parent": "a", "worktree": "same"},
+            ]});
+            let kept = apply_as(&daemon, &root, "orch", plan).await;
+            daemon.handle_plan_park(&park(&kept)).await.unwrap();
+            apply_as(&daemon, &root, "gone", tasks_plan()).await;
+            daemon.save_plans().await.unwrap();
+            let written = std::fs::read_to_string(state.join(PLANS_FILE)).unwrap();
+            assert!(written.contains(&format!("\"id\": \"{kept}\"")), "{written}");
+
+            // The next daemon knows the orchestrator (left exited), not the session removed meanwhile.
+            let next = test_daemon(&state);
+            orchestrator(&next, "orch", &root, "Rework auth");
+            next.patch_session("orch", |session| session.status = SessionStatus::Exited);
+            next.set_session(session("lead", &root, &root));
+            next.load_plans().await.unwrap();
+            let plans = next.plans.borrow();
+            let ids: Vec<&String> = plans.pending.keys().collect();
+            assert_eq!(ids, [&kept]);
+            let entry = &plans.pending[&kept];
+            let before = &daemon.plans.borrow().pending[&kept];
+            assert_eq!(entry.plan, before.plan);
+            assert_eq!(entry.plan.parked, Some(true));
+            // What creating it needs is found again: the first under an existing session, the second under the first.
+            assert_eq!(entry.valid, before.valid);
+            assert_eq!(
+                entry.valid.parents,
+                [Some(PlanParent::Session("lead".into())), Some(PlanParent::Entry(0))]
+            );
         });
     }
 
@@ -963,17 +1429,10 @@ mod tests {
             let summary = daemon.handle_plan_check(&as_caller("token")).await.unwrap();
             assert_eq!(summary.counts, "1 task");
             daemon.patch_session("s", |session| session.role = Some(SessionRole::Orchestrator));
-            let applying = {
-                let daemon = daemon.clone();
-                let request = as_caller("token");
-                tokio::task::spawn_local(async move { daemon.handle_plan_apply(&request).await })
-            };
-            let id = pending_id(&daemon).await;
+            let id = daemon.handle_plan_apply(&as_caller("token")).await.unwrap().plan_id;
             let pending = daemon.plans.borrow().pending[&id].plan.clone();
             assert_eq!(pending.caller_session_id.as_deref(), Some("s"));
             assert_eq!(pending.repo_root, root);
-            daemon.handle_plan_decide(&decide(&id, json!(false))).await.unwrap();
-            assert_eq!(applying.await.unwrap().unwrap().status, PlanStatus::Cancelled);
         });
     }
 

@@ -30,10 +30,8 @@ use deckhand_core::session_order::sort_sessions_for_sidebar;
 use deckhand_core::task_list::{Line, TaskList};
 use deckhand_core::work_notes::append_paragraph;
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
-use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
-    MessageRecord, NoteRef, PlanStatus, SessionRecord, SessionStatus, Task, TasksDoc, WaitOutcomeKind, WorkNote,
-    WorkNoteKind,
+    MessageRecord, NoteRef, SessionRecord, SessionStatus, Task, TasksDoc, WaitOutcomeKind, WorkNote, WorkNoteKind,
 };
 use deckhand_protocol::wire::AgentCaller;
 use deckhand_sys::git::ensure_git_repo;
@@ -686,45 +684,17 @@ impl Cx {
         Ok(())
     }
 
-    async fn plan_apply(&mut self, source: &PlanSource) -> Result<(), DhError> {
+    /// `deckhand plan apply`: returns once the plan waits for its answer in Deckhand; the orchestrator is told the
+    /// answer in a message.
+    async fn plan_apply(&self, source: &PlanSource) -> Result<(), DhError> {
         let plan = Self::read_plan(source)?;
         let cwd = self.plan_cwd().await?;
-        let repo_root = match self.caller.as_ref() {
-            Some(_) => self
-                .sessions()
-                .await?
-                .1
-                .map(|caller| caller.repo_root)
-                .unwrap_or_default(),
-            None => cwd.clone(),
-        };
-        // Subscribed first, so the updates that bring the new worktrees are not missed.
-        self.client.subscribe(&repo_root).await?;
-        eprintln!(
-            "Waiting for confirmation in Deckhand (open it in this repository: enter creates the plan, esc cancels it; \
-             it expires in 15 minutes)..."
-        );
-        let mut outcome = self.client.plan_apply(&cwd, plan, self.caller.clone()).await?;
-        let records: Vec<SessionRecord> = outcome
-            .sessions
-            .iter()
-            .map(|created| (*created.session).clone())
-            .collect();
-        let settled = self.all_settled(records).await;
-        for (created, session) in outcome.sessions.iter_mut().zip(settled) {
-            created.session = Ordered::from(session);
-        }
+        let waiting = self.client.plan_apply(&cwd, plan, self.caller.clone()).await?;
         if self.json {
-            print_json(&outcome)?;
-        } else {
-            print_line(&view::plan_outcome(&outcome));
+            return print_json(&waiting);
         }
-        match outcome.status {
-            PlanStatus::Created => Ok(()),
-            PlanStatus::Cancelled => Err(DhError::msg("Cancelled in Deckhand")),
-            PlanStatus::Expired => Err(DhError::msg("The plan expired unanswered")),
-            PlanStatus::Failed => Err(DhError::msg("The plan was created only in part")),
-        }
+        print_line(&view::plan_waiting(&waiting, self.caller.is_some()));
+        Ok(())
     }
 
     /// `deckhand do`: a new orchestrator for the idea, always (one per idea), named `title` when given.

@@ -155,8 +155,9 @@ Usage: deckhand plan check [<file>|-] [--json]
 An orchestrator plan: sessions (a tree, each with its brief), parked work and the idea's brief, as JSON from a file
 or stdin (-, the default). Every problem is reported at once, and nothing is created while there is one.
   check   Validates the plan and prints what it would create
-  apply   Validates it, waits for you to confirm it in Deckhand (enter creates, esc cancels; it expires after 15
-          minutes), then creates it and prints what was created. Only in an orchestrator session, or by hand.
+  apply   Validates it and returns at once: it waits for you in Deckhand (enter creates it, esc puts it aside,
+          x x cancels it), and the orchestrator that applied it is told your answer in a message. Only in an
+          orchestrator session, or by hand.
 
 {\"sessions\": [{\"key\": \"auth\", \"title\": \"Auth rework\", \"prompt\": \"<brief>\", \"agent\": \"claude\",
                \"parent\": null, \"worktree\": \"new\", \"base\": null, \"flat\": false, \"task\": null},

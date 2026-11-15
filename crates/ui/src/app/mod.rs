@@ -1088,6 +1088,8 @@ impl App {
     pub fn typing_in_field(&self) -> bool {
         match self.mode {
             Mode::Search | Mode::EnterName | Mode::EnterIdea | Mode::ConfirmLoss | Mode::NotesFocus => true,
+            // Not in the TS: the plan dialog's note for the orchestrator, after the first `x`.
+            Mode::ConfirmPlan => self.plans.cancelling.is_some(),
             Mode::PickWorktree => self.create.worktree_typing,
             Mode::Help => self.flows.help.typing,
             Mode::Tasks => {
@@ -1491,7 +1493,9 @@ impl App {
         };
         // Not in the TS: J/K (PgUp/PgDn) scroll a dialog's (or the merge screen's) body: what does not fit. Not while
         // a field takes letters as text (the session's name, the worktree picker's search).
-        let typing = mode == Mode::EnterName || (mode == Mode::PickWorktree && self.create.worktree_typing);
+        let typing = mode == Mode::EnterName
+            || (mode == Mode::PickWorktree && self.create.worktree_typing)
+            || (mode == Mode::ConfirmPlan && self.plans.cancelling.is_some());
         let letter = matches!(input.input.as_str(), "J" | "K");
         if mode.scrolls_body()
             && !(typing && letter)

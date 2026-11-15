@@ -57,6 +57,7 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | `~/.deckhand/notes/tasks/` | Each repository's list (tasks and their steps), one nested Markdown checklist per repository |
 | `~/.deckhand/notes/trash/` | Removed notes, named by date and what they belonged to, and the migration's backup and report |
 | `~/.deckhand/messages.json` | Messages between sessions: those still waiting to be delivered, and the last 50 per session |
+| `~/.deckhand/plans.json` | Orchestrator plans waiting for your answer in Deckhand |
 | `~/.deckhand/notes.vim` | The vim keys for notes, rewritten each time a note opens in vim or nvim |
 | `~/.deckhand/handoffs/` | Private, inspectable Markdown handoffs |
 | `~/.deckhand/daemon.log` | Daemon diagnostics |

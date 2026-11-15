@@ -111,13 +111,14 @@ string_union!(
     PlanWorktree { New = "new", Same = "same", None = "none" }
 );
 string_union!(
-    /// Not in the TS: how a pending plan ended: approved (`enter` in Deckhand), rejected (`esc`), or expired unanswered.
-    PlanDecision { Approved = "approved", Rejected = "rejected", Expired = "expired" }
+    /// Not in the TS: how a pending plan ended: approved (`enter` in Deckhand), rejected (cancelled: `x` twice), or
+    /// dropped unanswered (its orchestrator exited or was removed).
+    PlanDecision { Approved = "approved", Rejected = "rejected", Dropped = "dropped" }
 );
 string_union!(
-    /// Not in the TS: what `plan-apply` came to: everything created, cancelled in Deckhand, expired unanswered, or
-    /// stopped at a session that could not be created (what was created before it stays).
-    PlanStatus { Created = "created", Cancelled = "cancelled", Expired = "expired", Failed = "failed" }
+    /// Not in the TS: what creating an approved plan came to: everything created, or stopped at an entry that could
+    /// not be created (what was created before it stays).
+    PlanStatus { Created = "created", Failed = "failed" }
 );
 string_union!(AgentSessionRefKind { Name = "name", Path = "path", Id = "id" });
 string_union!(
@@ -1532,7 +1533,7 @@ pub struct PlanSummary {
     pub brief: Option<String>,
 }
 
-/// A plan waiting for the user's answer in Deckhand (`plan-pending`).
+/// A plan waiting for the user's answer in Deckhand (`plan-pending`); also how `plans.json` keeps it.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1547,8 +1548,21 @@ pub struct PendingPlan {
     pub plan: Plan,
     pub summary: PlanSummary,
     pub created_at: String,
-    /// When it is dropped unanswered (15 minutes after `created_at`).
-    pub expires_at: String,
+    /// The user put it aside (`esc` in its dialog, `plan-park`): it waits without opening by itself or detaching an
+    /// attach.
+    pub parked: Option<bool>,
+    /// Keys another version wrote.
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
+}
+
+/// `plan-apply`'s answer: the plan waits for the user's answer in Deckhand; the orchestrator is told it in a message.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanWaiting {
+    pub plan_id: String,
+    pub summary: PlanSummary,
 }
 
 /// A task a plan added to the backlog.
@@ -1571,7 +1585,7 @@ pub struct PlanFailure {
     pub error: String,
 }
 
-/// `plan-apply`'s answer once the plan is settled.
+/// What creating an approved plan came to (the orchestrator is told it in a message).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

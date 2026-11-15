@@ -23,8 +23,8 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MessageRecord, MoveDirection, NoteRef, NoteSaveResult, OrchestratorResult, PendingPlan, PingResult, PlanOutcome,
-    PlanSummary, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
+    MessageRecord, MoveDirection, NoteRef, NoteSaveResult, OrchestratorResult, PendingPlan, PingResult, PlanSummary,
+    PlanWaiting, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
     SavedConfigDocument, SendMessageResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
     SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates,
     WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
@@ -34,9 +34,9 @@ use deckhand_protocol::events::{MessagesUpdated, PlanSettled, WorkNoteUpdated};
 use deckhand_protocol::wire::{
     AgentCaller, AgentVersionsRequest, ArchiveSession, CancelMessage, ChangeStage, ChangesDiff, Create, CreatePr,
     CwdRequest, DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill,
-    ListMessages, Loose, MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanRequest, PromoteNoteItem, Remove,
-    ReorderSession, ReplyMessage, RequestOnly, ResolveMerge, Restart, RestartSessions, RunAction, SaveConfig, SaveNote,
-    SendMessage, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
+    ListMessages, Loose, MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanPark, PlanRequest, PromoteNoteItem,
+    Remove, ReorderSession, ReplyMessage, RequestOnly, ResolveMerge, Restart, RestartSessions, RunAction, SaveConfig,
+    SaveNote, SendMessage, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
     StopDevRequest, Subscribe, TaskOpRequest, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview,
     WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
@@ -896,18 +896,28 @@ impl LiveClient {
         self.request(Request::PlanCheck(plan_request(cwd, plan, caller)))
     }
 
-    /// Not in the TS: applies an orchestrator plan (`deckhand plan apply`). Answered once the user answered it in
-    /// Deckhand (or it expired) and what it holds was created.
-    pub fn plan_apply(&self, cwd: &str, plan: Value, caller: Option<AgentCaller>) -> Reply<PlanOutcome> {
+    /// Not in the TS: applies an orchestrator plan (`deckhand plan apply`): validated and held for the user's answer
+    /// in Deckhand. Answered at once; the answer reaches the orchestrator as a message.
+    pub fn plan_apply(&self, cwd: &str, plan: Value, caller: Option<AgentCaller>) -> Reply<PlanWaiting> {
         self.request(Request::PlanApply(plan_request(cwd, plan, caller)))
     }
 
-    /// Not in the TS: answers a pending plan (`approve`: create it; else cancel it). The first answer wins.
-    pub fn plan_decide(&self, plan_id: &str, approve: bool) -> Reply<()> {
+    /// Not in the TS: answers a pending plan (`approve`: create it; else cancel it, `note` passed on to the
+    /// orchestrator). The first answer wins.
+    pub fn plan_decide(&self, plan_id: &str, approve: bool, note: Option<&str>) -> Reply<()> {
         self.request(Request::PlanDecide(PlanDecide {
             request_id: new_request_id(),
             plan_id: plan_id.to_owned(),
             approve: Some(approve),
+            note: note.map(str::to_owned),
+        }))
+    }
+
+    /// Not in the TS: puts a pending plan aside: it keeps waiting, without opening by itself or detaching an attach.
+    pub fn plan_park(&self, plan_id: &str) -> Reply<()> {
+        self.request(Request::PlanPark(PlanPark {
+            request_id: new_request_id(),
+            plan_id: plan_id.to_owned(),
         }))
     }
 

@@ -1,0 +1,31 @@
+
+
+
+
+
+
+
+      ╭────────────────────────────────────────────────────────────────────────────────────╮
+      │                                                                                    │
+      │ Create this plan?                                                                  │
+      │ Orchestrator's plan: 3 sessions, 1 task. Each session starts on its brief at once. │
+      │                                                                                    │
+      │ ◇ Auth rework  (new worktree · claude)                                             │
+      │   ↳ Token storage  (stacked on Auth rework's branch · claude)                      │
+      │ ◇ Migration script  (no worktree · codex)                                          │
+      │                                                                                    │
+      │ Backlog                                                                            │
+      │ ☐ Remove legacy endpoint                                                           │
+      │   After Auth rework merges: the old routes go.                                     │
+      │                                                                                    │
+      │ Cancel this plan? A note for the orchestrator (optional): Too many sessions▏       │
+      │ enter cancel it with this note • esc back                                          │
+      │                                                                                    │
+      ╰────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+

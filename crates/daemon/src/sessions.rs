@@ -593,6 +593,8 @@ impl Daemon {
         // at once, so they wait for it).
         if !self.sessions.borrow().restarting.contains(session_id) {
             self.messages_on_exit(session_id);
+            // Not in the TS: and the plans it applied that wait for an answer are dropped (it is told once resumed).
+            self.plans_on_exit(session_id, false).await;
         }
         let _ = tokio::fs::remove_file(self.paths.worker_dir.join(format!("{session_id}.pid"))).await;
 
@@ -2056,6 +2058,7 @@ impl Daemon {
             .collect();
         // Not in the TS: messages still held for it (after a daemon restart) are dropped, their senders told.
         self.messages_on_exit(session_id);
+        self.plans_on_exit(session_id, true).await;
         self.sessions.borrow_mut().sessions.shift_remove(session_id);
         for child in orphaned {
             self.set_session(child.clone());

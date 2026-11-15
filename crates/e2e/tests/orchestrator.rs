@@ -1,17 +1,17 @@
-//! The orchestrator, black-box: `deckhand plan check|apply` against a real daemon with fake agents, a UI connection
-//! answering the confirmation (`plan-pending` → `plan-decide`), `deckhand do` starting a new orchestrator per idea,
-//! an orchestrator's plan becoming its tree under its idea's line, and what its commands may do (its tree).
+//! The orchestrator, black-box: `deckhand plan check|apply` against a real daemon with fake agents (`apply` returns
+//! at once), a UI connection answering the confirmation (`plan-pending` → `plan-decide`), the answer reaching the
+//! orchestrator as a message, `deckhand do` starting a new orchestrator per idea, an orchestrator's plan becoming its
+//! tree under its idea's line, and what its commands may do (its tree).
 
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Output, Stdio};
+use std::process::Output;
 use std::time::Duration;
 
 use deckhand_e2e::client::Client;
-use deckhand_e2e::daemon::{install_agents, launch, must, p, ready, running, state, subscribed, wf};
+use deckhand_e2e::daemon::{install_agents, launch, must, p, ready, running, state, subscribed, text_of, wf};
 use deckhand_e2e::fake_agent;
-use deckhand_e2e::harness::{Sandbox, repo, stop, wait_exit, wait_for};
+use deckhand_e2e::harness::{Sandbox, repo, stop, wait_for};
 use serde_json::{Value, json};
 
 /// `deckhand <args>` in `cwd` with only the fakes and system tools on PATH, `env` added; run to completion.
@@ -24,43 +24,6 @@ fn cli(sandbox: &Sandbox, bin: &Path, cwd: &Path, args: &[&str], env: &[(&str, &
         command.env(key, value);
     }
     sandbox.exec(command, Duration::from_secs(60))
-}
-
-/// The same, left running (it waits for the confirmation), its output piped.
-fn spawn_cli(sandbox: &Sandbox, bin: &Path, cwd: &Path, args: &[&str], env: &[(&str, &str)]) -> Child {
-    let mut command = sandbox.cli(args);
-    command
-        .current_dir(cwd)
-        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    for (key, value) in env {
-        command.env(key, value);
-    }
-    sandbox.spawn(command)
-}
-
-/// Waits for a spawned command and returns its output.
-fn finish(mut child: Child) -> Output {
-    let mut stdout = child.stdout.take().expect("stdout");
-    let mut stderr = child.stderr.take().expect("stderr");
-    let out = std::thread::spawn(move || {
-        let mut buffer = Vec::new();
-        let _ = stdout.read_to_end(&mut buffer);
-        buffer
-    });
-    let err = std::thread::spawn(move || {
-        let mut buffer = Vec::new();
-        let _ = stderr.read_to_end(&mut buffer);
-        buffer
-    });
-    let status = wait_exit(&mut child, Duration::from_secs(90)).expect("the command finished");
-    Output {
-        status,
-        stdout: out.join().unwrap_or_default(),
-        stderr: err.join().unwrap_or_default(),
-    }
 }
 
 fn text(bytes: &[u8]) -> String {
@@ -145,6 +108,42 @@ fn id(value: &Value) -> String {
     value["id"].as_str().unwrap_or_default().to_owned()
 }
 
+/// The session titled `title`, once a plan created it (creating runs after the answer, in the background).
+fn created(socket: &Path, title: &str) -> Value {
+    wf(
+        || ui_list(socket).into_iter().find(|session| session["title"] == title),
+        Option::is_some,
+    )
+    .unwrap_or_default()
+}
+
+/// The notices queued to session `id` (the answers to its plans), once there are `count`.
+fn notices(socket: &Path, id: &str, count: usize) -> Vec<String> {
+    wf(
+        || {
+            must(socket, json!({"type": "list-messages", "sessionId": id}))
+                .as_array()
+                .map(|messages| {
+                    messages
+                        .iter()
+                        .filter(|message| message["kind"] == "notice" && message["toSessionId"] == id)
+                        .filter_map(|message| message["text"].as_str().map(str::to_owned))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        },
+        |texts| texts.len() >= count,
+    )
+}
+
+/// What has been typed into session `id`'s fake agent, once it holds `needle`.
+fn typed_containing(sandbox: &Sandbox, id: &str, needle: &str) -> String {
+    wf(
+        || text_of(&sandbox.home().join(format!("input-{id}"))).unwrap_or_default(),
+        |input| input.contains(needle),
+    )
+}
+
 #[test]
 fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() {
     let root = repo();
@@ -211,21 +210,19 @@ fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() 
     );
 
     let mut ui = subscribed(&socket, &p(&root_path));
-    let applying = spawn_cli(
-        &sandbox,
-        &bin,
-        &root_path,
-        &["plan", "apply", &plan_path, "--json"],
-        &[],
-    );
+    // Applying returns at once: the plan waits for the answer in Deckhand.
+    let waiting = json_of(&run(&["plan", "apply", &plan_path, "--json"]));
+    let plan_id = waiting["planId"].as_str().unwrap_or_default().to_owned();
+    assert_eq!(plan_id.len(), 8, "{waiting}");
+    assert_eq!(waiting["summary"]["counts"], "5 sessions, 1 task");
     let pending = wait_pending(&ui, 0);
+    assert_eq!(pending["id"], plan_id.as_str());
     assert_eq!(pending["repoRoot"], p(&root_path));
     assert_eq!(pending["summary"]["counts"], "5 sessions, 1 task");
     // Nothing is created before the answer.
     let listed = ui.request(json!({"type": "list"})).expect("list");
     assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
 
-    let plan_id = pending["id"].as_str().unwrap_or_default().to_owned();
     ui.request(json!({"type": "plan-decide", "planId": plan_id, "approve": true}))
         .expect("approve");
     let late = ui
@@ -242,24 +239,11 @@ fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() 
         Duration::from_secs(10),
     );
 
-    let outcome = json_of(&finish(applying));
-    assert_eq!(outcome["status"], "created", "{outcome}");
-    let created = outcome["sessions"].as_array().cloned().unwrap_or_default();
-    let keys: Vec<&str> = created.iter().filter_map(|entry| entry["key"].as_str()).collect();
-    // Parents first, whatever the plan's order.
-    assert_eq!(keys, ["auth", "tokens", "ui", "script", "tests"], "{outcome}");
-    let session_of = |key: &str| {
-        created
-            .iter()
-            .find(|entry| entry["key"] == key)
-            .map(|entry| id(&entry["session"]))
-            .unwrap_or_default()
-    };
-    let auth = running(&socket, &session_of("auth"));
-    let tokens = running(&socket, &session_of("tokens"));
-    let ui_session = running(&socket, &session_of("ui"));
-    let script = running(&socket, &session_of("script"));
-    let tests = running(&socket, &session_of("tests"));
+    let auth = running(&socket, &id(&created(&socket, "Auth rework")));
+    let tokens = running(&socket, &id(&created(&socket, "Token storage")));
+    let ui_session = running(&socket, &id(&created(&socket, "Login UI")));
+    let script = running(&socket, &id(&created(&socket, "Migration script")));
+    let tests = running(&socket, &id(&created(&socket, "Login tests")));
 
     // Top-level entries are top-level sessions; run by hand, nobody is recorded as their starter.
     for top in [&auth, &script] {
@@ -336,7 +320,6 @@ fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() 
     let task = line_of("Remove legacy endpoint");
     assert!(task["parent"].is_null() && task["session"].is_null(), "{task}");
     assert_eq!(task["note"], true, "{task}");
-    assert_eq!(outcome["tasks"][0]["id"], task["id"]);
 
     stop(&mut daemon);
 }
@@ -446,51 +429,108 @@ fn an_orchestrators_plan_becomes_its_tree_under_its_idea_and_a_late_ui_still_con
         text(&refused.stderr)
     );
 
-    // A UI that connects while the plan waits is told about it, and its answer counts. Esc: nothing is created.
+    // Applied from the orchestrator, it returns at once and tells it to end its turn.
     let first_ui = subscribed(&socket, &p(&root_path));
-    let cancelled = spawn_cli(&sandbox, &bin, &root_path, &["plan", "apply", &plan_path], &env);
+    let applied = cli(&sandbox, &bin, &root_path, &["plan", "apply", &plan_path], &env);
+    assert!(applied.status.success(), "{}", text(&applied.stderr));
     let waiting = wait_pending(&first_ui, 0);
+    let cancelled_id = id(&waiting);
+    assert_eq!(
+        text(&applied.stdout).trim_end(),
+        format!(
+            "Plan {cancelled_id} is waiting for the user's answer in Deckhand. You'll get a message when they \
+             answer; end your turn now."
+        )
+    );
+    // A UI that connects while the plan waits is told about it, and its answer counts. Cancelled: nothing is created,
+    // and the orchestrator is told, with the user's note.
     let mut ui = subscribed(&socket, &p(&root_path));
     let pending = wait_pending(&ui, 0);
     assert_eq!(pending["id"], waiting["id"]);
     assert_eq!(pending["callerSessionId"], orchestrator["id"]);
     assert_eq!(pending["callerTitle"], "Rework auth");
     assert_eq!(pending["summary"]["idea"], "Rework auth");
-    ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": false}))
-        .expect("reject");
-    let cancelled = finish(cancelled);
-    assert!(!cancelled.status.success());
-    assert!(
-        text(&cancelled.stdout).contains("Cancelled in Deckhand: nothing was created."),
-        "{}",
-        text(&cancelled.stdout)
+    ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": false,
+        "note": "Fewer sessions, please"}))
+        .expect("cancel");
+    let cancel_text = format!(
+        "[The user cancelled your plan {cancelled_id}: nothing was created]\nTheir note: Fewer sessions, please"
     );
+    assert_eq!(notices(&socket, &id(&orchestrator), 1), [cancel_text]);
+    // Typed into the orchestrator once it is idle, as any message; it answers in a turn (its hooks say so).
+    typed_containing(&sandbox, &id(&orchestrator), "Their note: Fewer sessions, please");
+    for event in ["UserPromptSubmit", "Stop"] {
+        must(
+            &socket,
+            json!({"type": "agent-hook", "sessionId": id(&orchestrator), "launchId": as_orchestrator[1].1,
+                "token": as_orchestrator[2].1, "payload": {"hook_event_name": event}}),
+        );
+    }
     let listed = ui.request(json!({"type": "list"})).expect("list");
     assert_eq!(listed.as_array().map(Vec::len), Some(2), "{listed}");
 
-    // Enter: the plan becomes the orchestrator's tree.
-    let applying = spawn_cli(
+    // Put aside, it keeps waiting; then approved, the plan becomes the orchestrator's tree.
+    let applied = json_of(&cli(
         &sandbox,
         &bin,
         &root_path,
         &["plan", "apply", "--json", &plan_path],
         &env,
-    );
+    ));
+    let plan_id = applied["planId"].as_str().unwrap_or_default().to_owned();
     let pending = wait_pending(&ui, 1);
-    ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": true}))
+    assert_eq!(pending["id"], plan_id.as_str());
+    ui.request(json!({"type": "plan-park", "planId": plan_id}))
+        .expect("put aside");
+    let parked = wait_pending(&ui, 2);
+    assert_eq!(
+        (parked["id"].as_str(), parked["parked"].as_bool()),
+        (Some(plan_id.as_str()), Some(true))
+    );
+    ui.request(json!({"type": "plan-decide", "planId": plan_id, "approve": true}))
         .expect("approve");
-    let outcome = json_of(&finish(applying));
-    assert_eq!(outcome["status"], "created", "{outcome}");
-    let session_of = |key: &str| {
-        outcome["sessions"]
-            .as_array()
-            .and_then(|created| created.iter().find(|entry| entry["key"] == key))
-            .map(|entry| id(&entry["session"]))
-            .unwrap_or_default()
-    };
-    let tokens = running(&socket, &session_of("tokens"));
-    let schema = running(&socket, &session_of("schema"));
-    let theirs = running(&socket, &session_of("theirs"));
+    let tokens = running(&socket, &id(&created(&socket, "Token storage")));
+    let schema = running(&socket, &id(&created(&socket, "Schema")));
+    let theirs = running(&socket, &id(&created(&socket, "Their tests")));
+    // The orchestrator is told what was created: a line per session (its path, where it works, its agent), then the
+    // parked work.
+    let told = notices(&socket, &id(&orchestrator), 2);
+    let approved = told
+        .iter()
+        .find(|notice| notice.starts_with("[The user approved"))
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        approved.starts_with(&format!(
+            "[The user approved your plan {plan_id}]\nCreated 3 sessions and 1 task; each session got its brief as its \
+             first message:\n"
+        )),
+        "{approved}"
+    );
+    let tokens_branch = created(&socket, "Token storage")["worktree"]["branch"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        approved.contains(&format!(
+            "{}  Rework auth / Token storage  (⎇ {tokens_branch}, flat · claude)",
+            &id(&tokens)[..8]
+        )),
+        "{approved}"
+    );
+    assert!(
+        approved.contains("Rework auth / Token storage / Schema  (⎇ "),
+        "{approved}"
+    );
+    assert!(
+        approved.contains("☐ Remove legacy endpoint  (parked under your idea)"),
+        "{approved}"
+    );
+    typed_containing(
+        &sandbox,
+        &id(&orchestrator),
+        &format!("[The user approved your plan {plan_id}]"),
+    );
     // A top-level entry is the orchestrator's sub-session, flat: the orchestrator has no worktree to stack on.
     assert_eq!(tokens["parentSessionId"], orchestrator["id"], "{tokens}");
     assert_eq!(tokens["spawnedBySessionId"], orchestrator["id"], "{tokens}");
@@ -636,18 +676,23 @@ fn the_idea_ticks_when_every_line_under_it_is_ticked() {
     let plan_file = sandbox.root().join("plan.json");
     fs::write(&plan_file, plan.to_string()).expect("write the plan");
     let mut ui = subscribed(&socket, &p(&root_path));
-    let applying = spawn_cli(
+    let applied = json_of(&cli(
         &sandbox,
         &bin,
         &root_path,
         &["plan", "apply", "--json", &p(&plan_file)],
         &env_of(&env_identity),
-    );
-    let pending = wait_pending(&ui, 0);
-    ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": true}))
+    ));
+    ui.request(json!({"type": "plan-decide", "planId": applied["planId"], "approve": true}))
         .expect("approve");
-    let outcome = json_of(&finish(applying));
-    assert_eq!(outcome["status"], "created", "{outcome}");
+    notices(&socket, &id(&orchestrator), 1);
+    let line_id = |title: &str| {
+        line_titled(&lines(&sandbox, &bin, &root_path), title)["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let (links, spelling) = (line_id("Fix the links"), line_id("Spell check"));
 
     let idea_id = started["lineId"].clone();
     let idea = |all: &[Value]| {
@@ -661,15 +706,15 @@ fn the_idea_ticks_when_every_line_under_it_is_ticked() {
         (idea(&all)["ticked"].clone(), idea(&all)["total"].clone()),
         (json!(0), json!(2))
     );
-    let done = run(&["task", "done", outcome["tasks"][0]["id"].as_str().unwrap_or_default()]);
+    let done = run(&["task", "done", &links]);
     assert!(done.status.success(), "{}", text(&done.stderr));
     assert_eq!(idea(&lines(&sandbox, &bin, &root_path))["done"], false);
-    let done = run(&["task", "done", outcome["tasks"][1]["id"].as_str().unwrap_or_default()]);
+    let done = run(&["task", "done", &spelling]);
     assert!(done.status.success(), "{}", text(&done.stderr));
     let all = lines(&sandbox, &bin, &root_path);
     assert_eq!(idea(&all)["done"], true, "{all:#?}");
     // Reopening a line under it reopens the idea.
-    let reopened = run(&["task", "reopen", outcome["tasks"][1]["id"].as_str().unwrap_or_default()]);
+    let reopened = run(&["task", "reopen", &spelling]);
     assert!(reopened.status.success(), "{}", text(&reopened.stderr));
     assert_eq!(idea(&lines(&sandbox, &bin, &root_path))["done"], false);
 
@@ -803,30 +848,29 @@ fn a_plan_that_fails_midway_keeps_what_it_created_and_says_what_failed() {
     let plan_file = sandbox.root().join("plan.json");
     fs::write(&plan_file, plan.to_string()).expect("write the plan");
     let mut ui = subscribed(&socket, &p(&root_path));
-    let applying = spawn_cli(&sandbox, &bin, &root_path, &["plan", "apply", &p(&plan_file)], &[]);
+    let applied = run(&["plan", "apply", &p(&plan_file)]);
+    assert!(applied.status.success(), "{}", text(&applied.stderr));
     let pending = wait_pending(&ui, 0);
+    assert_eq!(
+        text(&applied.stdout).trim_end(),
+        format!(
+            "Plan {} (3 sessions, 1 task) is waiting for your answer in Deckhand: open it in this repository (enter \
+             creates it, x x cancels it).",
+            id(&pending)
+        )
+    );
     // While it waits, a session takes the second one's name: creating it fails when the plan gets there.
     let taken = run(&["new", "--title", "Second", "--worktree", "none", "--json"]);
     assert!(taken.status.success(), "{}", text(&taken.stderr));
     ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": true}))
         .expect("approve");
-    let failed = finish(applying);
-    assert!(!failed.status.success());
-    let printed = text(&failed.stdout);
-    assert!(
-        printed.contains("First  (no worktree (the repository's checkout) · claude)"),
-        "{printed}"
+    created(&socket, "First");
+    // The line of the session created comes after it: creation has stopped by then.
+    wf(
+        || lines(&sandbox, &bin, &root_path),
+        |lines| lines.iter().any(|line| line["title"] == "First"),
     );
-    assert!(
-        printed.contains("Stopped at Second (second): an active session named \"Second\" already exists in this repo"),
-        "{printed}"
-    );
-    assert!(printed.contains("They are kept (nothing is rolled back)"), "{printed}");
-    assert!(
-        text(&failed.stderr).contains("The plan was created only in part"),
-        "{}",
-        text(&failed.stderr)
-    );
+    std::thread::sleep(Duration::from_millis(500));
     // What was created before the failure stays; nothing after it was created.
     let titles: Vec<String> = ui_list(&socket)
         .iter()

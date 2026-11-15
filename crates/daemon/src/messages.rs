@@ -585,6 +585,19 @@ impl Daemon {
         }
     }
 
+    /// Queues Deckhand's notice `text` (no header, from nobody: the user's answer to an orchestrator's plan, or that
+    /// it was dropped) to session `to`. Held as any message until `to` runs and is idle: also while it has exited, for
+    /// a resume (exiting for good drops it, as [`Daemon::messages_on_exit`] drops what waits then).
+    pub fn queue_notice(&self, to: &str, text: String) -> Option<MessageRecord> {
+        let target = self.get_session(to)?;
+        let notice = self.new_message(MessageKind::Notice, None, Some(&target), text);
+        self.messages.borrow_mut().messages.push(notice.clone());
+        self.publish_messages(std::slice::from_ref(&notice));
+        self.log_soon(format!("notice {} to {to} queued", notice.id));
+        self.pump_messages(to);
+        Some(notice)
+    }
+
     /// `send-message`: queues the message; with `wait`, answers with how the wait ended.
     pub async fn handle_send_message(&self, client: &ClientHandle, request: &SendMessage) -> Result<SendMessageResult> {
         let caller = request

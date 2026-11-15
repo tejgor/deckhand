@@ -22,10 +22,10 @@
    │ Ruled out: SSO.                                                                          │
    │ … 2 more lines                                                                           │
    │                                                                                          │
-   │ Unanswered, it expires in 13 min.                                                        │
-   │ enter create • esc cancel                                                                │
+   │ enter create • esc put aside • x x cancel                                                │
    │                                                                                          │
    ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+
 
 
 

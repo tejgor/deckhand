@@ -9,8 +9,8 @@ use deckhand_core::sidebar_model::{ORCHESTRATOR_MARKER, status_words};
 use deckhand_core::task_list::{Line, TaskList};
 use deckhand_core::tasks::{RECENT_DONE_DAYS, today};
 use deckhand_protocol::data::{
-    MessageRecord, MessageStatus, OrchestratorResult, PlanOutcome, PlanStatus, SendMessageResult, SessionRecord,
-    SessionRole, SessionWorktreeMode, WaitOutcomeKind, WorkNote, WorkNoteKind, WorktreeMode,
+    MessageRecord, MessageStatus, OrchestratorResult, PlanWaiting, SendMessageResult, SessionRecord, SessionRole,
+    SessionWorktreeMode, WaitOutcomeKind, WorkNote, WorkNoteKind,
 };
 
 use super::plan::session_path;
@@ -324,67 +324,22 @@ pub fn started(session: &SessionRecord, prompt: Option<bool>) -> String {
     )
 }
 
-/// Where a session a plan created works: its worktree's branch and what it merges into, or no worktree.
-pub fn plan_placement(session: &SessionRecord) -> String {
-    match session.worktree.as_ref() {
-        Some(worktree) if worktree.mode != SessionWorktreeMode::None => {
-            let place = match worktree.branch.as_deref().filter(|branch| !branch.is_empty()) {
-                Some(branch) => format!("⎇ {branch}"),
-                None => worktree.path.clone().unwrap_or_else(|| "a worktree".to_owned()),
-            };
-            match worktree.target_branch.as_deref().filter(|target| !target.is_empty()) {
-                Some(target) => format!("{place}, stacked into {target}"),
-                None => format!("{place}, flat"),
-            }
-        }
-        _ if session.requested_worktree_mode == Some(WorktreeMode::New) => "a new worktree being created".to_owned(),
-        _ if session.parent_session_id.is_some() && session.cwd != session.repo_root => {
-            "its parent's worktree".to_owned()
-        }
-        _ => "no worktree (the repository's checkout)".to_owned(),
+/// `deckhand plan apply`: the plan waits for its answer in Deckhand. From the orchestrator (`caller`): it is told
+/// the answer in a message, so it ends its turn; by hand, you answer it.
+pub fn plan_waiting(waiting: &PlanWaiting, caller: bool) -> String {
+    let id = &waiting.plan_id;
+    if caller {
+        format!(
+            "Plan {id} is waiting for the user's answer in Deckhand. You'll get a message when they answer; end your \
+             turn now."
+        )
+    } else {
+        format!(
+            "Plan {id} ({}) is waiting for your answer in Deckhand: open it in this repository (enter creates it, x x \
+             cancels it).",
+            waiting.summary.counts
+        )
     }
-}
-
-/// `deckhand plan apply`: a line per session and task created, then what came of the plan.
-pub fn plan_outcome(outcome: &PlanOutcome) -> String {
-    let mut lines = Vec::new();
-    for created in &outcome.sessions {
-        let session = &created.session;
-        lines.push(format!(
-            "{}  {}  ({} · {})",
-            short_id(&session.id),
-            session_path(session),
-            plan_placement(session),
-            session.program
-        ));
-    }
-    for task in &outcome.tasks {
-        lines.push(format!("{}  ☐ {}  (backlog)", short_id(&task.id), task.title));
-    }
-    let count = |n: usize, what: &str| format!("{n} {what}{}", if n == 1 { "" } else { "s" });
-    let made = format!(
-        "{} and {}",
-        count(outcome.sessions.len(), "session"),
-        count(outcome.tasks.len(), "task")
-    );
-    lines.push(match outcome.status {
-        PlanStatus::Created => format!("Created {made}; each session got its brief as its first message."),
-        PlanStatus::Cancelled => "Cancelled in Deckhand: nothing was created.".to_owned(),
-        PlanStatus::Expired => "The plan expired unanswered after 15 minutes: nothing was created.".to_owned(),
-        PlanStatus::Failed => {
-            let failed = outcome.failed.as_ref();
-            let what = failed.map_or_else(String::new, |failed| match failed.key.as_deref() {
-                Some(key) => format!(" at {} ({key})", failed.title),
-                None => format!(" at the task {}", failed.title),
-            });
-            let why = failed.map_or("", |failed| failed.error.as_str());
-            format!(
-                "Stopped{what}: {why}\nCreated before that: {made}. They are kept (nothing is rolled back); see \
-                 deckhand ls, and apply a plan for the rest."
-            )
-        }
-    });
-    lines.join("\n")
 }
 
 /// `deckhand do`: the orchestrator started for the idea, and how to reach it.
@@ -615,74 +570,22 @@ mod tests {
     }
 
     #[test]
-    fn plan_apply_lists_what_was_created_and_what_became_of_the_plan() {
-        use deckhand_protocol::data::{PlanCreatedSession, PlanCreatedTask, PlanFailure};
-        let created = |extra: serde_json::Value, key: &str| PlanCreatedSession {
-            key: key.to_owned(),
-            session: session(extra).into(),
-        };
-        let mut outcome = PlanOutcome {
-            plan_id: "p".into(),
-            status: PlanStatus::Created,
-            sessions: vec![
-                created(
-                    json!({"title": "Auth rework", "requestedWorktreeMode": "new",
-                        "worktree": {"mode": "managed", "path": "/wt/auth", "branch": "auth-rework"}}),
-                    "auth",
-                ),
-                created(
-                    json!({"id": "2b3c4d5e-1111", "title": "Token storage", "pathTitle": "Auth rework / Token storage",
-                        "parentSessionId": "1a2b", "program": "codex", "requestedWorktreeMode": "new",
-                        "worktree": {"mode": "managed", "path": "/wt/tokens", "branch": "auth-rework-token_storage",
-                            "targetBranch": "auth-rework"}}),
-                    "tokens",
-                ),
-                created(
-                    json!({"id": "3c4d5e6f-2222", "title": "Login UI", "pathTitle": "Auth rework / Login UI",
-                        "parentSessionId": "1a2b", "cwd": "/wt/auth", "requestedWorktreeMode": "none",
-                        "worktree": {"mode": "none"}}),
-                    "ui",
-                ),
-                created(
-                    json!({"id": "4d5e6f70-3333", "title": "Script", "requestedWorktreeMode": "none",
-                        "worktree": {"mode": "none"}}),
-                    "script",
-                ),
-            ],
-            tasks: vec![PlanCreatedTask {
-                id: "ab12cd34".into(),
-                title: "Remove legacy endpoint".into(),
-            }],
-            failed: None,
-        };
+    fn plan_apply_says_the_plan_waits_and_tells_the_orchestrator_to_end_its_turn() {
+        let waiting: PlanWaiting = serde_json::from_value(json!({
+            "planId": "3f2a1c9b",
+            "summary": {"sessions": [], "tasks": [], "counts": "2 sessions, 1 task"},
+        }))
+        .expect("a plan waiting");
         assert_eq!(
-            plan_outcome(&outcome),
-            "1a2b3c4d  Auth rework  (⎇ auth-rework, flat · claude)\n\
-             2b3c4d5e  Auth rework / Token storage  (⎇ auth-rework-token_storage, stacked into auth-rework · codex)\n\
-             3c4d5e6f  Auth rework / Login UI  (its parent's worktree · claude)\n\
-             4d5e6f70  Script  (no worktree (the repository's checkout) · claude)\n\
-             ab12cd34  ☐ Remove legacy endpoint  (backlog)\n\
-             Created 4 sessions and 1 task; each session got its brief as its first message."
+            plan_waiting(&waiting, true),
+            "Plan 3f2a1c9b is waiting for the user's answer in Deckhand. You'll get a message when they answer; end \
+             your turn now."
         );
-        outcome.status = PlanStatus::Failed;
-        outcome.sessions.truncate(1);
-        outcome.tasks.clear();
-        outcome.failed = Some(PlanFailure {
-            key: Some("tokens".into()),
-            title: "Token storage".into(),
-            error: "its parent Auth rework did not start: setup failed".into(),
-        });
         assert_eq!(
-            plan_outcome(&outcome).lines().skip(1).collect::<Vec<_>>(),
-            [
-                "Stopped at Token storage (tokens): its parent Auth rework did not start: setup failed",
-                "Created before that: 1 session and 0 tasks. They are kept (nothing is rolled back); see deckhand ls, \
-                 and apply a plan for the rest."
-            ]
+            plan_waiting(&waiting, false),
+            "Plan 3f2a1c9b (2 sessions, 1 task) is waiting for your answer in Deckhand: open it in this repository \
+             (enter creates it, x x cancels it)."
         );
-        outcome.status = PlanStatus::Cancelled;
-        outcome.sessions.clear();
-        assert_eq!(plan_outcome(&outcome), "Cancelled in Deckhand: nothing was created.");
     }
 
     #[test]

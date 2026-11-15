@@ -79,6 +79,9 @@ pub struct SidebarProps<'a> {
     pub held_messages: Option<&'a HashMap<String, usize>>,
     /// Not in the TS: a session's messages, for the details block.
     pub messages_of: Option<MessagesOf<'a>>,
+    /// Not in the TS: how many plans each orchestrator applied wait for the user's answer, by its ID (its details
+    /// say so).
+    pub plans_waiting: Option<&'a HashMap<String, usize>>,
 }
 
 /// TS: sidebar.tsx visibleSessions: the index range of the rows shown, `available_rows` around the selection.
@@ -398,6 +401,12 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
     let task = selected.and_then(task_for);
     let messages_for = |session: &SessionRecord| props.messages_of.and_then(|messages_of| messages_of(session));
     let messages = selected.and_then(messages_for);
+    let plans_for = |session: &SessionRecord| {
+        props
+            .plans_waiting
+            .and_then(|plans| plans.get(&session.id).copied())
+            .unwrap_or(0)
+    };
     // As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
     // its size while the selection moves; sessions with less leave the rest blank.
     let parents = if props.sectioned {
@@ -421,6 +430,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
                     props.installed_versions,
                     task.as_ref(),
                     messages.as_ref(),
+                    plans_for(session),
                 )
                 .len()
             })
@@ -505,6 +515,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             props.installed_versions,
             task.as_ref(),
             messages.as_ref(),
+            selected.map_or(0, plans_for),
         )
     };
 
@@ -803,6 +814,7 @@ mod tests {
             folded_exited: None,
             held_messages: None,
             messages_of: None,
+            plans_waiting: None,
         }
     }
 

@@ -101,8 +101,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Export a Markdown handoff (notes, commits, changed files, diff stat) and open it",
             },
             HelpLine::Key {
-                keys: "O",
-                text: "Orchestrator (◎) for a new idea; it plans sessions",
+                keys: "O  P",
+                text: "Orchestrator (◎) for a new idea / reopen a waiting plan",
             },
             HelpLine::Key {
                 keys: "e",

@@ -44,6 +44,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
 | `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: asks for a **Name** and *What do you want to do?* in a prompt at the bottom ([its keys](#orchestrator-prompt); `enter` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
+| `P` | Open the oldest orchestrator plan waiting for your answer, one you put aside too (the header says `◎ 1 plan waiting · P`); see [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
@@ -71,7 +72,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 **Ctrl and letters**: outside a text field, `ctrl` plus a letter never does what the letter does (`ctrl+x` doesn't stop a session, `ctrl+a` doesn't open Notes). The exceptions are `ctrl+d` / `ctrl+u`, which page wherever `pgdn` / `pgup` do, since a laptop has no page keys without `fn`.
 
-**Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list), in [Tasks](#tasks) and in [Messages](#messages), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged.
+**Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list), in [Tasks](#tasks) and in [Messages](#messages), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged. `x` in the [plan confirmation](#plan-confirmation) also takes two presses, with an optional note typed between them and no time limit.
 
 **In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic (while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` scroll the matches), `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`, `space`) scroll and `esc` closes.
 
@@ -180,7 +181,7 @@ While you type, the rest of the sidebar is dimmed (the selected row stays bright
 
 Both detach keys still work when the attached program switches the terminal to an enhanced keyboard mode (kitty's or xterm's modifyOtherKeys, as Codex can).
 
-When an orchestrator's plan waits for your answer, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once the plan is answered.
+When an orchestrator applies a plan, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once you answer the plan or put it aside. A plan you put aside does not detach you again.
 
 ## Orchestrator prompt
 
@@ -197,15 +198,16 @@ A pasted line break is a space. If starting fails, `O` opens the prompt again wi
 
 ## Plan confirmation
 
-An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand. The dialog shows the idea it is for, the sessions it would create as a tree, its parked work (backlog tasks, for a plan run by hand), the start of the idea's brief and when it expires unanswered (15 minutes). It opens on the session list and while you type to an agent or a shell (typing resumes after the answer), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ Plan waiting` in the header. Several plans are shown one at a time, oldest first.
+An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand; the command returns at once, and the orchestrator is told your answer in a message ([The orchestrator](features.md#the-orchestrator)). The dialog shows the idea it is for, the sessions it would create as a tree, its parked work (backlog tasks, for a plan run by hand), the start of the idea's brief and how many more plans wait. A new plan opens it on the session list and while you type to an agent or a shell (typing resumes after you close it), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ 1 plan waiting · P` in the header. Several new plans are shown one at a time, oldest first.
 
 | Key | Action |
 | --- | --- |
 | `enter` | Create the plan: its sessions start on their briefs (the orchestrator's sub-sessions), its tasks are parked under the idea's line (by hand: the backlog) |
-| `esc` | Cancel the plan: nothing is created |
+| `esc`, `←`, `h` | Put it aside: the plan keeps waiting, unanswered, and the header says so (`◎ 1 plan waiting · P`, also in the orchestrator's details); `P` on the session list opens it again |
+| `x` `x` | Cancel the plan: nothing is created. After the first `x`, type a note for the orchestrator if you like (`x` is then a letter), and `enter` cancels with it; `esc` goes back to the plan. A plan run by hand takes no note |
 | `J` / `K` | Scroll a plan that does not fit (`pgdn` / `pgup` too) |
 
-No other key acts while it shows, and keys typed on as it opens are ignored until you pause for 0.75 s, so a sentence you were typing to the agent can't answer it. Answered in another Deckhand, or expired, it closes by itself.
+No other key acts while it shows. When a plan opens by itself, keys typed on as it opens are ignored until you pause for 0.75 s, so a sentence you were typing to the agent can't answer it. Answered in another Deckhand, or dropped because its orchestrator exited, it closes by itself.
 
 ## Messages
 

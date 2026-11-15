@@ -1,27 +1,33 @@
 //! The plan confirmation (confirm-plan): an orchestrator's plan (`deckhand plan apply`) creates nothing until it is
-//! answered here. The daemon pushes each waiting plan (`plan-pending`, again after every `subscribe`) and says when
-//! one is settled (`plan-settled`: answered by any Deckhand, or expired).
+//! answered here. The daemon pushes each waiting plan (`plan-pending`, again after every `subscribe`, and when one is
+//! put aside) and says when one is settled (`plan-settled`: answered by any Deckhand, or dropped because its
+//! orchestrator ended). `deckhand plan apply` does not wait: the orchestrator is told the answer in a message.
 //!
-//! - **One at a time, oldest first.** Plans queue; `enter` creates the shown one, `esc` cancels it
-//!   (`plan-decide`), and the next one follows. No other key acts while it shows.
+//! - **One at a time.** A new plan opens the dialog by itself; `enter` creates the shown one, `x` twice cancels it
+//!   (`plan-decide`, with a note for the orchestrator typed after the first `x`), and the next new one follows.
+//! - **Put aside.** `esc` (`←`, `h`) puts the shown plan aside (`plan-park`): it keeps waiting, the header says so
+//!   (`◎ 1 plan waiting · P`), and it no longer opens by itself or ends an attach. `P` on the session list opens the
+//!   oldest plan waiting again.
 //! - **Never over your typing.** It takes over the session list and typing to an agent or a shell (giving the typing
-//!   back after the answer). On any other screen (a form, Tasks, Settings, another dialog) it waits until you leave
-//!   it, while the header and the footer say a plan is waiting. Keys typed on as it opens are not answers: it takes
-//!   them only after a pause ([`QUIET_MS`]).
-//! - **Attached.** An attach ends when a plan arrives (`deckhand_client::attach::AttachEnd::PlanPending`) and the UI
-//!   comes back with the attach in [`PlanState::reattach`]: once the last plan is settled (by you, another Deckhand
-//!   or expiry) it attaches again. A key for anything else, or no plan to ask about within [`REATTACH_WAIT`] (it was
-//!   settled before the UI came back), leaves you in Deckhand with that session selected.
+//!   back after the answer). On any other screen (a form, Tasks, Settings, another dialog) a new plan waits until you
+//!   leave it, while the header and the footer say a plan is waiting. Keys typed on as it opens by itself are not
+//!   answers: it takes them only after a pause ([`QUIET_MS`]).
+//! - **Attached.** An attach ends when a new plan arrives (`deckhand_client::attach::AttachEnd::PlanPending`) and the
+//!   UI comes back with the attach in [`PlanState::reattach`]: once the plan is answered or put aside (by you, another
+//!   Deckhand, or because its orchestrator ended) it attaches again. A key for anything else, or no plan to ask about
+//!   within [`REATTACH_WAIT`] (it was settled before the UI came back), leaves you in Deckhand with that session
+//!   selected.
 
 use std::time::Duration;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-use deckhand_core::display::{HintPart, error_message, fit_hint};
+use deckhand_core::display::{HintPart, error_message, fit_hint, strip_terminal_controls};
 use deckhand_core::jsstr::date::now_ms;
+use deckhand_core::jsstr::js_len;
 use deckhand_core::key::Input;
-use deckhand_core::plan::{entry_line, expiry_text};
+use deckhand_core::plan::entry_line;
 use deckhand_protocol::data::{AttachTarget, PendingPlan, PlanDecision, RightPaneTab, SessionStatus, UiExitResult};
 use deckhand_protocol::events::PlanSettled;
 use deckhand_sys::async_util::Timer;
@@ -42,30 +48,54 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Hidden("the dialog shows its own hint line"),
     },
     Binding {
-        keys: &[KeySpec::Named(NamedKey::Escape)],
-        action: "cancel the plan",
+        keys: &[
+            KeySpec::Named(NamedKey::Escape),
+            KeySpec::Named(NamedKey::Left),
+            KeySpec::Char("h"),
+        ],
+        action: "put the plan aside",
+        help: HelpRef::Hidden("the dialog shows its own hint line"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("x")],
+        action: "cancel the plan (press twice; a note for the orchestrator may come between)",
         help: HelpRef::Hidden("the dialog shows its own hint line"),
     },
     crate::keymap::SCROLL_DIALOG,
 ];
 
-/// Keys within this long of the dialog opening, or of the last key it ignored, are not taken as answers: a sentence
-/// being typed to the agent (an `enter` in it) must not create the plan.
+/// Keys within this long of the dialog opening by itself, or of the last key it ignored, are not taken as answers: a
+/// sentence being typed to the agent (an `enter` in it) must not create the plan.
 pub const QUIET_MS: i64 = 750;
 
 /// How long a UI that came back for a plan waits for it before it stops meaning to attach again.
 pub const REATTACH_WAIT: Duration = Duration::from_secs(10);
 
+/// The longest note for the orchestrator a cancel takes (UTF-16 units).
+pub const MAX_NOTE: usize = 500;
+
+/// The answer sent for the shown plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Answer {
+    Create,
+    Cancel,
+    PutAside,
+}
+
 /// The plans waiting for an answer and the dialog's state.
 #[derive(Debug, Default)]
 pub struct PlanState {
-    /// Every plan waiting, oldest first; the dialog shows the first.
+    /// Every plan waiting, oldest first.
     pub queue: Vec<PendingPlan>,
-    /// The answer sent for the shown plan (`true`: create), until the daemon settles it.
-    pub answering: Option<bool>,
+    /// The plan the dialog shows.
+    pub shown: Option<String>,
+    /// The answer sent for the shown plan, until the daemon settles it (or answers the request).
+    pub answering: Option<Answer>,
+    /// After the first `x`: the note for the orchestrator typed so far (the cancel line shows).
+    pub cancelling: Option<String>,
     /// Why the last answer failed.
     pub error: Option<String>,
-    /// When the dialog opened, or the last key it held back came (epoch milliseconds): see [`QUIET_MS`].
+    /// When the dialog opened by itself, or the last key it held back came (epoch milliseconds): see [`QUIET_MS`].
     pub held_since: Option<i64>,
     /// The typing the dialog took over (preview or terminal focus) in that session, given back after the answer.
     pub refocus: Option<(Mode, String)>,
@@ -75,22 +105,26 @@ pub struct PlanState {
     pub reattach_timer: Option<Timer>,
 }
 
-/// On mount, with an attach to go back to: forgotten unless a plan is waiting by [`REATTACH_WAIT`].
+fn parked(plan: &PendingPlan) -> bool {
+    plan.parked == Some(true)
+}
+
+/// On mount, with an attach to go back to: forgotten unless a new plan is waiting by [`REATTACH_WAIT`].
 pub fn arm_reattach(app: &mut App) {
     if app.plans.reattach.is_none() {
         return;
     }
     app.plans.reattach_timer = Some(app.dispatch().after(REATTACH_WAIT, |app: &mut App| {
         app.plans.reattach_timer = None;
-        if app.plans.queue.is_empty() {
+        if !app.plans.queue.iter().any(|plan| !parked(plan)) && app.mode != Mode::ConfirmPlan {
             app.plans.reattach = None;
         }
     }));
 }
 
-/// `plan-pending`: queues the plan (oldest first; one already queued is replaced) and shows it if it can.
+/// `plan-pending`: queues the plan (oldest first; one already queued is replaced, as when it was put aside) and shows
+/// a new one if it can.
 pub fn plan_pending(app: &mut App, plan: PendingPlan) {
-    let shown = shown_id(app);
     let queue = &mut app.plans.queue;
     match queue.iter_mut().find(|queued| queued.id == plan.id) {
         Some(queued) => *queued = plan,
@@ -98,17 +132,31 @@ pub fn plan_pending(app: &mut App, plan: PendingPlan) {
     }
     // ISO timestamps sort as text.
     queue.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
-    if shown.is_some() && shown != shown_id(app) {
-        // An older plan came first (after a reconnect): it shows from the top, answered by nobody yet.
-        show_next(app);
+    // An older new plan came after the one shown (a reconnect sends them again): it shows first, answered by nobody
+    // yet. One opened with `P` stays.
+    if let Some((shown, _)) = shown_plan(app).filter(|(plan, _)| app.mode == Mode::ConfirmPlan && !parked(plan))
+        && app.plans.answering.is_none()
+        && app.plans.cancelling.is_none()
+    {
+        let shown = shown.id.clone();
+        let oldest = app
+            .plans
+            .queue
+            .iter()
+            .find(|plan| !parked(plan))
+            .map(|plan| plan.id.clone());
+        if let Some(oldest) = oldest.filter(|oldest| *oldest != shown) {
+            show(app, oldest, true);
+        }
     }
     open_if_free(app);
 }
 
-/// `plan-settled`: the plan is no longer waiting (answered by any Deckhand, or expired). The dialog moves on.
+/// `plan-settled`: the plan is no longer waiting (answered by any Deckhand, or its orchestrator ended). The dialog
+/// moves on.
 pub fn plan_settled(app: &mut App, settled: &PlanSettled) {
     if shown_id(app).as_deref() == Some(settled.plan_id.as_str()) {
-        close_shown(app, settled.decision);
+        close_shown(app, Some(settled.decision));
         return;
     }
     app.plans.queue.retain(|plan| plan.id != settled.plan_id);
@@ -118,7 +166,9 @@ pub fn plan_settled(app: &mut App, settled: &PlanSettled) {
 /// meanwhile is not, so the queue starts over.
 pub fn connection_lost(app: &mut App) {
     app.plans.queue.clear();
+    app.plans.shown = None;
     app.plans.answering = None;
+    app.plans.cancelling = None;
     app.plans.error = None;
     app.plans.refocus = None;
     if app.mode == Mode::ConfirmPlan {
@@ -129,22 +179,62 @@ pub fn connection_lost(app: &mut App) {
 /// The plan the dialog shows.
 fn shown_id(app: &App) -> Option<String> {
     (app.mode == Mode::ConfirmPlan)
-        .then(|| app.plans.queue.first().map(|plan| plan.id.clone()))
+        .then(|| app.plans.shown.clone())
         .flatten()
 }
 
-/// Whether a plan waits that the dialog does not show (the header and footer say so).
-pub fn plan_waiting_hidden(app: &App) -> bool {
-    !app.plans.queue.is_empty() && app.mode != Mode::ConfirmPlan
+/// The plan the dialog shows, and how many others wait.
+pub fn shown_plan(app: &App) -> Option<(&PendingPlan, usize)> {
+    let id = app.plans.shown.as_deref()?;
+    let plan = app.plans.queue.iter().find(|plan| plan.id == id)?;
+    Some((plan, app.plans.queue.len() - 1))
 }
 
-/// Shows the first waiting plan when nothing would be lost: from the session list, or typing to an agent or a shell
-/// (left, and given back after the answer). Runs as an effect too, so a plan that waited opens as you leave a screen.
+/// How many plans wait that the dialog does not show (the header says so).
+pub fn plans_waiting_hidden(app: &App) -> usize {
+    if app.mode == Mode::ConfirmPlan {
+        0
+    } else {
+        app.plans.queue.len()
+    }
+}
+
+/// Whether a new plan (not put aside) waits behind the screen shown, to open once you close it (the footer says so).
+pub fn new_plan_waiting_hidden(app: &App) -> bool {
+    app.mode != Mode::ConfirmPlan && app.plans.queue.iter().any(|plan| !parked(plan))
+}
+
+/// How many plans the session `id` applied wait for an answer (its details say so).
+pub fn plans_of(app: &App, id: &str) -> usize {
+    app.plans
+        .queue
+        .iter()
+        .filter(|plan| plan.caller_session_id.as_deref() == Some(id))
+        .count()
+}
+
+/// The header's word for `count` plans waiting: `◎ 1 plan waiting · P`.
+pub fn waiting_text(count: usize) -> String {
+    let plans = if count == 1 { "plan" } else { "plans" };
+    format!("◎ {count} {plans} waiting · P")
+}
+
+/// Shows the oldest new plan (not put aside) when nothing would be lost: from the session list, or typing to an agent
+/// or a shell (left, and given back after the answer). Runs as an effect too, so a plan that waited opens as you leave
+/// a screen.
 pub fn open_if_free(app: &mut App) {
-    if app.plans.queue.is_empty() || app.mode == Mode::ConfirmPlan || app.messages.busy || app.connection.exit.is_some()
-    {
+    if app.mode == Mode::ConfirmPlan || app.messages.busy || app.connection.exit.is_some() {
         return;
     }
+    let Some(id) = app
+        .plans
+        .queue
+        .iter()
+        .find(|plan| !parked(plan))
+        .map(|plan| plan.id.clone())
+    else {
+        return;
+    };
     match app.mode {
         Mode::Browse => {}
         Mode::PreviewFocus | Mode::TerminalFocus => {
@@ -158,31 +248,61 @@ pub fn open_if_free(app: &mut App) {
         _ => return,
     }
     app.set_mode(Mode::ConfirmPlan);
-    show_next(app);
+    show(app, id, true);
 }
 
-/// The dialog starts over for the plan now first: no answer, no error, at the top, keys quiet for a moment.
-fn show_next(app: &mut App) {
+/// `P` on the session list: the oldest plan waiting, put aside or not.
+pub fn reopen(app: &mut App) {
+    let Some(id) = app.plans.queue.first().map(|plan| plan.id.clone()) else {
+        app.set_status(Some("No plan is waiting".to_owned()));
+        return;
+    };
+    app.set_mode(Mode::ConfirmPlan);
+    show(app, id, false);
+}
+
+/// The dialog starts over for plan `id`: no answer, no error, at the top; keys quiet for a moment when it opened by
+/// itself (`quiet`).
+fn show(app: &mut App, id: String, quiet: bool) {
+    app.plans.shown = Some(id);
     app.plans.answering = None;
+    app.plans.cancelling = None;
     app.plans.error = None;
-    app.plans.held_since = Some(now_ms());
+    app.plans.held_since = quiet.then(now_ms);
     app.dialog = DialogState::default();
 }
 
-/// The shown plan was settled (`decision`): the next one shows, or the dialog closes, saying how it ended, and what
-/// the plans interrupted comes back.
-fn close_shown(app: &mut App, decision: PlanDecision) {
-    if app.plans.queue.is_empty() {
+/// The shown plan was settled (`decision`; `None`: put aside): the next new plan shows, or the dialog closes, saying
+/// how it ended, and what the plans interrupted comes back.
+fn close_shown(app: &mut App, decision: Option<PlanDecision>) {
+    let Some(id) = app.plans.shown.take() else {
         return;
-    }
-    let plan = app.plans.queue.remove(0);
+    };
     let ours = app.plans.answering.is_some();
-    app.set_status(Some(settled_text(&plan, decision, ours)));
-    if !app.plans.queue.is_empty() {
-        show_next(app);
+    let plan = app.plans.queue.iter().find(|plan| plan.id == id).cloned();
+    match decision {
+        Some(_) => app.plans.queue.retain(|plan| plan.id != id),
+        None => {
+            if let Some(plan) = app.plans.queue.iter_mut().find(|plan| plan.id == id) {
+                plan.parked = Some(true);
+            }
+        }
+    }
+    if let Some(plan) = plan {
+        app.set_status(Some(settled_text(&plan, decision, ours)));
+    }
+    if let Some(next) = app
+        .plans
+        .queue
+        .iter()
+        .find(|plan| !parked(plan))
+        .map(|plan| plan.id.clone())
+    {
+        show(app, next, true);
         return;
     }
     app.plans.answering = None;
+    app.plans.cancelling = None;
     app.plans.error = None;
     app.set_mode(Mode::Browse);
     let refocus = app.plans.refocus.take();
@@ -190,14 +310,20 @@ fn close_shown(app: &mut App, decision: PlanDecision) {
     give_back(app, refocus, reattach);
 }
 
-/// What the status line says once a plan is settled.
-fn settled_text(plan: &PendingPlan, decision: PlanDecision, ours: bool) -> String {
+/// What the status line says once a plan is settled (`None`: put aside).
+fn settled_text(plan: &PendingPlan, decision: Option<PlanDecision>, ours: bool) -> String {
+    let told = if plan.caller_session_id.is_some() {
+        " (the orchestrator is told)"
+    } else {
+        ""
+    };
     match (decision, ours) {
-        (PlanDecision::Approved, true) => format!("Plan approved: creating {}", plan.summary.counts),
-        (PlanDecision::Rejected, true) => "Plan cancelled: nothing was created".to_owned(),
-        (PlanDecision::Approved, false) => "The plan was approved in another Deckhand".to_owned(),
-        (PlanDecision::Rejected, false) => "The plan was cancelled in another Deckhand".to_owned(),
-        (PlanDecision::Expired, _) => "The plan expired unanswered: nothing was created".to_owned(),
+        (None, _) => "Plan put aside: P opens it again".to_owned(),
+        (Some(PlanDecision::Approved), true) => format!("Plan approved: creating {}{told}", plan.summary.counts),
+        (Some(PlanDecision::Rejected), true) => format!("Plan cancelled: nothing was created{told}"),
+        (Some(PlanDecision::Approved), false) => "The plan was approved in another Deckhand".to_owned(),
+        (Some(PlanDecision::Rejected), false) => "The plan was cancelled in another Deckhand".to_owned(),
+        (Some(PlanDecision::Dropped), _) => "The plan was dropped: its orchestrator ended".to_owned(),
     }
 }
 
@@ -231,7 +357,8 @@ fn give_back(app: &mut App, refocus: Option<(Mode, String)>, reattach: Option<Ui
     }
 }
 
-/// confirm-plan's keys: `enter` creates the plan, `esc` cancels it; J/K scroll (in `App::handle_input`).
+/// confirm-plan's keys: `enter` creates the plan, `esc` (`←`, `h`) puts it aside, `x` twice cancels it; J/K scroll (in
+/// `App::handle_input`).
 pub fn handle_confirm_plan(app: &mut App, input: &Input) {
     handle_confirm_plan_at(app, input, now_ms());
 }
@@ -248,40 +375,116 @@ pub fn handle_confirm_plan_at(app: &mut App, input: &Input, now: i64) {
     if app.plans.answering.is_some() {
         return;
     }
-    if input.key.return_ {
-        answer(app, true);
-    } else if input.key.escape {
-        answer(app, false);
+    if app.plans.cancelling.is_some() {
+        handle_cancel_line(app, input);
+        return;
+    }
+    let key = &input.key;
+    if key.return_ {
+        answer(app, Answer::Create, None);
+    } else if key.escape || key.left_arrow || (!key.ctrl && input.input == "h") {
+        put_aside(app);
+    } else if !key.ctrl && input.input == "x" {
+        app.plans.cancelling = Some(String::new());
+        app.plans.error = None;
     }
 }
 
-/// Sends the answer for the shown plan. The dialog closes when the daemon settles it (or answers this request);
-/// a refusal shows in the dialog.
-fn answer(app: &mut App, approve: bool) {
-    let Some(plan_id) = app.plans.queue.first().map(|plan| plan.id.clone()) else {
+/// The cancel line, after the first `x`: `x` again (before any note) or `enter` cancels the plan, with the note typed
+/// for the orchestrator; `esc` goes back. A plan applied by hand has nobody to tell: it takes no note.
+fn handle_cancel_line(app: &mut App, input: &Input) {
+    let key = &input.key;
+    let note = app.plans.cancelling.clone().unwrap_or_default();
+    if key.escape {
+        app.plans.cancelling = None;
+        return;
+    }
+    if key.return_ || (note.is_empty() && !key.ctrl && input.input == "x") {
+        answer(
+            app,
+            Answer::Cancel,
+            Some(note.trim().to_owned()).filter(|note| !note.is_empty()),
+        );
+        return;
+    }
+    let takes_note = shown_plan(app).is_some_and(|(plan, _)| plan.caller_session_id.is_some());
+    if !takes_note || key.ctrl || key.meta {
+        return;
+    }
+    let Some(field) = app.plans.cancelling.as_mut() else {
+        return;
+    };
+    if key.backspace || key.delete {
+        field.pop();
+        return;
+    }
+    let typed = strip_terminal_controls(&input.input.replace("\r\n", " ").replace(['\r', '\n', '\t'], " "));
+    for c in typed.chars() {
+        if js_len(field) + c.len_utf16() > MAX_NOTE {
+            break;
+        }
+        field.push(c);
+    }
+}
+
+/// Puts the shown plan aside (`plan-park`; one opened with `P` is aside already) and moves on.
+fn put_aside(app: &mut App) {
+    let Some((plan, _)) = shown_plan(app) else {
+        return;
+    };
+    if parked(plan) {
+        close_shown(app, None);
+        return;
+    }
+    let plan_id = plan.id.clone();
+    let Some(client) = app.client() else {
+        app.plans.error = Some("still connecting to daemon".to_owned());
+        return;
+    };
+    app.plans.answering = Some(Answer::PutAside);
+    app.plans.error = None;
+    let reply = client.plan_park(&plan_id);
+    drop(app.dispatch().spawn(reply, move |app: &mut App, result| {
+        let shown = shown_id(app).as_deref() == Some(plan_id.as_str());
+        match result {
+            Ok(()) if shown => close_shown(app, None),
+            Ok(()) => {}
+            Err(error) if shown => {
+                app.plans.answering = None;
+                app.plans.error = Some(error_message(&error));
+            }
+            Err(error) => app.set_error(Some(error_message(&error))),
+        }
+    }));
+}
+
+/// Sends the answer for the shown plan (`note`: the user's word to the orchestrator, cancelling). The dialog moves on
+/// when the daemon settles it (or answers this request); a refusal shows in the dialog.
+fn answer(app: &mut App, answer: Answer, note: Option<String>) {
+    let Some(plan_id) = app.plans.shown.clone() else {
         return;
     };
     let Some(client) = app.client() else {
         app.plans.error = Some("still connecting to daemon".to_owned());
         return;
     };
-    app.plans.answering = Some(approve);
+    let approve = answer == Answer::Create;
+    app.plans.answering = Some(answer);
     app.plans.error = None;
-    let reply = client.plan_decide(&plan_id, approve);
+    let reply = client.plan_decide(&plan_id, approve, note.as_deref());
     drop(app.dispatch().spawn(reply, move |app: &mut App, result| {
         let shown = shown_id(app).as_deref() == Some(plan_id.as_str());
+        let decision = if approve {
+            PlanDecision::Approved
+        } else {
+            PlanDecision::Rejected
+        };
         match result {
-            Ok(()) if shown => close_shown(
-                app,
-                if approve {
-                    PlanDecision::Approved
-                } else {
-                    PlanDecision::Rejected
-                },
-            ),
+            Ok(()) if shown => close_shown(app, Some(decision)),
             Ok(()) => app.plans.queue.retain(|plan| plan.id != plan_id),
             Err(error) if shown => {
                 app.plans.answering = None;
+                app.plans.cancelling = None;
                 app.plans.error = Some(error_message(&error));
             }
             Err(error) => app.set_error(Some(error_message(&error))),
@@ -293,11 +496,12 @@ fn answer(app: &mut App, approve: bool) {
 #[derive(Clone, Copy, Debug)]
 pub struct PlanDialogProps<'a> {
     pub plan: &'a PendingPlan,
-    /// Plans waiting after this one.
+    /// Plans waiting besides this one.
     pub more: usize,
-    pub answering: Option<bool>,
+    pub answering: Option<Answer>,
+    /// After the first `x`: the note typed so far.
+    pub cancelling: Option<&'a str>,
     pub error: Option<&'a str>,
-    pub now_ms: i64,
 }
 
 fn text(text: impl Into<String>, style: TextStyle) -> Row {
@@ -308,7 +512,8 @@ fn text(text: impl Into<String>, style: TextStyle) -> Row {
 const BRIEF_ROWS: usize = 4;
 
 /// The dialog `width` wide: what the plan holds (and the idea it is for), its tree of sessions, its parked work (or
-/// backlog tasks), the idea's brief and when it expires; the answer keys (or the answer being sent) at the bottom.
+/// backlog tasks), the idea's brief and how many more plans wait; the answer keys (or the answer being sent, or the
+/// cancel line) at the bottom.
 pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
     let content_width = usize::from(width).saturating_sub(4).max(1);
     let muted = TextStyle::fg(THEME.muted);
@@ -388,17 +593,13 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
         }
     }
     rows.footer.push(Vec::new());
-    let mut waits = Vec::new();
-    if let Some(expiry) = expiry_text(&plan.expires_at, props.now_ms) {
-        waits.push(format!("Unanswered, it {expiry}."));
-    }
     if props.more > 0 {
         let plans = if props.more == 1 { "plan" } else { "plans" };
-        waits.push(format!("{} more {plans} waiting.", props.more));
-    }
-    if !waits.is_empty() {
-        rows.footer
-            .extend(fit_row(&text(waits.join(" "), muted), content_width, Wrap::Wrap));
+        rows.footer.extend(fit_row(
+            &text(format!("{} more {plans} waiting.", props.more), muted),
+            content_width,
+            Wrap::Wrap,
+        ));
     }
     if let Some(error) = props.error.filter(|error| !error.is_empty()) {
         rows.footer.extend(fit_row(
@@ -407,11 +608,25 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
             Wrap::Wrap,
         ));
     }
+    let takes_note = plan.caller_session_id.is_some();
+    if let (Some(note), None) = (props.cancelling, props.answering) {
+        let mut line = vec![Seg::new("Cancel this plan? ", TextStyle::fg(THEME.warn).bold(true))];
+        if takes_note {
+            line.push(Seg::new("A note for the orchestrator (optional): ", muted));
+            line.push(Seg::new(format!("{note}▏"), TextStyle::fg(THEME.accent_soft)));
+        }
+        rows.footer.extend(fit_row(&line, content_width, Wrap::Wrap));
+    }
     let hint = match props.answering {
-        Some(true) => "Creating…".to_owned(),
-        Some(false) => "Cancelling…".to_owned(),
+        Some(Answer::Create) => "Creating…".to_owned(),
+        Some(Answer::Cancel) => "Cancelling…".to_owned(),
+        Some(Answer::PutAside) => "Putting it aside…".to_owned(),
         None => {
-            let parts: Vec<HintPart> = vec!["enter create".into(), "esc cancel".into()];
+            let parts: Vec<HintPart> = match props.cancelling {
+                Some(note) if !note.is_empty() => vec!["enter cancel it with this note".into(), "esc back".into()],
+                Some(_) => vec!["x or enter cancel it".into(), "esc back".into()],
+                None => vec!["enter create".into(), "esc put aside".into(), "x x cancel".into()],
+            };
             fit_hint(&parts, content_width, " • ")
         }
     };
@@ -433,14 +648,14 @@ mod tests {
     use deckhand_protocol::data::PlanDecision;
 
     use super::*;
-    use crate::app::layout::{PLAN_WAITING_HEADER, PLAN_WAITING_MESSAGE, footer_messages, header_rows};
+    use crate::app::layout::{PLAN_WAITING_MESSAGE, footer_messages, header_rows};
     use crate::app::modes::browse::tests::{Daemon, apply, local, named, text};
     use crate::app::state::AppProps;
     use crate::app::test_support::{app, session};
     use crate::primitives::{row_text, string_width};
 
-    /// A plan of Auth rework (with Token storage under it) and a script, with one backlog task; created `minute`
-    /// minutes past noon, waiting 15 minutes.
+    /// A plan of Auth rework (with Token storage under it) and a script, with one backlog task, from the orchestrator
+    /// `orch`; created `minute` minutes past noon.
     fn pending(id: &str, minute: u32) -> PendingPlan {
         serde_json::from_value(json!({
             "id": id,
@@ -459,9 +674,15 @@ mod tests {
                 "counts": "3 sessions, 1 task",
             },
             "createdAt": format!("2026-11-14T12:{minute:02}:00.000Z"),
-            "expiresAt": format!("2026-11-14T12:{:02}:00.000Z", minute + 15),
         }))
         .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// [`pending`], put aside.
+    fn parked(id: &str, minute: u32) -> PendingPlan {
+        let mut plan = pending(id, minute);
+        plan.parked = Some(true);
+        plan
     }
 
     fn settled(id: &str, decision: PlanDecision) -> PlanSettled {
@@ -485,6 +706,13 @@ mod tests {
         })
     }
 
+    fn backspace() -> Input {
+        named(Key {
+            backspace: true,
+            ..Key::NONE
+        })
+    }
+
     /// A key after the dialog's quiet moment.
     fn press(app: &mut App, input: &Input) {
         let later = app.plans.held_since.map_or_else(now_ms, |since| since + QUIET_MS);
@@ -493,29 +721,34 @@ mod tests {
 
     fn shown(app: &App) -> Option<&str> {
         (app.mode == Mode::ConfirmPlan)
-            .then(|| app.plans.queue.first().map(|plan| plan.id.as_str()))
+            .then_some(app.plans.shown.as_deref())
             .flatten()
     }
 
+    fn header(app: &App) -> String {
+        row_text(&header_rows(app)[0])
+    }
+
     #[test]
-    fn a_waiting_plan_opens_the_dialog_and_enter_creates_it() {
+    fn a_new_plan_opens_the_dialog_and_enter_creates_it() {
         local(async {
             let (mut app, mut rx) = app(AppProps::default());
             let mut daemon = Daemon::connect(&mut app);
             plan_pending(&mut app, pending("p1", 0));
             assert_eq!(shown(&app), Some("p1"));
-            // Keys typed on as it opens are not answers; nor is anything but enter and esc.
+            // Keys typed on as it opens are not answers; nor is anything but its keys.
             let opened = app.plans.held_since.unwrap_or_default();
             handle_confirm_plan_at(&mut app, &enter(), opened + 100);
             handle_confirm_plan_at(&mut app, &enter(), opened + 100 + QUIET_MS - 1);
-            press(&mut app, &text("x"));
+            press(&mut app, &text("q"));
             assert_eq!(app.plans.answering, None);
             press(&mut app, &enter());
-            assert_eq!(app.plans.answering, Some(true));
+            assert_eq!(app.plans.answering, Some(Answer::Create));
             let decide = daemon.next().await;
             assert_eq!(decide["type"], "plan-decide");
             assert_eq!(decide["planId"], "p1");
             assert_eq!(decide["approve"], true);
+            assert!(decide.get("note").is_none());
             // While the answer is on its way, keys do nothing more.
             press(&mut app, &esc());
             daemon.ok(&decide, json!({"ok": true})).await;
@@ -524,7 +757,7 @@ mod tests {
             assert!(app.plans.queue.is_empty());
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Plan approved: creating 3 sessions, 1 task")
+                Some("Plan approved: creating 3 sessions, 1 task (the orchestrator is told)")
             );
             // Its plan-settled, arriving after, changes nothing.
             plan_settled(&mut app, &settled("p1", PlanDecision::Approved));
@@ -533,18 +766,158 @@ mod tests {
     }
 
     #[test]
-    fn esc_cancels_and_a_refusal_shows_in_the_dialog_until_it_is_settled() {
+    fn x_twice_cancels_and_a_note_typed_between_goes_to_the_orchestrator() {
         local(async {
             let (mut app, mut rx) = app(AppProps::default());
             let mut daemon = Daemon::connect(&mut app);
             plan_pending(&mut app, pending("p1", 0));
+            plan_pending(&mut app, pending("p2", 1));
+            // x opens the cancel line; esc goes back to the plan, which still waits.
+            press(&mut app, &text("x"));
+            assert_eq!(app.plans.cancelling.as_deref(), Some(""));
+            assert!(app.typing_in_field());
             press(&mut app, &esc());
+            assert_eq!((shown(&app), app.plans.cancelling.as_deref()), (Some("p1"), None));
+            // x x: cancelled, no note.
+            press(&mut app, &text("x"));
+            press(&mut app, &text("x"));
+            assert_eq!(app.plans.answering, Some(Answer::Cancel));
+            let decide = daemon.next().await;
+            assert_eq!(
+                (decide["planId"].as_str(), decide["approve"].as_bool()),
+                (Some("p1"), Some(false))
+            );
+            assert!(decide.get("note").is_none());
+            daemon.ok(&decide, json!({"ok": true})).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Plan cancelled: nothing was created (the orchestrator is told)")
+            );
+            // The next one shows; x, then a note (x is a letter once there is text), then enter.
+            assert_eq!(shown(&app), Some("p2"));
+            press(&mut app, &text("x"));
+            press(&mut app, &text("Split the tests out"));
+            press(&mut app, &text("x"));
+            press(&mut app, &backspace());
+            press(&mut app, &text("\u{1b}[200~ please\r\nthanks\u{1b}[201~"));
+            assert_eq!(
+                app.plans.cancelling.as_deref(),
+                Some("Split the tests out please thanks")
+            );
+            let rows = plan_dialog_rows(&props(&app), 96);
+            let lines = texts(&rows);
+            assert!(
+                lines.contains(
+                    &"Cancel this plan? A note for the orchestrator (optional): Split the tests out please thanks▏"
+                        .to_owned()
+                ),
+                "{lines:#?}"
+            );
+            assert_eq!(
+                lines.last().map(String::as_str),
+                Some("enter cancel it with this note • esc back")
+            );
+            press(&mut app, &enter());
+            let decide = daemon.next().await;
+            assert_eq!(decide["planId"], "p2");
+            assert_eq!(decide["approve"], false);
+            assert_eq!(decide["note"], "Split the tests out please thanks");
+        });
+    }
+
+    #[test]
+    fn a_plan_applied_by_hand_cancels_without_a_note() {
+        local(async {
+            let (mut app, _rx) = app(AppProps::default());
+            let mut daemon = Daemon::connect(&mut app);
+            let mut plan = pending("p1", 0);
+            plan.caller_session_id = None;
+            plan.caller_title = None;
+            plan_pending(&mut app, plan);
+            press(&mut app, &text("x"));
+            // Nobody to tell: letters are not taken as a note.
+            press(&mut app, &text("why"));
+            assert_eq!(app.plans.cancelling.as_deref(), Some(""));
+            let lines = texts(&plan_dialog_rows(&props(&app), 96));
+            assert!(lines.contains(&"Cancel this plan?".to_owned()), "{lines:#?}");
+            assert_eq!(
+                lines.last().map(String::as_str),
+                Some("x or enter cancel it • esc back")
+            );
+            press(&mut app, &enter());
             let decide = daemon.next().await;
             assert_eq!(decide["approve"], false);
+            assert!(decide.get("note").is_none());
+        });
+    }
+
+    #[test]
+    fn esc_puts_the_plan_aside_and_p_opens_it_again() {
+        local(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            let mut daemon = Daemon::connect(&mut app);
+            app.data.repo_sessions = vec![session("orch", "Orchestrator", SessionStatus::Running)];
+            plan_pending(&mut app, pending("p1", 0));
+            assert!(!header(&app).contains("plan waiting"));
+            press(&mut app, &esc());
+            assert_eq!(app.plans.answering, Some(Answer::PutAside));
+            let park = daemon.next().await;
+            assert_eq!(park["type"], "plan-park");
+            assert_eq!(park["planId"], "p1");
+            daemon.ok(&park, json!({"ok": true})).await;
+            apply(&mut app, &mut rx).await;
+            // Closed, still waiting: the header says so and which key opens it; nothing was answered.
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.plans.queue.len(), 1);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Plan put aside: P opens it again")
+            );
+            assert!(header(&app).contains("◎ 1 plan waiting · P"), "{}", header(&app));
+            // No footer line: it does not open by itself, not even when the daemon sends it again (parked).
+            assert!(
+                !footer_messages(&app)
+                    .iter()
+                    .any(|message| message.text == PLAN_WAITING_MESSAGE)
+            );
+            plan_pending(&mut app, parked("p1", 0));
+            assert_eq!(app.mode, Mode::Browse);
+            // P on the session list opens it, at once (no quiet moment); esc closes it again without asking anyone.
+            app.handle_input(&text("P"));
+            assert_eq!(shown(&app), Some("p1"));
+            assert_eq!(app.plans.held_since, None);
+            press(&mut app, &text("h"));
+            assert_eq!(app.mode, Mode::Browse);
+            // Opened again, enter creates it (the next request: putting it aside again sent nothing).
+            app.handle_input(&text("P"));
+            press(&mut app, &enter());
+            let decide = daemon.next().await;
+            assert_eq!(decide["type"], "plan-decide");
+            assert_eq!(
+                (decide["planId"].as_str(), decide["approve"].as_bool()),
+                (Some("p1"), Some(true))
+            );
+            // With nothing waiting, P says so.
+            let (mut empty, _rx) = crate::app::test_support::app(AppProps::default());
+            empty.handle_input(&text("P"));
+            assert_eq!(empty.mode, Mode::Browse);
+            assert_eq!(empty.messages.status_message.as_deref(), Some("No plan is waiting"));
+        });
+    }
+
+    #[test]
+    fn a_refusal_shows_in_the_dialog_until_the_plan_is_dropped() {
+        local(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            let mut daemon = Daemon::connect(&mut app);
+            plan_pending(&mut app, pending("p1", 0));
+            press(&mut app, &enter());
+            let decide = daemon.next().await;
             daemon
                 .fail(
                     &decide,
-                    "No plan p1 is waiting for an answer (it was answered or expired)",
+                    "No plan p1 is waiting for an answer (it was answered already, or its orchestrator ended)",
                 )
                 .await;
             apply(&mut app, &mut rx).await;
@@ -552,30 +925,34 @@ mod tests {
             assert_eq!(app.plans.answering, None);
             let error = app.plans.error.clone().unwrap_or_default();
             assert!(error.starts_with("No plan p1 is waiting"), "{error}");
-            let rows = plan_dialog_rows(&props(&app, 0), 80);
+            let rows = plan_dialog_rows(&props(&app), 80);
             assert!(texts(&rows).iter().any(|row| row.starts_with("No plan p1 is waiting")));
-            // The daemon says it expired: the dialog closes and says so.
-            plan_settled(&mut app, &settled("p1", PlanDecision::Expired));
+            // The daemon says its orchestrator ended: the dialog closes and says so.
+            plan_settled(&mut app, &settled("p1", PlanDecision::Dropped));
             assert_eq!(app.mode, Mode::Browse);
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("The plan expired unanswered: nothing was created")
+                Some("The plan was dropped: its orchestrator ended")
             );
         });
     }
 
     #[test]
-    fn plans_wait_their_turn_oldest_first_and_close_when_answered_elsewhere() {
+    fn new_plans_open_oldest_first_and_plans_put_aside_wait_for_p() {
         let (mut app, _rx) = app(AppProps::default());
+        // One put aside earlier (sent again after a subscribe) does not open by itself.
+        plan_pending(&mut app, parked("aside", 0));
+        assert_eq!(app.mode, Mode::Browse);
         plan_pending(&mut app, pending("later", 5));
         plan_pending(&mut app, pending("first", 1));
-        // The older one shows first; the newer waits after it.
+        // The oldest new one shows first; the dialog counts every other plan waiting.
         assert_eq!(shown(&app), Some("first"));
-        assert_eq!(app.plans.queue.len(), 2);
-        // Sent again (a reconnect): still one of each.
+        assert_eq!(app.plans.queue.len(), 3);
+        assert_eq!(props(&app).more, 2);
+        // Sent again (a reconnect): still one of each, and the dialog stays on what it shows.
         plan_pending(&mut app, pending("later", 5));
-        assert_eq!(app.plans.queue.len(), 2);
-        // Answered in another Deckhand: the next one shows, from the top, with keys quiet again.
+        assert_eq!((app.plans.queue.len(), shown(&app)), (3, Some("first")));
+        // Answered in another Deckhand: the next new one shows, from the top, with keys quiet again.
         app.dialog.scroll = 3;
         plan_settled(&mut app, &settled("first", PlanDecision::Approved));
         assert_eq!(shown(&app), Some("later"));
@@ -587,12 +964,16 @@ mod tests {
         );
         // A plan settled that is not shown just leaves the queue.
         plan_pending(&mut app, pending("third", 9));
-        plan_settled(&mut app, &settled("third", PlanDecision::Expired));
-        assert_eq!(app.plans.queue.len(), 1);
+        plan_settled(&mut app, &settled("third", PlanDecision::Dropped));
+        assert_eq!(app.plans.queue.len(), 2);
+        // The last new one answered: the one put aside stays aside.
         plan_settled(&mut app, &settled("later", PlanDecision::Rejected));
         assert_eq!(app.mode, Mode::Browse);
+        assert_eq!(app.plans.queue.len(), 1);
+        // P shows the oldest plan waiting.
+        reopen(&mut app);
+        assert_eq!(shown(&app), Some("aside"));
         // Losing the daemon drops the queue: the next subscribe sends what still waits.
-        plan_pending(&mut app, pending("again", 2));
         connection_lost(&mut app);
         assert_eq!(app.mode, Mode::Browse);
         assert!(app.plans.queue.is_empty());
@@ -606,16 +987,16 @@ mod tests {
         plan_pending(&mut app, pending("p1", 0));
         assert_eq!(app.mode, Mode::EnterName);
         assert_eq!(app.create.draft_name, "half a na");
-        assert!(plan_waiting_hidden(&app));
+        assert!(new_plan_waiting_hidden(&app));
         let messages: Vec<String> = footer_messages(&app).into_iter().map(|message| message.text).collect();
         assert!(messages.contains(&PLAN_WAITING_MESSAGE.to_owned()), "{messages:?}");
-        assert!(row_text(&header_rows(&app)[0]).contains(PLAN_WAITING_HEADER));
+        assert!(header(&app).contains("◎ 1 plan waiting · P"));
         // Leaving the form for the session list opens it (the effect pass does this after each update).
         app.set_mode(Mode::Browse);
         open_if_free(&mut app);
         assert_eq!(shown(&app), Some("p1"));
-        assert!(!plan_waiting_hidden(&app));
-        assert!(!row_text(&header_rows(&app)[0]).contains(PLAN_WAITING_HEADER));
+        assert!(!new_plan_waiting_hidden(&app));
+        assert!(!header(&app).contains("plan waiting"));
     }
 
     #[test]
@@ -631,15 +1012,11 @@ mod tests {
             assert_eq!(shown(&app), Some("p1"));
             assert_eq!(app.preview_focus.session_id, None);
             press(&mut app, &esc());
-            let decide = daemon.next().await;
-            daemon.ok(&decide, json!({"ok": true})).await;
+            let park = daemon.next().await;
+            daemon.ok(&park, json!({"ok": true})).await;
             apply(&mut app, &mut rx).await;
             assert_eq!(app.mode, Mode::PreviewFocus);
             assert_eq!(app.preview_focus.session_id.as_deref(), Some("a"));
-            assert_eq!(
-                app.messages.status_message.as_deref(),
-                Some("Plan cancelled: nothing was created")
-            );
         });
     }
 
@@ -658,21 +1035,26 @@ mod tests {
     }
 
     #[test]
-    fn answering_the_plan_an_attach_was_left_for_attaches_again() {
+    fn answering_or_putting_aside_the_plan_an_attach_was_left_for_attaches_again() {
         local(async {
-            let props = AppProps {
-                plan_reattach: Some(attach("orch")),
-                ..AppProps::default()
-            };
-            let (mut app, mut rx) = app(props);
-            let mut daemon = Daemon::connect(&mut app);
-            app.data.repo_sessions = vec![session("orch", "Orchestrator", SessionStatus::Running)];
-            plan_pending(&mut app, pending("p1", 0));
-            press(&mut app, &enter());
-            let decide = daemon.next().await;
-            daemon.ok(&decide, json!({"ok": true})).await;
-            apply(&mut app, &mut rx).await;
-            assert_eq!(app.connection.exit, Some(attach("orch")));
+            for key in [enter(), esc()] {
+                let props = AppProps {
+                    plan_reattach: Some(attach("orch")),
+                    ..AppProps::default()
+                };
+                let (mut app, mut rx) = app(props);
+                let mut daemon = Daemon::connect(&mut app);
+                app.data.repo_sessions = vec![session("orch", "Orchestrator", SessionStatus::Running)];
+                // A plan put aside earlier comes along; the new one is what the attach ended for.
+                plan_pending(&mut app, parked("old", 0));
+                plan_pending(&mut app, pending("p1", 1));
+                assert_eq!(shown(&app), Some("p1"));
+                press(&mut app, &key);
+                let request = daemon.next().await;
+                daemon.ok(&request, json!({"ok": true})).await;
+                apply(&mut app, &mut rx).await;
+                assert_eq!(app.connection.exit, Some(attach("orch")), "{}", request["type"]);
+            }
         });
     }
 
@@ -692,7 +1074,7 @@ mod tests {
         let (mut exited, _rx) = app(props());
         exited.data.repo_sessions = vec![session("orch", "Orchestrator", SessionStatus::Exited)];
         plan_pending(&mut exited, pending("p1", 0));
-        plan_settled(&mut exited, &settled("p1", PlanDecision::Expired));
+        plan_settled(&mut exited, &settled("p1", PlanDecision::Dropped));
         assert_eq!(exited.connection.exit, None);
         assert_eq!(exited.plans.reattach, None);
         // A key on the session list before the plan came: you moved on.
@@ -709,21 +1091,19 @@ mod tests {
             .build()
             .unwrap_or_else(|error| panic!("{error}"));
         tokio::task::LocalSet::new().block_on(&runtime, async {
-            let props = AppProps {
+            let props = || AppProps {
                 plan_reattach: Some(attach("orch")),
                 ..AppProps::default()
             };
-            let (mut app, mut rx) = app(props);
+            // Only plans put aside wait: none to ask about.
+            let (mut app, mut rx) = app(props());
             arm_reattach(&mut app);
+            plan_pending(&mut app, parked("old", 0));
             tokio::time::advance(REATTACH_WAIT).await;
             apply(&mut app, &mut rx).await;
             assert_eq!(app.plans.reattach, None);
-            // With a plan waiting by then, it is kept.
-            let props = AppProps {
-                plan_reattach: Some(attach("orch")),
-                ..AppProps::default()
-            };
-            let (mut app, mut rx) = crate::app::test_support::app(props);
+            // With a new plan waiting by then, it is kept.
+            let (mut app, mut rx) = crate::app::test_support::app(props());
             arm_reattach(&mut app);
             plan_pending(&mut app, pending("p1", 0));
             tokio::time::advance(REATTACH_WAIT).await;
@@ -732,13 +1112,14 @@ mod tests {
         });
     }
 
-    fn props(app: &App, now_ms: i64) -> PlanDialogProps<'_> {
+    fn props(app: &App) -> PlanDialogProps<'_> {
+        let (plan, more) = shown_plan(app).unwrap_or_else(|| panic!("no plan shown"));
         PlanDialogProps {
-            plan: &app.plans.queue[0],
-            more: app.plans.queue.len() - 1,
+            plan,
+            more,
             answering: app.plans.answering,
+            cancelling: app.plans.cancelling.as_deref(),
             error: app.plans.error.as_deref(),
-            now_ms,
         }
     }
 
@@ -748,11 +1129,6 @@ mod tests {
             .flatten()
             .map(|row| row_text(row).trim_end().to_owned())
             .collect()
-    }
-
-    /// Noon and `minutes` (the plans above were created at 12:00 and later).
-    fn at(minutes: f64) -> i64 {
-        deckhand_core::jsstr::date::parse("2026-11-14T12:00:00.000Z").unwrap_or_default() + (minutes * 60_000.0) as i64
     }
 
     fn drawn(props: &PlanDialogProps<'_>, width: u16, height: u16, scroll: usize) -> Vec<String> {
@@ -778,11 +1154,11 @@ mod tests {
     }
 
     #[test]
-    fn the_dialog_shows_the_tree_the_backlog_and_when_it_expires() {
+    fn the_dialog_shows_the_tree_the_backlog_and_how_many_more_wait() {
         let (mut app, _rx) = app(AppProps::default());
         plan_pending(&mut app, pending("p1", 0));
         plan_pending(&mut app, pending("p2", 3));
-        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
         assert_eq!(lines[0], "Create this plan?");
         assert_eq!(
             lines[1],
@@ -804,15 +1180,39 @@ mod tests {
                 "  After Auth rework merges: the old routes go."
             ]
         );
-        assert_eq!(lines[11], "Unanswered, it expires in 13 min. 1 more plan waiting.");
-        assert_eq!(lines.last().map(String::as_str), Some("enter create • esc cancel"));
-        assert_pane("63-confirm-plan", &drawn(&props(&app, at(1.5)), 98, 31, 0));
+        assert_eq!(lines[11], "1 more plan waiting.");
+        assert_eq!(
+            lines.last().map(String::as_str),
+            Some("enter create • esc put aside • x x cancel")
+        );
+        assert_pane("63-confirm-plan", &drawn(&props(&app), 98, 31, 0));
         // A plan run by hand has no caller; once answered the footer says what is being done.
         app.plans.queue[0].caller_title = None;
-        app.plans.answering = Some(true);
-        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        app.plans.answering = Some(Answer::Create);
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
         assert!(lines[1].starts_with("A plan of 3 sessions, 1 task."), "{lines:#?}");
         assert_eq!(lines.last().map(String::as_str), Some("Creating…"));
+        app.plans.answering = Some(Answer::PutAside);
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
+        assert_eq!(lines.last().map(String::as_str), Some("Putting it aside…"));
+    }
+
+    #[test]
+    fn the_cancel_line_asks_for_a_note_for_the_orchestrator() {
+        let (mut app, _rx) = app(AppProps::default());
+        plan_pending(&mut app, pending("p1", 0));
+        app.plans.held_since = None;
+        press(&mut app, &text("x"));
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
+        assert_eq!(
+            lines[lines.len() - 2..],
+            [
+                "Cancel this plan? A note for the orchestrator (optional): ▏",
+                "x or enter cancel it • esc back"
+            ]
+        );
+        press(&mut app, &text("Too many sessions"));
+        assert_pane("70-confirm-plan-cancel", &drawn(&props(&app), 98, 31, 0));
     }
 
     #[test]
@@ -827,7 +1227,7 @@ mod tests {
                 .to_owned(),
         );
         plan_pending(&mut app, plan);
-        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
         assert_eq!(
             lines[1..3],
             [
@@ -850,10 +1250,10 @@ mod tests {
                 "… 2 more lines",
             ]
         );
-        assert_pane("67-confirm-plan-idea", &drawn(&props(&app, at(1.5)), 98, 31, 0));
+        assert_pane("67-confirm-plan-idea", &drawn(&props(&app), 98, 31, 0));
         // Tasks only: they are parked under the idea.
         app.plans.queue[0].summary.sessions.clear();
-        let lines = texts(&plan_dialog_rows(&props(&app, at(1.5)), 96));
+        let lines = texts(&plan_dialog_rows(&props(&app), 96));
         assert!(lines[1].ends_with("Its tasks are parked under the idea."), "{lines:#?}");
     }
 
@@ -870,14 +1270,17 @@ mod tests {
         }
         plan.summary.counts = "23 sessions, 1 task".to_owned();
         plan_pending(&mut app, plan);
-        app.plans.error = Some("No plan p1 is waiting for an answer (it was answered or expired)".to_owned());
-        let frame = drawn(&props(&app, at(1.5)), 70, 20, 0);
+        app.plans.error =
+            Some("No plan p1 is waiting for an answer (it was answered already, or its orchestrator ended)".to_owned());
+        let frame = drawn(&props(&app), 70, 20, 0);
         assert!(
             frame.iter().any(|row| row.contains("↓") && row.contains("more · J")),
             "{frame:#?}"
         );
         assert!(
-            frame.iter().any(|row| row.contains("enter create • esc cancel")),
+            frame
+                .iter()
+                .any(|row| row.contains("enter create • esc put aside • x x cancel")),
             "{frame:#?}"
         );
         assert_pane("64-confirm-plan-scrolled", &frame);

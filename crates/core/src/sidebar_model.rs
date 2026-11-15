@@ -1119,6 +1119,7 @@ pub fn session_details_with_parent<S: SessionLike>(
     installed_versions: Option<&InstalledVersions>,
     task: Option<&DetailTask>,
     messages: Option<&MessagesBrief>,
+    plans_waiting: usize,
 ) -> Vec<DetailLine> {
     details(
         session,
@@ -1128,7 +1129,7 @@ pub fn session_details_with_parent<S: SessionLike>(
         now_ms,
         installed_versions,
         task,
-        Some(messages),
+        Some((messages, plans_waiting)),
     )
 }
 
@@ -1141,8 +1142,9 @@ fn details<S: SessionLike>(
     now_ms: i64,
     installed_versions: Option<&InstalledVersions>,
     task: Option<&DetailTask>,
-    // `Some` for the sidebar's details: the parent's line, and the messages when it has any.
-    sidebar: Option<Option<&MessagesBrief>>,
+    // `Some` for the sidebar's details: the parent's line, the messages when it has any, and how many plans it
+    // applied wait for the user's answer.
+    sidebar: Option<(Option<&MessagesBrief>, usize)>,
 ) -> Vec<DetailLine> {
     let parents = sidebar.is_some();
     let Some(session) = session else {
@@ -1181,7 +1183,8 @@ fn details<S: SessionLike>(
     }
     // Not in the TS: the orchestrator says what it is for (the sessions it started are its sub-sessions: their parent
     // line names it).
-    if let Some(role) = role_line(session, width)
+    let plans_waiting = sidebar.map_or(0, |(_, plans)| plans);
+    if let Some(role) = role_line(session, plans_waiting, width)
         && room(&lines) >= 1
     {
         lines.push(role);
@@ -1217,7 +1220,7 @@ fn details<S: SessionLike>(
         )]);
     }
     // Not in the TS: messages waiting for it, and its latest; kept longer than the checklist line below.
-    if let Some(brief) = sidebar.flatten()
+    if let Some(brief) = sidebar.and_then(|(messages, _)| messages)
         && room(&lines) >= 1
     {
         let tone = if brief.held > 0 { THEME.accent } else { THEME.muted };
@@ -1287,15 +1290,19 @@ fn target_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
     Some(cut_parts(&line, width))
 }
 
-/// Not in the TS: `◎ orchestrator · plans and dispatches sessions` for an orchestrator, cut to `width`.
-fn role_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
+/// Not in the TS: `◎ orchestrator · plans and dispatches sessions` for an orchestrator, cut to `width`; while plans it
+/// applied wait for the user's answer, `◎ 1 plan waiting · P` instead (short enough for a narrow sidebar).
+fn role_line(session: &SessionRecord, plans_waiting: usize, width: usize) -> Option<DetailLine> {
     if session.role != Some(SessionRole::Orchestrator) {
         return None;
     }
-    let line = vec![
-        detail(format!("{ORCHESTRATOR_MARKER} "), THEME.accent_soft),
-        detail("orchestrator · plans and dispatches sessions", THEME.muted),
-    ];
+    let mut line = vec![detail(format!("{ORCHESTRATOR_MARKER} "), THEME.accent_soft)];
+    if plans_waiting > 0 {
+        let plans = if plans_waiting == 1 { "plan" } else { "plans" };
+        line.push(detail(format!("{plans_waiting} {plans} waiting · P"), THEME.warn));
+    } else {
+        line.push(detail("orchestrator · plans and dispatches sessions", THEME.muted));
+    }
     Some(cut_parts(&line, jnum(width)))
 }
 
@@ -2116,6 +2123,7 @@ mod tests {
                 None,
                 None,
                 brief,
+                0,
             ))
         };
         let full = lines(10, Some(&brief));
@@ -2385,7 +2393,7 @@ mod tests {
         let of = |id: &str, width: usize| -> Vec<String> {
             let session = all.iter().copied().find(|session| session.id == id);
             line_texts(&session_details_with_parent(
-                session, &all, width, 10, NOW, None, None, None,
+                session, &all, width, 10, NOW, None, None, None, 0,
             ))
         };
         // c is a fork of a (working); b a clean sub-session. Narrow, the state goes before the name is cut short.
@@ -2458,7 +2466,7 @@ mod tests {
         let of = |id: &str, width: usize| -> Vec<String> {
             let session = all.iter().copied().find(|session| session.id == id);
             line_texts(&session_details_with_parent(
-                session, &all, width, 10, NOW, None, None, None,
+                session, &all, width, 10, NOW, None, None, None, 0,
             ))
         };
         assert!(
@@ -2471,6 +2479,19 @@ mod tests {
             "{:?}",
             of("o", 20)
         );
+        // While plans it applied wait for your answer, it says so, and which key opens one.
+        let waiting = |plans: usize| -> Vec<String> {
+            let session = all.iter().copied().find(|session| session.id == "o");
+            line_texts(&session_details_with_parent(
+                session, &all, 48, 10, NOW, None, None, None, plans,
+            ))
+        };
+        assert!(
+            waiting(1).contains(&"◎ 1 plan waiting · P".to_owned()),
+            "{:?}",
+            waiting(1)
+        );
+        assert!(waiting(2).contains(&"◎ 2 plans waiting · P".to_owned()));
         assert!(
             of("c", 48)
                 .iter()
@@ -2514,6 +2535,7 @@ mod tests {
                 None,
                 None,
                 None,
+                0,
             ))
         };
         assert!(
@@ -3307,6 +3329,7 @@ mod tests {
                 None,
                 None,
                 None,
+                0,
             ))
         };
         let find = |id: &str| all.iter().copied().find(|session| session.id == id).unwrap();
@@ -3327,6 +3350,7 @@ mod tests {
             None,
             None,
             None,
+            0,
         ));
         assert_eq!(target(wide).as_deref(), Some("→ into launch checkout (was feat/auth)"));
         assert_eq!(
@@ -3352,6 +3376,7 @@ mod tests {
             None,
             None,
             None,
+            0,
         ));
         assert!(narrow.iter().any(|line| line == "→ feat/auth (wa…"), "{narrow:?}");
     }
@@ -3370,6 +3395,7 @@ mod tests {
                 None,
                 None,
                 None,
+                0,
             ))
         };
         assert_eq!(

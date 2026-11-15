@@ -127,6 +127,11 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Sessions"),
     },
     Binding {
+        keys: &[KeySpec::Char("P")],
+        action: "open the oldest plan waiting for your answer (one put aside too)",
+        help: HelpRef::Topic("Sessions"),
+    },
+    Binding {
         keys: &[KeySpec::Char("R")],
         action: "refresh the list",
         help: HelpRef::Topic("Find & organize"),
@@ -423,6 +428,10 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     }
     if text == "O" {
         crate::app::modes::idea::open_prompt(app);
+        return;
+    }
+    if text == "P" {
+        crate::app::modes::plan::reopen(app);
         return;
     }
     if text == "R" {

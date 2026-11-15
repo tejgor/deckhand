@@ -309,6 +309,7 @@ impl Daemon {
             Request::PlanCheck(r) => reply(client, &r.request_id, self.handle_plan_check(&r).await),
             Request::PlanApply(r) => reply(client, &r.request_id, self.handle_plan_apply(&r).await),
             Request::PlanDecide(r) => reply(client, &r.request_id, self.handle_plan_decide(&r).await),
+            Request::PlanPark(r) => reply(client, &r.request_id, self.handle_plan_park(&r).await),
             Request::OpenOrchestrator(r) => reply(client, &r.request_id, self.handle_open_orchestrator(&r).await),
             Request::SendMessage(r) => reply(client, &r.request_id, self.handle_send_message(client, &r).await),
             Request::ReplyMessage(r) => reply(client, &r.request_id, self.handle_reply_message(&r).await),

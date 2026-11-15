@@ -6,6 +6,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ### Changed
 
+- **Plans no longer hold you or the orchestrator up**: `deckhand plan apply` returns at once and the orchestrator ends its turn; your answer reaches it as a message (`[The user approved your plan …]` with what was created, or `[The user cancelled your plan …]` with your note). In **Create this plan?**, `esc` now puts the plan aside to look at other sessions first (the header says `◎ 1 plan waiting · P`, and `P` opens it again), and `x` twice cancels it, optionally with a note typed between. Plans no longer expire: one waits until you answer it or its orchestrator exits, and through a daemon restart. Needs a daemon restart (`deckhand restart`). See [The orchestrator](docs/features.md#the-orchestrator).
 - **Orchestrators are listed by their state**: sections by state (`V`) no longer pin orchestrators in an **Orchestrator** section at the top. Each is listed like any session, so one asking you something is under **Needs you**, and idle ones no longer pile up at the top. See [Organizing and inspecting sessions](docs/features.md#organizing-and-inspecting-sessions).
 
 ## [3.4.0] - 2026-11-15

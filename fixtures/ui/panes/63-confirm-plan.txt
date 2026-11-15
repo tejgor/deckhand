@@ -18,8 +18,8 @@
       │ ☐ Remove legacy endpoint                                                           │
       │   After Auth rework merges: the old routes go.                                     │
       │                                                                                    │
-      │ Unanswered, it expires in 13 min. 1 more plan waiting.                             │
-      │ enter create • esc cancel                                                          │
+      │ 1 more plan waiting.                                                               │
+      │ enter create • esc put aside • x x cancel                                          │
       │                                                                                    │
       ╰────────────────────────────────────────────────────────────────────────────────────╯
 

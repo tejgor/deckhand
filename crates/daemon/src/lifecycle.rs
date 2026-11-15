@@ -253,6 +253,10 @@ impl Daemon {
         if let Err(error) = self.load_messages().await {
             self.log(&format!("reading the messages failed: {error}")).await;
         }
+        // Not in the TS: plans waiting for an answer wait on.
+        if let Err(error) = self.load_plans().await {
+            self.log(&format!("reading the plans failed: {error}")).await;
+        }
         if legacy_notes || carried_any {
             self.persist().await?;
         }

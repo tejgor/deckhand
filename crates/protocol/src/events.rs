@@ -11,7 +11,7 @@ use serde_with::skip_serializing_none;
 use crate::data::{
     AgentUpdateResult, AgentVersions, AttachResult, BranchList, CandidateSizes, ChangeDiff, ChangeStageResult,
     ChangesRecord, CreatePrResult, MergePreview, MessageRecord, NoteSaveResult, OkResult, OrchestratorResult,
-    PaneRecord, PendingPlan, PingResult, PlanDecision, PlanOutcome, PlanSummary, PreviewRecord, ProjectInfo,
+    PaneRecord, PendingPlan, PingResult, PlanDecision, PlanSummary, PlanWaiting, PreviewRecord, ProjectInfo,
     PromoteNoteItemResult, SavedConfigDocument, SendMessageResult, SessionCleanupInspection, SessionRecord,
     SessionRestartOutcome, SettingsInfo, TasksDoc, WorkNote, WorkspaceSummary, WorktreeCandidates,
     WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
@@ -144,15 +144,16 @@ pub struct WorkNoteUpdated {
     pub note: WorkNote,
 }
 
-/// Not in the TS: a plan waits for the user's answer (`plan-apply`); also sent to a client that subscribes while one
-/// is pending for its repository.
+/// Not in the TS: a plan waits for the user's answer (`plan-apply`), or was put aside (`plan-park`); also sent to a
+/// client that subscribes while one is pending for its repository.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PlanPending {
     pub plan: PendingPlan,
 }
 
-/// Not in the TS: a pending plan was answered (by any client) or expired: its confirmation closes.
+/// Not in the TS: a pending plan was answered (by any client) or dropped (its orchestrator exited or was removed): its
+/// confirmation closes.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -349,7 +350,7 @@ pub enum ResponseData {
     /// Not in the TS: `plan-check`.
     PlanSummary(Box<PlanSummary>),
     /// Not in the TS: `plan-apply`.
-    PlanOutcome(Box<PlanOutcome>),
+    PlanWaiting(Box<PlanWaiting>),
     /// Not in the TS: `open-orchestrator`.
     Orchestrator(Box<OrchestratorResult>),
     /// Not in the TS: `send-message`.
@@ -383,7 +384,8 @@ impl ResponseData {
             | "kill"
             | "remove"
             | "dismiss-interrupted"
-            | "plan-decide" => ResponseData::Ok(from(data)?),
+            | "plan-decide"
+            | "plan-park" => ResponseData::Ok(from(data)?),
             "export-handoff" | "open-note" | "open-tasks" => ResponseData::Path(from(data)?),
             "set-session-done"
             | "set-reply-read"
@@ -409,7 +411,7 @@ impl ResponseData {
             "update-agent" => ResponseData::AgentUpdate(Box::new(from(data)?)),
             "restart-sessions" => ResponseData::SessionRestarts(from(data)?),
             "plan-check" => ResponseData::PlanSummary(Box::new(from(data)?)),
-            "plan-apply" => ResponseData::PlanOutcome(Box::new(from(data)?)),
+            "plan-apply" => ResponseData::PlanWaiting(Box::new(from(data)?)),
             "open-orchestrator" => ResponseData::Orchestrator(Box::new(from(data)?)),
             "send-message" => ResponseData::MessageSent(Box::new(from(data)?)),
             "reply-message" | "cancel-message" => ResponseData::Message(Box::new(from(data)?)),

@@ -22,12 +22,13 @@ context.
 3. Propose the tree in chat as an indented list, a line per session: title, agent, worktree (new, same or none), \
 stacked or flat; then the parked work. Revise it until the user agrees. Create nothing before that.
 4. Check, then apply the plan, passing its JSON on stdin with a quoted heredoc: `deckhand plan check - <<'EOF'` \
-… `EOF`, then the same with `deckhand plan apply -` (Bash timeout 600000). Deckhand asks the user to confirm; the \
-command prints what was created, or that it was cancelled. If it is cut off, the plan stays open in Deckhand: read \
-`deckhand ls` later.
-5. Report what was created, then stop. Do not monitor the sessions or wait for them: they work with the user. When \
-the user asks, you may send instructions to your sessions with `deckhand send <id> <message>`. You stay open: to \
-extend the idea later, read both lists again and apply another plan.
+… `EOF`, then the same with `deckhand plan apply -`. It returns at once: tell the user the plan waits for them in \
+Deckhand, then end your turn.
+5. Their answer comes as a message. `[The user approved your plan …]` lists what was created: report it, then stop. \
+`[The user cancelled your plan …]`: ask what to change (their note may say) and propose again. Do not monitor the \
+sessions or wait for them: they work with the user. When the user asks, you may send instructions to your sessions \
+with `deckhand send <id> <message>`. You stay open: to extend the idea later, read both lists again and apply \
+another plan.
 
 The plan:
 {\"sessions\": [{\"key\": \"auth\", \"title\": \"Auth rework\", \"prompt\": \"<brief>\", \"agent\": \"claude\", \
@@ -73,6 +74,11 @@ mod tests {
             "`deckhand task list`",
             "deckhand plan check",
             "deckhand plan apply",
+            "It returns at once",
+            "end your turn",
+            "[The user approved your plan",
+            "[The user cancelled your plan",
+            "propose again",
             "indented list",
             "complete standalone brief",
             "stacked",

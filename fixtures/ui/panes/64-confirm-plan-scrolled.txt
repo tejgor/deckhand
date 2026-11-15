@@ -11,10 +11,10 @@
   │   ↳ Child 16  (stacked on Auth rework's branch · claude)       │
   │   ↳ Child 15  (stacked on Auth rework's branch · claude)       │
   │   ↳ Child 14  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 13  (stacked on Auth rework's branch · claude)       │
   │                                                                │
-  │ Unanswered, it expires in 13 min.                              │
-  │ No plan p1 is waiting for an answer (it was answered or        │
-  │ expired)                                                       │
-  │ enter create • esc cancel                                      │
-  ╰──────────────────────────────────────────────── ↓ 20 more · J ─╯
+  │ No plan p1 is waiting for an answer (it was answered already,  │
+  │ or its orchestrator ended)                                     │
+  │ enter create • esc put aside • x x cancel                      │
+  ╰──────────────────────────────────────────────── ↓ 19 more · J ─╯
 

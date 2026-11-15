@@ -19,8 +19,8 @@
 use std::collections::{HashMap, HashSet};
 
 use deckhand_protocol::data::{
-    Plan, PlanSession, PlanSummary, PlanSummaryEntry, PlanTask, PlanWorktree, ProgramKey, SessionRecord, SessionStatus,
-    Task,
+    Plan, PlanOutcome, PlanSession, PlanStatus, PlanSummary, PlanSummaryEntry, PlanTask, PlanWorktree, ProgramKey,
+    SessionRecord, SessionStatus, SessionWorktreeMode, Task, WorktreeMode,
 };
 use serde_json::{Map, Value};
 
@@ -812,15 +812,124 @@ pub fn summary_lines(summary: &PlanSummary) -> Vec<String> {
     lines
 }
 
-/// When a pending plan expiring at `expires_at` (ISO) is dropped unanswered, seen at `now_ms`: `expires in 14 min`,
-/// `expires in under a minute`; `None` when `expires_at` does not parse.
-pub fn expiry_text(expires_at: &str, now_ms: i64) -> Option<String> {
-    let left = crate::jsstr::date::parse(expires_at)? - now_ms;
-    if left < 60_000 {
-        return Some("expires in under a minute".to_owned());
+impl ValidPlan {
+    /// A plan validated before (a pending plan, as `plans.json` keeps it), its parents found again: a validated
+    /// session's `parent` is an earlier entry's key (keys come first, as validation found them), else an existing
+    /// session's full ID.
+    pub fn from_validated(plan: Plan, summary: PlanSummary) -> ValidPlan {
+        let parents = plan
+            .sessions
+            .iter()
+            .enumerate()
+            .map(|(index, session)| {
+                let parent = session.parent.as_deref()?;
+                Some(
+                    match plan.sessions[..index].iter().position(|earlier| earlier.key == parent) {
+                        Some(entry) => PlanParent::Entry(entry),
+                        None => PlanParent::Session(parent.to_owned()),
+                    },
+                )
+            })
+            .collect();
+        ValidPlan { plan, parents, summary }
     }
-    // Whole minutes, rounded down: never more time than there is.
-    Some(format!("expires in {} min", left / 60_000))
+}
+
+/// How much of an ID the messages show (as the commands' text output does).
+const SHORT_ID: usize = 8;
+
+fn short_id(id: &str) -> &str {
+    id.char_indices().nth(SHORT_ID).map_or(id, |(at, _)| &id[..at])
+}
+
+/// Where a session a plan created works: its worktree's branch and what it merges into, or no worktree.
+pub fn created_placement(session: &SessionRecord) -> String {
+    match session.worktree.as_ref() {
+        Some(worktree) if worktree.mode != SessionWorktreeMode::None => {
+            let place = match worktree.branch.as_deref().filter(|branch| !branch.is_empty()) {
+                Some(branch) => format!("⎇ {branch}"),
+                None => worktree.path.clone().unwrap_or_else(|| "a worktree".to_owned()),
+            };
+            match worktree.target_branch.as_deref().filter(|target| !target.is_empty()) {
+                Some(target) => format!("{place}, stacked into {target}"),
+                None => format!("{place}, flat"),
+            }
+        }
+        _ if session.requested_worktree_mode == Some(WorktreeMode::New) => "a new worktree being created".to_owned(),
+        _ if session.parent_session_id.is_some() && session.cwd != session.repo_root => {
+            "its parent's worktree".to_owned()
+        }
+        _ => "no worktree (the repository's checkout)".to_owned(),
+    }
+}
+
+/// What the orchestrator is told once the user approved its plan `outcome.plan_id` and creating it is done: a line
+/// per session (`path` names it, `parent / child`) and parked line created, and, when creation stopped, where and why.
+pub fn approved_text(outcome: &PlanOutcome, path: impl Fn(&SessionRecord) -> String) -> String {
+    let id = &outcome.plan_id;
+    let count = |n: usize, what: &str| format!("{n} {what}{}", if n == 1 { "" } else { "s" });
+    let made = format!(
+        "{} and {}",
+        count(outcome.sessions.len(), "session"),
+        count(outcome.tasks.len(), "task")
+    );
+    let mut lines = Vec::new();
+    match (outcome.status, outcome.failed.as_ref()) {
+        (PlanStatus::Failed, Some(failed)) => {
+            let at = match failed.key.as_deref() {
+                Some(key) => format!("{} ({key})", failed.title),
+                None => format!("the task {}", failed.title),
+            };
+            lines.push(format!(
+                "[The user approved your plan {id}, but creating it stopped at {at}]"
+            ));
+            lines.push(format!("Why: {}", failed.error));
+            lines.push(format!(
+                "Created before that, and kept (nothing is rolled back): {made}:"
+            ));
+        }
+        _ => {
+            lines.push(format!("[The user approved your plan {id}]"));
+            lines.push(format!(
+                "Created {made}; each session got its brief as its first message:"
+            ));
+        }
+    }
+    for created in &outcome.sessions {
+        let session = &created.session;
+        lines.push(format!(
+            "{}  {}  ({} · {})",
+            short_id(&session.id),
+            path(session),
+            created_placement(session),
+            session.program
+        ));
+    }
+    for task in &outcome.tasks {
+        lines.push(format!(
+            "{}  ☐ {}  (parked under your idea)",
+            short_id(&task.id),
+            task.title
+        ));
+    }
+    if outcome.status == PlanStatus::Failed {
+        lines.push("See deckhand ls, and apply a plan for the rest.".to_owned());
+    }
+    lines.join("\n")
+}
+
+/// What the orchestrator is told when the user cancelled its plan `plan_id`, with their note to it, if any.
+pub fn cancelled_text(plan_id: &str, note: Option<&str>) -> String {
+    let header = format!("[The user cancelled your plan {plan_id}: nothing was created]");
+    match note.map(str::trim).filter(|note| !note.is_empty()) {
+        Some(note) => format!("{header}\nTheir note: {note}"),
+        None => header,
+    }
+}
+
+/// What an orchestrator that exited is told when it runs again: its plan `plan_id` was dropped unanswered.
+pub fn dropped_text(plan_id: &str) -> String {
+    format!("[Your plan {plan_id} was dropped: this session exited before the user answered it. Nothing was created.]")
 }
 
 #[cfg(test)]
@@ -1271,18 +1380,6 @@ mod tests {
     }
 
     #[test]
-    fn a_pending_plan_says_how_long_it_waits_in_whole_minutes() {
-        let at = crate::jsstr::date::parse("2026-11-14T12:15:00.000Z").unwrap_or_default();
-        let expiry = |minutes_left: f64| expiry_text("2026-11-14T12:15:00.000Z", at - (minutes_left * 60_000.0) as i64);
-        assert_eq!(expiry(15.0).as_deref(), Some("expires in 15 min"));
-        assert_eq!(expiry(14.5).as_deref(), Some("expires in 14 min"));
-        assert_eq!(expiry(0.9).as_deref(), Some("expires in under a minute"));
-        // Past it (the daemon settles it any moment): still under a minute, never negative.
-        assert_eq!(expiry(-1.0).as_deref(), Some("expires in under a minute"));
-        assert_eq!(expiry_text("not a date", at), None);
-    }
-
-    #[test]
     fn counts_leave_out_what_there_is_none_of() {
         assert_eq!(plan_counts(1, 0), "1 session");
         assert_eq!(plan_counts(0, 2), "2 tasks");
@@ -1291,5 +1388,135 @@ mod tests {
             plan_problems_message(&["a".into(), "b".into()]),
             "The plan has 2 problems (nothing was created):\n- a\n- b"
         );
+    }
+
+    #[test]
+    fn a_kept_plan_finds_its_parents_again_as_validation_did() {
+        let fixture = Fixture::new();
+        let valid = fixture.valid(json!({
+            "sessions": [
+                entry("tokens", json!({"parent": "auth"})),
+                entry("auth", json!({})),
+                entry("tests", json!({"parent": "1f2e", "task": "ab12"})),
+            ],
+        }));
+        // As plans.json keeps it: the validated plan and its summary, through JSON.
+        let plan: Plan = serde_json::from_value(serde_json::to_value(&valid.plan).unwrap_or_default())
+            .unwrap_or_else(|error| panic!("{error}"));
+        let kept = ValidPlan::from_validated(plan, valid.summary.clone());
+        assert_eq!(kept, valid);
+    }
+
+    /// A session a plan created, `extra` over a running Claude in /repo.
+    fn created(key: &str, extra: Value) -> deckhand_protocol::data::PlanCreatedSession {
+        let mut record = json!({
+            "id": "1a2b3c4d-0000-4000-8000-000000000000", "title": "Fix auth", "program": "claude",
+            "command": "claude", "cwd": "/repo", "repoRoot": "/repo", "status": "running", "createdAt": "",
+            "updatedAt": "",
+        });
+        if let (Some(record), Some(extra)) = (record.as_object_mut(), extra.as_object()) {
+            record.extend(extra.clone());
+        }
+        let session: SessionRecord = serde_json::from_value(record).unwrap_or_else(|error| panic!("{error}"));
+        deckhand_protocol::data::PlanCreatedSession {
+            key: key.to_owned(),
+            session: session.into(),
+        }
+    }
+
+    #[test]
+    fn the_approval_message_lists_what_was_created_and_where_creation_stopped() {
+        use deckhand_protocol::data::{PlanCreatedTask, PlanFailure};
+        let path = |session: &SessionRecord| session.path_title.clone().unwrap_or_else(|| session.title.clone());
+        let mut outcome = PlanOutcome {
+            plan_id: "3f2a1c9b".into(),
+            status: PlanStatus::Created,
+            sessions: vec![
+                created(
+                    "auth",
+                    json!({"title": "Auth rework", "pathTitle": "Rework auth / Auth rework", "parentSessionId": "0rch",
+                        "requestedWorktreeMode": "new",
+                        "worktree": {"mode": "managed", "path": "/wt/auth", "branch": "auth-rework"}}),
+                ),
+                created(
+                    "tokens",
+                    json!({"id": "2b3c4d5e-1111", "title": "Token storage",
+                        "pathTitle": "Rework auth / Auth rework / Token storage", "parentSessionId": "1a2b",
+                        "program": "codex", "requestedWorktreeMode": "new",
+                        "worktree": {"mode": "managed", "path": "/wt/tokens", "branch": "auth-rework-token_storage",
+                            "targetBranch": "auth-rework"}}),
+                ),
+                created(
+                    "ui",
+                    json!({"id": "3c4d5e6f-2222", "title": "Login UI", "parentSessionId": "1a2b", "cwd": "/wt/auth",
+                        "requestedWorktreeMode": "none", "worktree": {"mode": "none"}}),
+                ),
+                created(
+                    "setup",
+                    json!({"id": "4d5e6f70-3333", "title": "Setup", "requestedWorktreeMode": "new"}),
+                ),
+            ],
+            tasks: vec![PlanCreatedTask {
+                id: "ab12cd34-0000".into(),
+                title: "Remove legacy endpoint".into(),
+            }],
+            failed: None,
+        };
+        assert_eq!(
+            approved_text(&outcome, path),
+            "[The user approved your plan 3f2a1c9b]\n\
+             Created 4 sessions and 1 task; each session got its brief as its first message:\n\
+             1a2b3c4d  Rework auth / Auth rework  (⎇ auth-rework, flat · claude)\n\
+             2b3c4d5e  Rework auth / Auth rework / Token storage  (⎇ auth-rework-token_storage, stacked into \
+             auth-rework · codex)\n\
+             3c4d5e6f  Login UI  (its parent's worktree · claude)\n\
+             4d5e6f70  Setup  (a new worktree being created · claude)\n\
+             ab12cd34  ☐ Remove legacy endpoint  (parked under your idea)"
+        );
+        // Stopped midway: where and why, what was kept.
+        outcome.status = PlanStatus::Failed;
+        outcome.sessions.truncate(1);
+        outcome.tasks.clear();
+        outcome.failed = Some(PlanFailure {
+            key: Some("tokens".into()),
+            title: "Token storage".into(),
+            error: "its parent Auth rework did not start: setup failed".into(),
+        });
+        assert_eq!(
+            approved_text(&outcome, path),
+            "[The user approved your plan 3f2a1c9b, but creating it stopped at Token storage (tokens)]\n\
+             Why: its parent Auth rework did not start: setup failed\n\
+             Created before that, and kept (nothing is rolled back): 1 session and 0 tasks:\n\
+             1a2b3c4d  Rework auth / Auth rework  (⎇ auth-rework, flat · claude)\n\
+             See deckhand ls, and apply a plan for the rest."
+        );
+        outcome.sessions.clear();
+        outcome.failed = Some(PlanFailure {
+            key: None,
+            title: "Remove legacy endpoint".into(),
+            error: "the list is unreadable".into(),
+        });
+        assert!(
+            approved_text(&outcome, path).starts_with(
+                "[The user approved your plan 3f2a1c9b, but creating it stopped at the task Remove legacy"
+            ),
+        );
+    }
+
+    #[test]
+    fn a_cancelled_plan_passes_on_the_users_note() {
+        assert_eq!(
+            cancelled_text("3f2a1c9b", Some("  Split the tests into their own session. ")),
+            "[The user cancelled your plan 3f2a1c9b: nothing was created]\n\
+             Their note: Split the tests into their own session."
+        );
+        // No note, or a blank one: the header alone.
+        for note in [None, Some(" ")] {
+            assert_eq!(
+                cancelled_text("3f2a1c9b", note),
+                "[The user cancelled your plan 3f2a1c9b: nothing was created]"
+            );
+        }
+        assert!(dropped_text("3f2a1c9b").starts_with("[Your plan 3f2a1c9b was dropped: this session exited"));
     }
 }
