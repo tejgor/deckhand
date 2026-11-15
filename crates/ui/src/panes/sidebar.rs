@@ -209,7 +209,7 @@ fn parent_line_row(parent: &SessionRecord, all_sessions: &[&SessionRecord], numb
 fn section_header_row(section: SessionSection, count: usize, folded: bool, width: usize) -> Row {
     let tone = match section {
         SessionSection::NeedsYou => THEME.warn,
-        SessionSection::Orchestrator | SessionSection::Unread => THEME.accent,
+        SessionSection::Unread => THEME.accent,
         SessionSection::Working => THEME.success,
         SessionSection::Idle | SessionSection::Exited => THEME.muted,
     };
@@ -1164,19 +1164,24 @@ mod tests {
         props.sectioned = true;
         let lines = render(&props, 40, 24);
         let at = |text: &str| lines.iter().position(|line| line.contains(text));
-        // Both orchestrators in their section, then their sessions in theirs, under the line naming the idea.
+        // Each orchestrator is listed by its state like any session (idle here); its working sessions sit in
+        // Working under the line naming its idea.
         let shown = [
-            "Orchestrator 2 ──",
-            "◎ ● Rework auth",
-            "◎ ● Speed up the build",
             "Working 2 ──",
             "◎ Rework auth ┄┄",
             "↳ ⠋ Token storage",
             "↳ ⠋ Login UI",
+            "Idle 2 ──",
         ];
         let positions: Vec<Option<usize>> = shown.iter().map(|text| at(text)).collect();
         assert!(positions.iter().all(Option::is_some), "{lines:#?}");
         assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{lines:#?}");
+        let idle = at("Idle 2 ──");
+        assert!(
+            at("◎ ● Rework auth") > idle && at("◎ ● Speed up the build") > idle,
+            "{lines:#?}"
+        );
+        assert!(!lines.iter().any(|line| line.contains("Orchestrator ")), "{lines:#?}");
         deckhand_testkit::assert_snapshot(
             "fixtures/ui/panes/66-sidebar-ideas.txt",
             &lines.join(

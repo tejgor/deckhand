@@ -1,12 +1,12 @@
 ╭──────────────────────────────────────╮
 │ Sessions                     all 4/4 │
-│  Orchestrator 2 ──────────────────── │
-│╎ 1 ◎ ● Rework auth                 ✶ │
-│╎ 2 ◎ ● Speed up the build          ✶ │
 │  Working 2 ───────────────────────── │
 │    ◎ Rework auth ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │
-│› 3   ↳ ⠋ Token storage             ✶ │
-│╎ 4   ↳ ⠋ Login UI                  ✶ │
+│› 1   ↳ ⠋ Token storage             ✶ │
+│╎ 2   ↳ ⠋ Login UI                  ✶ │
+│  Idle 2 ──────────────────────────── │
+│╎ 3 ◎ ● Rework auth                 ✶ │
+│╎ 4 ◎ ● Speed up the build          ✶ │
 │                                      │
 │                                      │
 │                                      │

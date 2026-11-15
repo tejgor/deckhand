@@ -1,5 +1,5 @@
-//! Not in the TS: the sidebar's alternative view, sessions in sections by state (orchestrators, needs you, unread,
-//! working, idle, exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
+//! Not in the TS: the sidebar's alternative view, sessions in sections by state (needs you, unread, working,
+//! idle, exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
 //! parent by the latest of it and the sub-sessions under it); Working and Exited keep your order (`sidebarOrder`,
 //! `J`/`K`). The time order is only how the view lists them: your order stays as it is. A sub-session sits under its
 //! parent (in your order) when both are in the same section, and is listed at the section's top level otherwise.
@@ -9,18 +9,13 @@ use std::collections::{HashMap, HashSet};
 use crate::display::still_starting;
 use crate::session_features::session_has_unread_reply;
 use crate::session_order::{SessionLike, parent_of, visit};
-use deckhand_protocol::data::{
-    AgentActivityStatus, AttentionState, Carried, SessionRecord, SessionRole, SessionStatus,
-};
+use deckhand_protocol::data::{AgentActivityStatus, AttentionState, Carried, SessionRecord, SessionStatus};
 /// Persisted in ui-state.json, so defined by deckhand-protocol.
 pub use deckhand_protocol::records::SessionView;
 
 /// A section of the sidebar's state view, in the order they are listed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SessionSection {
-    /// Orchestrators while they run (one per idea), whatever their state: they plan and dispatch sessions rather than
-    /// being one piece of the work, so they stay in one place at the top instead of moving between the sections below.
-    Orchestrator,
     /// Running and blocked on you: a question or permission, a failure or a usage limit.
     NeedsYou,
     /// Running, its turn over and the reply unread.
@@ -34,8 +29,7 @@ pub enum SessionSection {
 }
 
 impl SessionSection {
-    pub const ALL: [SessionSection; 6] = [
-        SessionSection::Orchestrator,
+    pub const ALL: [SessionSection; 5] = [
         SessionSection::NeedsYou,
         SessionSection::Unread,
         SessionSection::Working,
@@ -48,14 +42,13 @@ impl SessionSection {
         match self {
             SessionSection::NeedsYou | SessionSection::Unread => Some(TimeOrder::OldestFirst),
             SessionSection::Idle => Some(TimeOrder::NewestFirst),
-            SessionSection::Orchestrator | SessionSection::Working | SessionSection::Exited => None,
+            SessionSection::Working | SessionSection::Exited => None,
         }
     }
 
     /// The section header's name.
     pub fn label(self) -> &'static str {
         match self {
-            SessionSection::Orchestrator => "Orchestrator",
             SessionSection::NeedsYou => "Needs you",
             SessionSection::Unread => "Unread",
             SessionSection::Working => "Working",
@@ -90,16 +83,13 @@ pub fn arrived_at(session: &SessionRecord, section: SessionSection) -> Option<&s
             };
             session.reply_read_at.as_deref().max(went_idle)
         }
-        SessionSection::Orchestrator | SessionSection::Working | SessionSection::Exited => None,
+        SessionSection::Working | SessionSection::Exited => None,
     }
 }
 
 /// The section a session is listed in. A busy agent is working even with an earlier reply unread.
 pub fn session_section(session: &SessionRecord) -> SessionSection {
     let running = session.status == SessionStatus::Running;
-    if session.role == Some(SessionRole::Orchestrator) && (running || session.status == SessionStatus::Starting) {
-        return SessionSection::Orchestrator;
-    }
     let attention = session
         .attention
         .as_ref()
@@ -379,35 +369,28 @@ mod tests {
     }
 
     #[test]
-    fn running_orchestrators_have_their_own_section_first_whatever_their_state() {
+    fn an_orchestrator_is_listed_by_its_state_like_any_session() {
+        // One per idea, and the parent of its idea's sessions: waiting on you it is in Needs you, idle in Idle.
         let asks = json!({"state": "needs-input", "event": "Notification", "at": "2026-10-02T00:00:00.000Z"});
-        for fields in [
-            json!({}),
-            json!({"agentStatus": "active"}),
-            json!({"attention": asks}),
-            json!({"status": "starting"}),
-        ] {
+        let orchestrator = |fields: Value| {
             let mut fields = fields;
             fields["role"] = json!("orchestrator");
-            assert_eq!(session_section(&session("o", fields)), SessionSection::Orchestrator);
-        }
-        // Exited, it is listed with the other exited sessions; its sub-sessions keep their own sections. Several run
-        // at once, one per idea, in your order.
-        let exited = session("o", json!({"role": "orchestrator", "status": "exited"}));
-        assert_eq!(session_section(&exited), SessionSection::Exited);
-        let list = vec![
-            session("w", json!({"agentStatus": "active", "parentSessionId": "o"})),
-            session("i", json!({})),
-            session("o", json!({"role": "orchestrator"})),
-            session("o2", json!({"role": "orchestrator", "status": "starting"})),
-            session("x", json!({"role": "orchestrator", "status": "exited"})),
-        ];
-        let ids: Vec<&str> = order_by_section(&list)
-            .into_iter()
-            .map(|item| item.id.as_str())
-            .collect();
-        assert_eq!(ids, ["o", "o2", "w", "i", "x"]);
-        assert_eq!(SessionSection::ALL[0].label(), "Orchestrator");
+            session("o", fields)
+        };
+        assert_eq!(
+            session_section(&orchestrator(json!({"attention": asks}))),
+            SessionSection::NeedsYou
+        );
+        assert_eq!(
+            session_section(&orchestrator(json!({"agentStatus": "active"}))),
+            SessionSection::Working
+        );
+        assert_eq!(session_section(&orchestrator(json!({}))), SessionSection::Idle);
+        assert_eq!(
+            session_section(&orchestrator(json!({"status": "exited"}))),
+            SessionSection::Exited
+        );
+        assert_eq!(SessionSection::ALL[0], SessionSection::NeedsYou);
     }
 
     /// Relaunched at `at` (`s`, a controlled restart, a resume after the daemon restarted), its agent settled idle since.
