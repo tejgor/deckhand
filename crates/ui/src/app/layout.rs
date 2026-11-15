@@ -428,10 +428,8 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             format!("Search: /{} • enter keep • esc clear", app.browse.session_query),
             THEME.active,
         ),
-        Mode::EnterIdea => (
-            crate::app::modes::idea::prompt_line(&app.browse.idea, cols),
-            THEME.active,
-        ),
+        // Drawn with its own styles below.
+        Mode::EnterIdea => (String::new(), THEME.active),
         Mode::Tasks | Mode::Worktrees => (flow_hint(app, derived, cols).unwrap_or_default(), THEME.hint),
         mode => {
             let action = &app.panes.action;
@@ -484,7 +482,12 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             (text, THEME.hint)
         }
     };
-    let hint_row = truncate_row(&[Seg::new(hint, TextStyle::fg(color))], cols, Wrap::TruncateEnd);
+    let hint_row = if app.mode == Mode::EnterIdea {
+        crate::app::modes::idea::prompt_row(&app.browse.idea, cols)
+    } else {
+        vec![Seg::new(hint, TextStyle::fg(color))]
+    };
+    let hint_row = truncate_row(&hint_row, cols, Wrap::TruncateEnd);
     let messages = footer_messages_for(app, selected);
     let message_row = if messages.is_empty() {
         vec![Seg::plain(" ")]
@@ -1961,10 +1964,14 @@ mod tests {
 
     #[test]
     fn renders_the_idea_prompt_snapshot() {
-        // O: a one-line prompt in the footer, the list kept in sight.
+        // O: a name and the idea on one line in the footer, the list kept in sight; typing in the idea.
         assert_screen("11-enter-idea", |app| {
             app.set_mode(Mode::EnterIdea);
-            app.browse.idea = "Rework auth so tokens are stored encrypted".to_owned();
+            app.browse.idea = crate::app::modes::idea::IdeaPrompt {
+                name: "Auth tokens".to_owned(),
+                idea: "Store session tokens encrypted at rest".to_owned(),
+                field: crate::app::modes::idea::IdeaField::Idea,
+            };
         });
     }
 }

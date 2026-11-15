@@ -177,12 +177,15 @@ lines under the idea's line, nobody on them (by hand: in the backlog), their det
 
 /// `deckhand do --help`.
 pub const DO_USAGE: &str = "\
-Usage: deckhand do <idea> [--json]
+Usage: deckhand do [--title <name>] <idea> [--json]
 
 Starts a new orchestrator for an idea, which splits it into sessions for you to confirm: the idea is its first
-message, its first line the orchestrator's name, and a new top-level line of that name is the idea's, with the
-orchestrator on it. Every call starts a new one; several can run at once. Run it from a terminal in the repository,
-not inside a session.";
+message, and a new top-level line of the orchestrator's name is the idea's, with the orchestrator on it. Every call
+starts a new one; several can run at once. Run it from a terminal in the repository, not inside a session.
+
+  --title <name>  The orchestrator's name and its line's: short, 2-4 words (at most 64 characters; longer is cut
+                  at a word). Default: the idea's first line
+  --json          Print the new orchestrator's record and its line's ID as JSON";
 
 /// `deckhand guide --help`.
 pub const GUIDE_USAGE: &str = "\
@@ -239,8 +242,11 @@ pub enum Action {
     PlanCheck(PlanSource),
     /// `plan apply`.
     PlanApply(PlanSource),
-    /// `do <idea>`.
-    Do(String),
+    /// `do [--title <name>] <idea>`.
+    Do {
+        idea: String,
+        title: Option<String>,
+    },
 }
 
 /// A message's text: given, or `-` (stdin).
@@ -477,12 +483,15 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "reply" => parse_reply(rest),
         "plan" => parse_plan(rest),
         "do" => {
-            let scanned = scan(rest, &[], DO_USAGE)?;
+            let scanned = scan(rest, &[("--title", Kind::Value)], DO_USAGE)?;
             if scanned.help {
                 return Ok(help(DO_USAGE));
             }
             Ok(Invocation {
-                action: Action::Do(words(&scanned, "an idea", "do", DO_USAGE)?),
+                action: Action::Do {
+                    idea: words(&scanned, "an idea", "do", DO_USAGE)?,
+                    title: scanned.value("--title"),
+                },
                 json: scanned.json,
             })
         }
@@ -1103,9 +1112,27 @@ mod tests {
         assert!(refused(&["plan", "run"]).starts_with("Unknown plan command: run"));
         assert_eq!(
             parsed(&["do", "Split", "the", "auth", "rework"]).action,
-            Action::Do("Split the auth rework".into())
+            Action::Do {
+                idea: "Split the auth rework".into(),
+                title: None
+            }
         );
         assert!(refused(&["do"]).starts_with("deckhand do needs an idea"));
+        // --title names the orchestrator, before or after the idea, its value as given (the daemon cleans it).
+        for args in [
+            &["do", "--title", "Auth tokens", "Store", "tokens", "encrypted"][..],
+            &["do", "Store", "tokens", "encrypted", "--title=Auth tokens"],
+        ] {
+            assert_eq!(
+                parsed(args).action,
+                Action::Do {
+                    idea: "Store tokens encrypted".into(),
+                    title: Some("Auth tokens".into())
+                }
+            );
+        }
+        assert!(refused(&["do", "Store tokens", "--title"]).starts_with("--title needs a value"));
+        assert!(refused(&["do", "--title", "Auth tokens"]).starts_with("deckhand do needs an idea"));
         // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.
         assert!(deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE.contains("deckhand plan apply"));
     }

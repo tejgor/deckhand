@@ -722,7 +722,21 @@ fn do_always_starts_a_new_orchestrator_and_several_run_at_once() {
     let third = json_of(&run(&["do", "Speed up the build", "--json"]));
     let third = running(&socket, &id(&third["session"]));
     assert!(launched_with(&sandbox, &id(&third), "Speed up the build"));
-    assert_eq!(orchestrators().len(), 3);
+    // --title names it (and its line) instead of the idea's first line.
+    let idea = "Store the session tokens encrypted, so a stolen disk does not leak them";
+    let named = run(&["do", "--title", " Auth tokens ", idea]);
+    assert!(
+        text(&named.stdout).contains("for your idea: ◎ Auth tokens."),
+        "{}",
+        text(&named.stdout)
+    );
+    let named = wf(orchestrators, |found| found.len() == 4)
+        .into_iter()
+        .find(|session| session["title"] == "Auth tokens")
+        .unwrap_or_default();
+    let named = running(&socket, &id(&named));
+    assert!(launched_with(&sandbox, &id(&named), idea));
+    assert_eq!(orchestrators().len(), 4);
     let input = sandbox.home().join(format!("input-{}", id(&first)));
     assert!(
         !fs::read_to_string(&input)
@@ -736,6 +750,7 @@ fn do_always_starts_a_new_orchestrator_and_several_run_at_once() {
         (&first, "Plan the auth work"),
         (&second, "Plan the auth work 2"),
         (&third, "Speed up the build"),
+        (&named, "Auth tokens"),
     ] {
         let line = line_titled(&all, title);
         assert_eq!(line["session"], orchestrator["id"], "{line}");
@@ -753,7 +768,7 @@ fn do_always_starts_a_new_orchestrator_and_several_run_at_once() {
     // Without an idea, nothing starts.
     let refused = run(&["do", " "]);
     assert!(!refused.status.success());
-    assert_eq!(orchestrators().len(), 3);
+    assert_eq!(orchestrators().len(), 4);
 
     stop(&mut daemon);
 }

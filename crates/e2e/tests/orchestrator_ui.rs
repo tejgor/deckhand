@@ -1,6 +1,6 @@
 //! The orchestrator in the UI, in a real PTY: a plan applied while you are attached to a session detaches you to the
-//! confirmation, `enter` creates it and attaches you again; `O` asks what you want to do and starts a new
-//! orchestrator for the idea, every time.
+//! confirmation, `enter` creates it and attaches you again; `O` asks for a name and what you want to do and starts a
+//! new orchestrator for the idea, every time.
 
 use std::fs;
 use std::io::Read;
@@ -118,18 +118,23 @@ fn a_plan_detaches_you_to_its_confirmation_and_enter_creates_it_then_attaches_ag
     ui.press("\x1d");
     ui.screen("Auth rework");
 
-    // O asks what you want to do; enter starts an orchestrator for the idea (◎, named after it) and selects it; once
-    // it runs, enter attaches to it.
+    // O asks for a name and what you want to do; enter starts an orchestrator for the idea (◎, named by the name) and
+    // selects it; once it runs, enter attaches to it.
     ui.press("O");
-    ui.screen("What do you want to do?");
-    ui.press("Rework auth");
-    ui.screen("What do you want to do? Rework auth");
+    ui.screen("Name: ▏(optional, 2–4 words) · What do you want to do?");
+    ui.press("Tokens");
+    ui.screen("Name: Tokens▏");
+    ui.press("\t");
+    ui.screen("Name: Tokens · What do you want to do? ▏");
+    ui.press("Rework auth so tokens are stored encrypted");
+    ui.screen("Name: Tokens · What do you want to do? Rework auth so tokens are stored encrypted▏");
     ui.press("\r");
     let started = ui.screen("◎ orchestrator · pl");
-    assert!(started.contains("Rework auth"), "{started}");
+    assert!(started.contains("Tokens"), "{started}");
+    assert!(!started.contains("Rework auth so"), "{started}");
     wait_until_attachable(&ui);
     ui.press("\r");
-    wait_attached(&ui, "Rework auth");
+    wait_attached(&ui, "Tokens");
 
     // Another idea, while that one runs: another orchestrator. Esc on the prompt starts nothing.
     ui.press("\x1d");
@@ -144,13 +149,17 @@ fn a_plan_detaches_you_to_its_confirmation_and_enter_creates_it_then_attaches_ag
         Duration::from_secs(5),
     );
     assert!(!frame.contains("Never mind"), "{frame}");
+    // Without a name, the idea's first line names it.
     ui.press("O");
     ui.screen("What do you want to do?");
+    ui.press("\t");
+    ui.screen("What do you want to do? ▏");
     ui.press("Speed up the build");
+    ui.screen("What do you want to do? Speed up the build▏");
     ui.press("\r");
     let both = wait_for(
         || ui.screen_text(),
-        |frame| frame.contains("Speed up the build") && frame.contains("Rework auth") && !frame.contains("What do"),
+        |frame| frame.contains("Speed up the build") && frame.contains("● Tokens") && !frame.contains("What do"),
         Duration::from_secs(15),
     );
     assert!(both.matches("◎ ").count() >= 2, "{both}");

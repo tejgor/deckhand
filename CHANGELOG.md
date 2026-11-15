@@ -7,6 +7,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 ### Changed
 
 - **`deckhand ls` in a session lists its whole tree**: its top-level session and every session under it, in any checkout, indented under their parents, the sessions it can message. `--all`, or running it by hand, lists the checkout's sessions as before. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
+- **`O` asks for a name, then the idea**: two fields, `tab` between them. The name (2–4 words, optional) names the orchestrator and its idea's line instead of the idea's first line; `deckhand do --title <name>` does the same. See [The orchestrator](docs/features.md#the-orchestrator).
 
 ## [3.3.0] - 2026-11-15
 

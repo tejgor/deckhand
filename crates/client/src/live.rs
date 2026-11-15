@@ -911,13 +911,24 @@ impl LiveClient {
         }))
     }
 
-    /// Not in the TS: a new orchestrator for the idea `idea` (its first message, its title from the first line), on
-    /// a new top-level line of the same title.
-    pub fn open_orchestrator(&self, cwd: &str, idea: &str, cols: i64, rows: i64) -> Reply<OrchestratorResult> {
+    /// Not in the TS: a new orchestrator for the idea `idea` (its first message), titled `title` (else after the
+    /// idea's first line), on a new top-level line of the same title. A `title` without text is not sent.
+    pub fn open_orchestrator(
+        &self,
+        cwd: &str,
+        idea: &str,
+        title: Option<&str>,
+        cols: i64,
+        rows: i64,
+    ) -> Reply<OrchestratorResult> {
         self.request(Request::OpenOrchestrator(OpenOrchestrator {
             request_id: new_request_id(),
             cwd: cwd.into(),
             prompt: Some(idea.to_owned()),
+            title: title
+                .map(str::trim)
+                .filter(|title| !title.is_empty())
+                .map(str::to_owned),
             cols: Some(cols),
             rows: Some(rows),
         }))

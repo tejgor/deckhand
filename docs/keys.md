@@ -43,7 +43,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note you last worked on) |
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
-| `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: asks *What do you want to do?* in a one-line prompt (`enter` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
+| `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: asks for a **Name** and *What do you want to do?* in a prompt at the bottom ([its keys](#orchestrator-prompt); `enter` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
@@ -181,6 +181,19 @@ While you type, the rest of the sidebar is dimmed (the selected row stays bright
 Both detach keys still work when the attached program switches the terminal to an enhanced keyboard mode (kitty's or xterm's modifyOtherKeys, as Codex can).
 
 When an orchestrator's plan waits for your answer, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once the plan is answered.
+
+## Orchestrator prompt
+
+`O`'s prompt, on one line at the bottom: `Name: Auth tokens · What do you want to do? Store session tokens encrypted▏`. It starts in the name, which is optional (without one, the idea's first line names the orchestrator); keep it to 2–4 words.
+
+| Key | Action |
+| --- | --- |
+| `tab`, `shift+tab` | Switch between the name and the idea |
+| `enter` | Start the orchestrator, from either field, once the idea has text (from the name with no idea yet: go to the idea) |
+| `esc` | Cancel: nothing starts, and what was typed is cleared |
+| `backspace` | Delete the last character of the field you are in |
+
+A pasted line break is a space. If starting fails, `O` opens the prompt again with what you typed.
 
 ## Plan confirmation
 
