@@ -4,6 +4,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-11-15
+
 ### Added
 
 - **`deckhand update`** updates Deckhand the way you installed it (Homebrew, the installer script or `cargo install --git`), asking first, then offers to restart the daemon when the running one is an older build. Other installs get the steps to follow. See [Updating Deckhand](docs/features.md#updating-deckhand).
@@ -23,6 +25,10 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 - **`deckhand new --prompt -` sent the literal `-`** as the new session's prompt. It now reads the prompt from stdin, and a `-` with nothing piped in is refused before anything starts.
 - **Mistakes refused, not ignored**: a blank `--prompt`, `--title` or `--details` (once silently dropped), and `-` as a title or step (never read from stdin), are refused with what to do instead. Through Codex's `deckhand` tool, which has no stdin, a `-` is refused with the call to make, the text as one word.
+
+### Upgrading
+
+- **Daemon restart required**: the daemon protocol changed (63 to 64). Run `deckhand restart` after updating; running sessions are interrupted and Deckhand offers to resume them. From now on, `deckhand update` does the update and offers the restart for you.
 
 ## [3.3.0] - 2026-11-15
 
@@ -63,5 +69,6 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **One-time migration**: the first daemon start moves old tasks and worktree notes into the new list. It copies everything first to `~/.deckhand/notes/trash/work-items-migration-<time>/`, with a `migration-report.txt` saying what moved where. If it fails, Deckhand keeps running and tries again at the next start. See [Upgrading from tasks and worktree notes](docs/features.md#upgrading-from-tasks-and-worktree-notes).
 - **Update together**: every Deckhand that shares a state directory (a stable and a dev build pointed at the same one, say) must be updated at the same time. An older one would show the new list wrongly.
 
-[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/tejgor/deckhand/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/tejgor/deckhand/compare/v3.2.0...v3.3.0
