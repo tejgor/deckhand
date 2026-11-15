@@ -122,6 +122,7 @@ What is built (one long-lived orchestrator per repository, its sessions top-leve
 ## Open questions
 
 1. **The task system, later.** Parking work an orchestrator splits off puts more structure into the backlog than it holds today: dependencies ("after Auth rework merges"), where it belongs in a tree (a future sub-session of a given parent, stacked on its branch), and which plan it came from. Today a task is a flat checklist item with details. Revisit the task model before or alongside the orchestrator; until then a parked task carries this in its details as text.
+2. **`enter` to start in the New orchestrator dialog.** `ctrl+s` starts it today, because the idea field is multi-line and `enter` is a new line (as in the Tasks board's note editor). Considered: `enter` starts, `shift+enter` / `ctrl+j` for a new line, as in an agent's prompt. Kept `ctrl+s` for now (2026-11-15).
 
 ## Build order
 
