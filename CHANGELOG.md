@@ -4,11 +4,17 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+## [3.4.5] - 2026-11-15
+
 ### Changed
 
 - **Plans no longer hold you or the orchestrator up**: `deckhand plan apply` returns at once and the orchestrator ends its turn; your answer reaches it as a message (`[The user approved your plan …]` with what was created, or `[The user cancelled your plan …]` with your note). In **Create this plan?**, `esc` now puts the plan aside to look at other sessions first (the header says `◎ 1 plan waiting · P`, and `P` opens it again), and `x` twice cancels it, optionally with a note typed between. Plans no longer expire: one waits until you answer it or its orchestrator exits, and through a daemon restart. Needs a daemon restart (`deckhand restart`). See [The orchestrator](docs/features.md#the-orchestrator).
 - **`O` opens a dialog**: **New orchestrator** asks for the name and *What do you want to do?* in a pop-up over the session pane instead of the footer, so the idea can be a paragraph: `enter` starts a new line in it, a paste keeps its lines, `ctrl+s` starts the orchestrator, and `esc` keeps what you typed for the next `O`. See [The orchestrator](docs/features.md#the-orchestrator).
 - **Orchestrators are listed by their state**: sections by state (`V`) no longer pin orchestrators in an **Orchestrator** section at the top. Each is listed like any session, so one asking you something is under **Needs you**, and idle ones no longer pile up at the top. See [Organizing and inspecting sessions](docs/features.md#organizing-and-inspecting-sessions).
+
+### Upgrading
+
+- **Daemon restart required**: the daemon protocol changed (64 to 65). `deckhand update` offers the restart; or run `deckhand restart`. Plans waiting for your answer are kept across it.
 
 ## [3.4.0] - 2026-11-15
 
@@ -75,6 +81,7 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **One-time migration**: the first daemon start moves old tasks and worktree notes into the new list. It copies everything first to `~/.deckhand/notes/trash/work-items-migration-<time>/`, with a `migration-report.txt` saying what moved where. If it fails, Deckhand keeps running and tries again at the next start. See [Upgrading from tasks and worktree notes](docs/features.md#upgrading-from-tasks-and-worktree-notes).
 - **Update together**: every Deckhand that shares a state directory (a stable and a dev build pointed at the same one, say) must be updated at the same time. An older one would show the new list wrongly.
 
-[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.4.0...HEAD
+[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.4.5...HEAD
+[3.4.5]: https://github.com/tejgor/deckhand/compare/v3.4.0...v3.4.5
 [3.4.0]: https://github.com/tejgor/deckhand/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/tejgor/deckhand/compare/v3.2.0...v3.3.0
