@@ -17,11 +17,11 @@
 ⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                                             ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                                            ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Scroll speed       ⟦cyan bold⟧● ⟦gray italic⟧1 (built-in)                                                              ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Deckhand                                                                                        ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Update check       ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                                             ⟦magenta⟧│
 ⟦magenta⟧│ ⟦gray⟧╭──────────────────────────────────────────────────────────────────────────────────────────────╮ ⟦magenta⟧│
 ⟦magenta⟧│ ⟦gray⟧│ ⟦green bold⟧This repo ⟦gray⟧· ⟦yellow⟧Applies once trusted — you'll be asked the first time it runs (or press T)       ⟦gray⟧│ ⟦magenta⟧│
 ⟦magenta⟧│ ⟦gray⟧╰──────────────────────────────────────────────────────────────────────────────────────────────╯ ⟦magenta⟧│
-⟦magenta⟧│                                                                                                  │
-⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │

@@ -17,7 +17,7 @@ use deckhand_sys::paths;
 use serde_json::Value;
 
 use crate::hooks::HooksTarget;
-use crate::{commands, doctor, hook, hooks, mcp, restart, setup, ui_loop};
+use crate::{commands, doctor, hook, hooks, mcp, restart, setup, ui_loop, update};
 
 /// TS: cli.ts `process.title` in the dev channel.
 pub const DEV_PROCESS_TITLE: &str = "deckhand-dev";
@@ -54,6 +54,8 @@ pub enum Command {
     Doctor(Vec<String>),
     /// `restart [--yes|-y]` (not in TS): replace the running daemon with this executable's (see `crate::restart`).
     Restart(Vec<String>),
+    /// `update [--yes|-y]` (not in TS): update Deckhand the way it was installed (see `crate::update`).
+    Update(Vec<String>),
     /// `--version` (not in TS): prints [`version_line`].
     Version,
     /// `help`, `--help` or `-h` (not in TS, where they opened the UI): prints [`HELP_TEXT`].
@@ -72,6 +74,7 @@ Commands:
   setup [--check] [--yes|-y]   Check which agents are installed and offer to install missing ones
   doctor [--check] [--yes|-y]  The same as setup, then check Codex's hook config and the running daemon
   restart [--yes|-y]           Restart the daemon to run this version (running sessions are interrupted)
+  update [--yes|-y]            Update Deckhand the way it was installed, then offer to restart the daemon
   hooks [codex]                Print the hooks config to save in an agent's settings (codex: for Codex)
   --version                    Print the version
   help, --help, -h             Show this help
@@ -89,7 +92,7 @@ Deckhand actions, for the agents in its sessions (and for you):
   do <idea>                    Start a new orchestrator for an idea, which splits it into sessions
 Each takes --json; deckhand <command> --help describes it.
 
---check only reports; --yes (-y) installs, or restarts, without asking.
+--check only reports; --yes (-y) installs, restarts or updates without asking.
 deckhand hook is run by agents, not by hand.";
 
 /// The dev channel's daemon controls.
@@ -138,6 +141,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
         Some("setup") => Command::Setup(rest()),
         Some("doctor") => Command::Doctor(rest()),
         Some("restart") => Command::Restart(rest()),
+        Some("update") => Command::Update(rest()),
         Some("--version") => Command::Version,
         Some("help" | "--help" | "-h") => Command::Help,
         _ => Command::Ui,
@@ -183,6 +187,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::Setup(args) => setup::run_setup(&args).await?,
         Command::Doctor(args) => return Ok(doctor_exit_code(doctor::run_doctor(&args).await?)),
         Command::Restart(args) => return restart::run_restart(&args).await,
+        Command::Update(args) => return update::run_update(&args).await,
         Command::Version => print_line(&version_line()),
         Command::Help => print_line(HELP_TEXT),
         Command::Ui => ui_loop::run_ui_loop().await?,

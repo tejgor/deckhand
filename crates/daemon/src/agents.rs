@@ -6,11 +6,15 @@
 use std::time::Duration;
 
 use deckhand_core::error::{DhError, Result};
+use deckhand_core::jsstr;
+use deckhand_core::self_update::{CHECK_TICK, FIRST_CHECK_DELAY};
 use deckhand_protocol::data::{AgentUpdateResult, AgentVersions, ProgramKey};
 use deckhand_protocol::events::{AgentVersionsUpdated, ServerMessage};
 use deckhand_protocol::wire::AgentVersionsRequest;
 use deckhand_sys::agent_version_check::AgentVersionChecker;
-use deckhand_sys::async_util::{Interval, spawn};
+use deckhand_sys::async_util::{Interval, Timer, spawn};
+use deckhand_sys::self_update_check;
+use deckhand_sys::storage::load_app_config;
 use serde_json::Value;
 
 use crate::daemon::Daemon;
@@ -29,6 +33,10 @@ pub struct AgentsState {
     pub published: Option<String>,
     /// TS `agentVersionsTimer`.
     pub timer: Option<Interval>,
+    /// Not in the TS: Deckhand's own release check ([`Daemon::check_for_release`]), first after FIRST_CHECK_DELAY.
+    pub release_timer: Option<Interval>,
+    /// The first release check, until it ran.
+    pub first_release_check: Option<Timer>,
 }
 
 /// TS `String(value)` for a decoded JSON value (`undefined` when absent).
@@ -83,6 +91,44 @@ fn exit_code_text(exit_code: Option<i32>) -> String {
 }
 
 impl Daemon {
+    /// Not in the TS: looks for a new Deckhand release when the last answer in `update-check` is a day old (and the
+    /// check is on: `update_check` in config.json, `deckhand_sys::self_update_check::background_check_enabled`). A
+    /// failed lookup is only logged; the UI reads the file.
+    pub async fn check_for_release(&self) {
+        let config = load_app_config().await.unwrap_or_default();
+        if !self_update_check::background_check_enabled(&config) {
+            return;
+        }
+        let path = self.paths.config_dir.join("update-check");
+        match self_update_check::refresh_if_due(&path, jsstr::date::now_ms()).await {
+            Ok(Some(check)) => self.log(&format!("latest deckhand release: {}", check.latest)).await,
+            Ok(None) => {}
+            Err(error) => {
+                self.log(&format!("looking up the latest deckhand release failed: {error}"))
+                    .await
+            }
+        }
+    }
+
+    /// Starts the release check: once after FIRST_CHECK_DELAY, then every CHECK_TICK.
+    pub fn start_release_check(&self) {
+        let weak = self.downgrade();
+        let first = Timer::after(FIRST_CHECK_DELAY, move || {
+            if let Some(daemon) = weak.upgrade() {
+                drop(spawn(async move { daemon.check_for_release().await }));
+            }
+        });
+        let weak = self.downgrade();
+        let tick = Interval::every(CHECK_TICK, move || {
+            if let Some(daemon) = weak.upgrade() {
+                drop(spawn(async move { daemon.check_for_release().await }));
+            }
+        });
+        let mut agents = self.agents.borrow_mut();
+        agents.first_release_check = Some(first);
+        agents.release_timer = Some(tick);
+    }
+
     /// TS: `this.agentVersions`.
     pub fn agent_versions(&self) -> AgentVersionChecker {
         self.agents

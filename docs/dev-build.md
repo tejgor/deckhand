@@ -49,7 +49,7 @@ deckhand restart                                # when daemon or worker code cha
 ```
 
 - `cargo install` builds the release profile; debug builds refuse `~/.deckhand`, so never put one on your `PATH`.
-- The restart matters only for daemon and worker changes. After a compatible update the UI says once that the older daemon is still running; after a protocol change `deckhand` refuses the old daemon until you restart it. Interrupted sessions resume with `s`.
+- The restart matters only for daemon and worker changes. After a compatible update the UI's header says the older daemon is still running (`daemon 3.3.0 · deckhand restart`); after a protocol change `deckhand` refuses the old daemon until you restart it. Interrupted sessions resume with `s`.
 - Keep one install per machine. The release installer puts `deckhand` in `~/.local/bin`, which usually comes before `~/.cargo/bin` on `PATH`, so a copy there would silently shadow your own builds. `which -a deckhand` shows every copy; delete the one you don't use. Try the installer in a fresh user account or a container instead.
 - Codex hooks call the `deckhand` they were generated for. Reinstalling to the same place keeps them working; after moving the binary, rerun `deckhand hooks codex` (`deckhand doctor` warns when they point elsewhere).
 

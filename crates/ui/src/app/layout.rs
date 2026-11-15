@@ -14,16 +14,19 @@ use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
 use regex::Regex;
 
-use deckhand_core::agent_versions::{installed_versions, update_hint};
+use deckhand_core::agent_versions::{agents_with_updates, installed_versions};
+use deckhand_core::daemon_build::daemon_hint;
 use deckhand_core::display::{
     HINT_SEPARATOR, HintPart, compact_path, display_session_title, fit_hint, session_path_title, truncate,
 };
 use deckhand_core::messages_model::{MessagesBrief, held_counts, messages_brief};
+use deckhand_core::self_update::{newer_release, short_update_hint, update_hint};
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
 use deckhand_core::session_lines::{detail_line, line_title};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
 use deckhand_core::tasks_board::task_count_label;
 use deckhand_core::workspace::workspace_key;
+use deckhand_protocol::BUILD_VERSION;
 use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
 
 use crate::app::modes::action_picker::{ActionPickerPaneProps, DevRow, render_action_picker_pane};
@@ -540,8 +543,24 @@ pub fn header_rows(app: &App) -> [Row; 2] {
     } else {
         String::new()
     };
-    // Muted, only when an installed agent has a newer release.
-    let agent_update_hint = update_hint(app.data.agent_versions.as_ref());
+    // Muted, only when Deckhand or an installed agent has a newer release: one hint, since `G` shows them all.
+    let agents: Vec<String> = agents_with_updates(app.data.agent_versions.as_ref())
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    let agents: Vec<&str> = agents.iter().map(String::as_str).collect();
+    let deckhand_new = newer_release(BUILD_VERSION, app.data.deckhand_latest.as_deref());
+    let update = if cols >= 100 {
+        update_hint(BUILD_VERSION, deckhand_new, &agents)
+    } else {
+        short_update_hint(deckhand_new, &agents)
+    };
+    // Muted too: a compatible daemon of another build keeps running until `deckhand restart`.
+    let daemon = app
+        .data
+        .daemon_build
+        .as_ref()
+        .and_then(|build| daemon_hint(BUILD_VERSION, build.as_deref()));
     let connected = app.connection.client.is_some();
     let mut right = Vec::new();
     if plan_waiting_hidden(app) {
@@ -553,8 +572,11 @@ pub fn header_rows(app: &App) -> [Row; 2] {
     if !task_count.is_empty() {
         right.push(Seg::new(format!("{task_count}   "), muted));
     }
-    if !agent_update_hint.is_empty() {
-        right.push(Seg::new(format!("{agent_update_hint}   "), muted));
+    if !update.is_empty() {
+        right.push(Seg::new(format!("{update}   "), muted));
+    }
+    if let Some(daemon) = daemon {
+        right.push(Seg::new(format!("{daemon}   "), muted));
     }
     right.push(Seg::new(
         format!("● {}", describe_connection(connected)),
@@ -1711,6 +1733,44 @@ mod tests {
         assert_eq!(row_text(&repo), "/repo");
         let squeezed = header_space_between(&[Seg::plain("deckhand")], &[Seg::plain("● connecting…")], 12);
         assert_eq!(crate::primitives::string_width(&row_text(&squeezed)), 12);
+    }
+
+    #[test]
+    fn header_shows_a_new_release_and_an_older_daemon_quietly() {
+        let (mut app, _rx) = app(AppProps::default());
+        let title = |app: &App| row_text(&header_rows(app)[0]);
+        // Nothing found yet, or this is the latest release, and the daemon is this build: no hints.
+        app.data.daemon_build = Some(Some(BUILD_VERSION.to_owned()));
+        app.data.deckhand_latest = Some(BUILD_VERSION.to_owned());
+        assert!(!title(&app).contains(" · G"), "{}", title(&app));
+        assert!(!title(&app).contains("daemon"), "{}", title(&app));
+        // A newer release: what replaces what, and where to look.
+        app.data.deckhand_latest = Some("999.0.0".to_owned());
+        let text = title(&app);
+        assert!(
+            text.contains(&format!("deckhand {BUILD_VERSION} → 999.0.0 · G   ")),
+            "{text}"
+        );
+        // Narrower than 100 columns: the version it replaces goes.
+        app.browse.terminal_size.cols = 90;
+        assert!(title(&app).contains("deckhand → 999.0.0 · G   "), "{}", title(&app));
+        app.browse.terminal_size.cols = 130;
+        // An older daemon still running: its own hint, after the updates, for as long as it runs.
+        app.data.daemon_build = Some(Some("0.0.1".to_owned()));
+        let text = title(&app);
+        assert!(
+            text.contains(&format!(
+                "deckhand {BUILD_VERSION} → 999.0.0 · G   daemon 0.0.1 · deckhand restart   ● "
+            )),
+            "{text}"
+        );
+        // A daemon from before build reporting counts as older.
+        app.data.daemon_build = Some(None);
+        assert!(
+            title(&app).contains("daemon older · deckhand restart"),
+            "{}",
+            title(&app)
+        );
     }
 
     /// Renders `app` (connected over a socket pair, sessions loaded, `<TMP>/demo` the repo) after `setup` and compares

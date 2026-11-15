@@ -194,12 +194,6 @@ pub fn config_path() -> PathBuf {
     config_dir().join("config.json")
 }
 
-/// Which running daemon the UI last showed the "older daemon still running" notice for (one line; see
-/// [`crate::daemon_notice`]).
-pub fn daemon_notice_path() -> PathBuf {
-    config_dir().join("daemon-notice")
-}
-
 /// The UI preferences file (uiState.ts `ui-state.json`).
 pub fn ui_state_path() -> PathBuf {
     config_dir().join("ui-state.json")

@@ -40,7 +40,7 @@ A dead PID file and a stale socket are cleaned up automatically on the next laun
 - **`daemon pid N is alive but did not respond; see …/daemon.log`**: the daemon process exists but did not answer within the retry window. Read `daemon.log`, then `deckhand restart` (or `kill N`) and relaunch.
 
 > [!WARNING]
-> A running daemon keeps the binary it started from until it is stopped, so an upgrade reaches the daemon and its workers only after a restart. While the protocol is unchanged the new `deckhand` keeps using the old daemon and says so once in its footer (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Restarting ends every running session; the next UI offers to resume them (or `s` resumes each).
+> A running daemon keeps the binary it started from until it is stopped, so an upgrade reaches the daemon and its workers only after a restart. While the protocol is unchanged the new `deckhand` keeps using the old daemon and says so in its header (`daemon 3.0.0 · deckhand restart`). Restarting ends every running session; the next UI offers to resume them (or `s` resumes each).
 
 `deckhand restart` asks before interrupting running sessions (`--yes` skips the question; without a terminal it refuses unless given). It stops the daemon cleanly (SIGTERM, which every daemon version handles by stopping its workers and saving its state; SIGKILL after 10 s), then starts the installed version's daemon and prints `Daemon restarted (3.0.0 → 3.0.1).` With no daemon running it just starts one.
 
@@ -62,7 +62,7 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | `~/.deckhand/daemon.log` | Daemon diagnostics |
 | `~/.deckhand/daemon.pid` | The running daemon's PID |
 | `~/.deckhand/daemon.sock` | The local IPC socket |
-| `~/.deckhand/daemon-notice` | Which daemon (PID and versions) the "older daemon still running" notice was last shown for, so it shows once |
+| `~/.deckhand/update-check` | The latest Deckhand release the daemon found and when (`{"latest":"3.4.0","checkedAt":"…"}`), looked up again once a day |
 | `~/.deckhand/workers/<session-id>.pid`, `.log` | Each session worker's PID and log |
 | `~/.deckhand/workers/workspace-<hex>.pid`, `.log` | Each workspace worker's PID and log |
 | `~/.deckhand/agent-plugin/` | What agents get for the `deckhand` commands: the skill Claude and Pi load, rewritten when it changes, and `bin/deckhand`, a link to the daemon's binary put first on every agent's `PATH` |

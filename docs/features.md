@@ -77,7 +77,7 @@ A sub-session's form preselects its parent's agent and directory instead of thes
 
 ### Settings (C)
 
-`C` opens one Settings screen for the current repository (the selected session's, else the launch checkout's), using the full width of the terminal. It is a grid: one row per setting, in four sections, and two value columns side by side, **Global (all repos)** and **This repo**:
+`C` opens one Settings screen for the current repository (the selected session's, else the launch checkout's), using the full width of the terminal. It is a grid: one row per setting, in five sections, and two value columns side by side, **Global (all repos)** and **This repo**:
 
 ```text
                        Global (all repos)          This repo
@@ -96,6 +96,7 @@ A sub-session's form preselects its parent's agent and directory instead of thes
 - **Commands**: Dev command (or the names of its processes), Setup command, Actions (the names).
 - **Worktrees**: Location, Branch from, Branch name, Linked items (`worktree.symlink` plus `worktree.files`, as a count).
 - **Agents**: Agent signals (`agent_hooks`), Notifications (`notifications`) and [Scroll speed](#scroll-speed) (`scroll_speed`). These are global only: they describe your machine and your agent CLIs, not a project. They are stored in `config.json` itself (not under `defaults`), and a repository can never set them. Their This repo cell is empty and can't be selected. On these rows the cursor moves to Global, then returns to This repo when you leave the row. See [Lifecycle signals and notifications](#lifecycle-signals-and-notifications).
+- **Deckhand**: Update check (`update_check`), global only like the Agents rows: whether the daemon looks for a new Deckhand release once a day. On unless set to off. See [Updating Deckhand](#updating-deckhand).
 
 Each cell shows that layer's own stored value (`—` when it sets none). Templates show their expansion for this repository, with the template in the details box. `●` marks the value in effect, shown bold; a value the other layer overrides is dimmed. When neither layer sets a value, the Global column shows the built-in default in italics, for example *dev (built-in)*. A value this repository's `deckhand.json` sets while the file is untrusted stays in its cell with `⚠` (*⚠ needs trust* when there is room). The emphasis stays on what applies now. The value applies once you trust the file: you're asked the first time it runs, or press `T`. `defaultAgent` and `defaultWorkspace` apply untrusted too. Lists show a compact summary per layer: action names, or a count of linked items.
 
@@ -620,7 +621,29 @@ Opening it looks the latest releases up again, up to about 10 s each; `R` repeat
 
 `enter` runs the selected agent's own updater, non-interactively (stdin closed, the daemon's environment, at most 5 minutes): `claude update`, `codex update` or `pi update --self` (Pi itself, not its packages). If the agent has running sessions, you are asked first. The details box shows the running state, then the new version or the updater's exit code and the last lines of its output. Leaving the screen does not stop it, and the footer says when it finished. Only one update per agent runs at a time. Agents that are not installed are left to `deckhand setup`. `esc` (or `h`) goes back. A failed update says so in the status line wherever you are, and `G` shows its output.
 
-Updating never restarts sessions by itself. Each launch (create, `s`, `S`) records the version it started with. A running session whose version is older than the one now installed shows a dim `↑` before its agent glyph (the first marker dropped on a narrow sidebar). Its details line names both versions (`claude 2.1.287 · 2.1.290 installed`). After an update that leaves sessions on the older version, the Agents screen offers to restart them in a checklist (the same one as [after a restart](#resuming-after-a-restart)); `s` on an agent's row opens it at any time, for instance after updating outside Deckhand. It lists that agent's running sessions on an older version, from every repository. Idle ones are ticked; one that is working or waiting for you is not, since restarting it ends what it is doing. `enter` stops each ticked session and resumes its conversation on the new version, three at a time as after a restart (each is stopped only when its turn comes). You can also restart one yourself (`x`, then `s`). Exited sessions are never marked: their next start uses the installed version. When any installed agent has a newer release, the header's right side says so quietly (`codex update · G`, `2 agent updates · G`).
+Updating never restarts sessions by itself. Each launch (create, `s`, `S`) records the version it started with. A running session whose version is older than the one now installed shows a dim `↑` before its agent glyph (the first marker dropped on a narrow sidebar). Its details line names both versions (`claude 2.1.287 · 2.1.290 installed`). After an update that leaves sessions on the older version, the Agents screen offers to restart them in a checklist (the same one as [after a restart](#resuming-after-a-restart)); `s` on an agent's row opens it at any time, for instance after updating outside Deckhand. It lists that agent's running sessions on an older version, from every repository. Idle ones are ticked; one that is working or waiting for you is not, since restarting it ends what it is doing. `enter` stops each ticked session and resumes its conversation on the new version, three at a time as after a restart (each is stopped only when its turn comes). You can also restart one yourself (`x`, then `s`). Exited sessions are never marked: their next start uses the installed version. When Deckhand or any installed agent has a newer release, the header's right side says so quietly, in one hint: `codex update · G`, `2 agent updates · G`, `deckhand 3.3.0 → 3.4.0 · G`, or both together (`deckhand → 3.4.0 + codex · G`, `deckhand → 3.4.0 + 2 agents · G`). Below 100 columns the Deckhand part drops the version it replaces.
+
+### Updating Deckhand
+
+Once a day the daemon asks GitHub which release is the latest: one plain request to `https://github.com/tejgor/deckhand/releases/latest`, with curl's own User-Agent, reading where it redirects. Nothing about you or your install is sent, and no token is used. The first look is a minute after the daemon starts; the answer is kept in `~/.deckhand/update-check`, so restarting the daemon does not look again within the day. Offline, rate-limited or without curl, there is simply no answer: nothing is shown, and the daemon log says why. Settings (`C`) turns it off (**Deckhand › Update check**, `"update_check": false` in `config.json`), and so does `DECKHAND_NO_UPDATE_CHECK=1`. Development builds never look.
+
+A newer release shows in the header (`deckhand 3.3.0 → 3.4.0 · G`, see above), on the Agents screen's first line (`Deckhand 3.3.0 → 3.4.0 available · run deckhand update`), and in `deckhand doctor`. The header and the Agents screen read the answer when Deckhand starts and when you open `G`.
+
+`deckhand update` updates Deckhand the way it was installed:
+
+| Installed with | `deckhand update` runs |
+| --- | --- |
+| Homebrew | `brew upgrade tejgor/tap/deckhand` |
+| The installer script | that release's installer, into the same directory, without touching your shell profile |
+| `cargo install --git` | `cargo install --git https://github.com/tejgor/deckhand --tag vX.Y.Z --locked --force deckhand` |
+
+It tells the method from the running binary: Homebrew's `Cellar` path, cargo's record of its installs (`~/.cargo/.crates2.json`), or the installer's receipt (`~/.config/deckhand/deckhand-receipt.json`), each only when it names this very binary. It prints the command and asks `Run it? [Y/n]` (`--yes` skips the question; without a terminal to ask on, `--yes` is required). The command's output shows as it runs. If it fails, Deckhand says so and leaves you the command to run yourself. For a `cargo install --path` from a checkout it prints the steps to update there ([dev-build.md](dev-build.md#updating-your-own-deckhand-from-this-checkout)); for a release archive, an install it can't place, one two methods claim, or a development build, it says what to do and links the release, and changes nothing.
+
+After updating, the new `deckhand` compares itself with the running daemon. Another protocol means Deckhand won't use that daemon (and agents' `deckhand` commands fail) until it restarts; another build of the same protocol keeps working. Either way it offers `deckhand restart`, which asks first when sessions would be interrupted (`[y/N]`). Already on the latest release, `deckhand update` still makes that offer when an older daemon runs.
+
+### The daemon's build
+
+A daemon keeps running the binary it started from, so after an update the old one may still run. While it is another build of the same protocol, the header says so quietly (`daemon 3.3.0 · deckhand restart`, or `daemon 3.4.0 is newer · deckhand update` when the daemon is newer than this `deckhand`), and the Agents screen spells it out. `deckhand restart` replaces it; see [Installing](install.md#updating).
 
 ## Lifecycle signals and notifications
 

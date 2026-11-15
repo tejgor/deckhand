@@ -11,14 +11,18 @@ use ratatui::layout::Rect;
 use deckhand_client::live::LiveClient;
 use deckhand_core::agent_versions::{AGENT_PROGRAMS, AgentUpdateStatus, agent_update_status};
 use deckhand_core::agents::agent_spec;
+use deckhand_core::daemon_build::{BuildRelation, agents_screen_daemon_line, compare_builds};
 use deckhand_core::display::{
     Color, DetailLine, HintPart, MenuItem, MenuPaneLine, RowStatus, THEME, compact_path, error_message,
     plain_terminal_text,
 };
 use deckhand_core::jsstr::{date, js_pad_end, js_trim_end};
 use deckhand_core::key::Input;
+use deckhand_core::self_update::{agents_screen_line, newer_release};
 use deckhand_core::sidebar_model::format_age;
+use deckhand_protocol::BUILD_VERSION;
 use deckhand_protocol::data::{AgentUpdateResult, AgentVersionInfo, AgentVersions, ProgramKey};
+use deckhand_sys::self_update_check::read_update_check;
 
 use crate::app::state::{App, Mode};
 use crate::flow::{Flow, FlowCx, FlowEffect};
@@ -253,6 +257,10 @@ pub struct AgentsPaneProps<'a> {
     /// The agent whose update waits for confirmation (it has running sessions).
     pub confirming: Option<ProgramKey>,
     pub now: i64,
+    /// Not in the TS: the latest Deckhand release found, for the line about Deckhand itself.
+    pub deckhand_latest: Option<&'a str>,
+    /// Not in the TS: the daemon's build (`Some(None)`: it reported none), for a line when it is another build.
+    pub daemon_build: Option<Option<&'a str>>,
 }
 
 /// TS: agentsFlow.tsx AgentsPane.
@@ -314,7 +322,21 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
             ),
         },
     };
-    let subtitle = [if props.checking {
+    // Not in the TS: Deckhand itself and its daemon, above the agents.
+    let deckhand_new = newer_release(BUILD_VERSION, props.deckhand_latest);
+    let mut subtitle = vec![MenuPaneLine {
+        text: agents_screen_line(BUILD_VERSION, props.deckhand_latest),
+        color: deckhand_new.map(|_| THEME.warn),
+    }];
+    if let Some(build) = props.daemon_build
+        && compare_builds(BUILD_VERSION, build) != BuildRelation::Same
+    {
+        subtitle.push(MenuPaneLine {
+            text: agents_screen_daemon_line(BUILD_VERSION, build),
+            color: Some(THEME.warn),
+        });
+    }
+    subtitle.push(if props.checking {
         MenuPaneLine {
             text: "Checking the latest releases…".to_owned(),
             color: Some(THEME.warn),
@@ -324,7 +346,7 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
             text: "Running sessions keep their version until restarted (↑ in the sidebar; s restarts them).".to_owned(),
             color: None,
         }
-    }];
+    });
     let hint: Vec<HintPart> = if props.confirming.is_some() {
         vec![HintPart::from("enter update"), HintPart::from("esc cancel")]
     } else {
@@ -361,6 +383,12 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
 pub struct AgentsFlowProps<'a> {
     pub client: Option<&'a Rc<LiveClient>>,
     pub versions: Option<&'a AgentVersions>,
+    /// Not in the TS: the latest Deckhand release found ([`AgentsPaneProps::deckhand_latest`]).
+    pub deckhand_latest: Option<&'a str>,
+    /// Not in the TS: the daemon's build ([`AgentsPaneProps::daemon_build`]).
+    pub daemon_build: Option<Option<&'a str>>,
+    /// Not in the TS: the `update-check` file, read again on opening (`None`: not read).
+    pub update_check_path: Option<&'a std::path::Path>,
 }
 
 /// TS: agentsFlow.tsx useAgentsFlow's state (AgentsFlow).
@@ -381,6 +409,13 @@ impl AgentsFlow {
     pub fn open(&mut self, props: &AgentsFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         self.confirming = None;
         cx.emit(FlowEffect::SetMode(Mode::Agents));
+        // Not in the TS: what the daemon last found for Deckhand itself.
+        if let Some(path) = props.update_check_path.map(std::path::Path::to_path_buf) {
+            cx.spawn(
+                async move { read_update_check(&path).await.map(|check| check.latest) },
+                |_flow: &mut Self, latest, cx| cx.emit(FlowEffect::DeckhandLatest(latest)),
+            );
+        }
         self.check(props, cx);
     }
 
@@ -506,6 +541,8 @@ impl Flow<App> for AgentsFlow {
                 outcomes: &self.outcomes,
                 confirming: self.confirming,
                 now: date::now_ms(),
+                deckhand_latest: props.deckhand_latest,
+                daemon_build: props.daemon_build,
             },
             buf,
             area,
@@ -572,6 +609,8 @@ mod tests {
         working: IndexSet<ProgramKey>,
         outcomes: IndexMap<ProgramKey, AgentUpdateOutcome>,
         confirming: Option<ProgramKey>,
+        deckhand_latest: Option<&'a str>,
+        daemon_build: Option<Option<&'a str>>,
     }
 
     impl<'a> Pane<'a> {
@@ -583,6 +622,8 @@ mod tests {
                 working: IndexSet::new(),
                 outcomes: IndexMap::new(),
                 confirming: None,
+                deckhand_latest: None,
+                daemon_build: None,
             }
         }
 
@@ -599,6 +640,8 @@ mod tests {
                     outcomes: &self.outcomes,
                     confirming: self.confirming,
                     now: NOW,
+                    deckhand_latest: self.deckhand_latest,
+                    daemon_build: self.daemon_build,
                 },
                 &mut buf,
                 area,
@@ -912,6 +955,32 @@ mod tests {
     async fn apply(app: &mut App, rx: &mut Updates) {
         let update = rx.recv().await.expect("update");
         update(app);
+    }
+
+    #[test]
+    fn the_screen_says_where_deckhand_and_its_daemon_stand() {
+        let versions = fixture();
+        let mut pane = Pane::new(&versions);
+        // Nothing found yet and no daemon answer: Deckhand's version alone.
+        let text = pane.render(120, 30);
+        assert!(text.contains(&format!("Deckhand {BUILD_VERSION}")), "{text}");
+        assert!(!text.contains("Daemon"), "{text}");
+        pane.deckhand_latest = Some("999.0.0");
+        pane.daemon_build = Some(Some("0.0.1"));
+        let text = pane.render(120, 30);
+        assert!(
+            text.contains(&format!(
+                "Deckhand {BUILD_VERSION} → 999.0.0 available · run deckhand update"
+            )),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!("Daemon 0.0.1 is still running (this is {BUILD_VERSION})")),
+            "{text}"
+        );
+        // The same daemon build says nothing more.
+        pane.daemon_build = Some(Some(BUILD_VERSION));
+        assert!(!pane.render(120, 30).contains("Daemon"));
     }
 
     #[test]

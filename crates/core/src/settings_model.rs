@@ -50,6 +50,9 @@ pub enum SettingId {
     /// Not in the TS: `scroll_speed` (how far the mouse wheel scrolls).
     #[serde(rename = "scrollSpeed")]
     ScrollSpeed,
+    /// Not in the TS: `update_check` (whether the daemon looks for a new Deckhand release).
+    #[serde(rename = "updateCheck")]
+    UpdateCheck,
 }
 
 impl SettingId {
@@ -68,6 +71,7 @@ impl SettingId {
             SettingId::AgentHooks => "agentHooks",
             SettingId::Notifications => "notifications",
             SettingId::ScrollSpeed => "scrollSpeed",
+            SettingId::UpdateCheck => "updateCheck",
         }
     }
 }
@@ -92,6 +96,8 @@ pub enum SettingSection {
     Commands,
     Worktrees,
     Agents,
+    /// Not in the TS: Deckhand itself (its update check).
+    Deckhand,
 }
 
 /// TS: settingsModel.ts SettingDef (`global_only`: stored in config.json itself, never set by a repository).
@@ -117,7 +123,7 @@ const fn def(id: SettingId, label: &'static str, section: SettingSection, contro
 }
 
 /// TS: settingsModel.ts SETTINGS (screen order).
-pub const SETTINGS: [SettingDef; 12] = [
+pub const SETTINGS: [SettingDef; 13] = [
     def(
         SettingId::DefaultAgent,
         "Default agent",
@@ -199,14 +205,24 @@ pub const SETTINGS: [SettingDef; 12] = [
             SettingControl::Choice,
         )
     },
+    SettingDef {
+        global_only: true,
+        ..def(
+            SettingId::UpdateCheck,
+            "Update check",
+            SettingSection::Deckhand,
+            SettingControl::Choice,
+        )
+    },
 ];
 
 /// TS: settingsModel.ts APP_FLAG (the config.json key of a global-only setting; Scroll speed, not in the TS, is a
 /// number, not a flag).
-pub const APP_FLAG: [(SettingId, &str); 3] = [
+pub const APP_FLAG: [(SettingId, &str); 4] = [
     (SettingId::AgentHooks, "agent_hooks"),
     (SettingId::Notifications, "notifications"),
     (SettingId::ScrollSpeed, "scroll_speed"),
+    (SettingId::UpdateCheck, "update_check"),
 ];
 
 /// Not in the TS: the Scroll speed row's choices, as (speed, what it does).
@@ -1008,6 +1024,10 @@ pub fn choice_options(info: &SettingsInfo, id: SettingId, target: ConfigTargetKi
             ),
             option("off", flag(false), None),
         ],
+        SettingId::UpdateCheck => vec![
+            option("on", flag(true), Some("look for a new Deckhand release once a day")),
+            option("off", flag(false), Some("deckhand update still looks when you run it")),
+        ],
         SettingId::ScrollSpeed => {
             let current = scroll_speed_text(scroll_speed(info));
             let mut options: Vec<ChoiceOption> = SCROLL_SPEED_CHOICES
@@ -1743,23 +1763,30 @@ fn app_flag_key(id: SettingId) -> Option<&'static str> {
     APP_FLAG.iter().find(|(flag, _)| *flag == id).map(|(_, key)| *key)
 }
 
+/// Not in the TS: `update_check` as config.json stores it. The daemon's settings info predates it, so it is read from
+/// the global file's text the info carries.
+fn stored_update_check(info: &SettingsInfo) -> Option<bool> {
+    let raw = &info.targets.global.as_ref()?.raw;
+    serde_json::from_str::<Value>(raw).ok()?.get("update_check")?.as_bool()
+}
+
 /// TS appFlag: Agent signals are on unless switched off (unset: Claude only, see hooksEnabled); Notifications are
-/// off unless switched on.
+/// off unless switched on; the Update check (not in the TS) is on unless switched off.
 fn app_flag(info: &SettingsInfo, id: SettingId) -> bool {
-    if id == SettingId::AgentHooks {
-        info.agent_hooks != Some(false)
-    } else {
-        info.notifications
+    match id {
+        SettingId::AgentHooks => info.agent_hooks != Some(false),
+        SettingId::UpdateCheck => stored_update_check(info) != Some(false),
+        _ => info.notifications,
     }
 }
 
 /// TS storedFlag: the value config.json stores for the flag, `None` when it stores none (Notifications off counts as
 /// none).
 fn stored_flag(info: &SettingsInfo, id: SettingId) -> Option<bool> {
-    if id == SettingId::AgentHooks {
-        info.agent_hooks
-    } else {
-        info.notifications.then_some(true)
+    match id {
+        SettingId::AgentHooks => info.agent_hooks,
+        SettingId::UpdateCheck => stored_update_check(info),
+        _ => info.notifications.then_some(true),
     }
 }
 
@@ -2085,6 +2112,7 @@ fn built_in_detail(id: SettingId) -> &'static str {
         SettingId::AgentHooks => "Off: attention (! and the session markers) comes from terminal activity only.",
         SettingId::Notifications => "Off: no desktop notifications.",
         SettingId::ScrollSpeed => "Not set: 1, each wheel event as your terminal sends it.",
+        SettingId::UpdateCheck => "Off: Deckhand doesn't look for new releases (deckhand update still does).",
     }
 }
 
@@ -2110,6 +2138,9 @@ fn app_flag_detail(info: &SettingsInfo, id: SettingId) -> &'static str {
     }
     if id == SettingId::AgentHooks {
         return "new sessions report state and what they ask · Claude automatically, Codex via its own hooks";
+    }
+    if id == SettingId::UpdateCheck {
+        return "once a day the daemon asks GitHub for the latest release · a new one shows in the header and on G";
     }
     if app_flag(info, SettingId::AgentHooks) {
         "a desktop notification when a session needs you or exits"
@@ -2695,6 +2726,7 @@ mod tests {
                 "Agents/Agent signals",
                 "Agents/Notifications",
                 "Agents/Scroll speed",
+                "Deckhand/Update check",
             ]
         );
     }
@@ -2876,7 +2908,12 @@ mod tests {
     #[test]
     fn global_only_settings_leave_the_repository_cells_empty() {
         let info = settings_info(Some(REPO), Some(global()), false, None);
-        for id in [SettingId::AgentHooks, SettingId::Notifications, SettingId::ScrollSpeed] {
+        for id in [
+            SettingId::AgentHooks,
+            SettingId::Notifications,
+            SettingId::ScrollSpeed,
+            SettingId::UpdateCheck,
+        ] {
             let row = row(&info, id);
             assert!(row.def.global_only, "{id:?}");
             assert_eq!(row.def.control, SettingControl::Choice, "{id:?}");
@@ -2890,6 +2927,39 @@ mod tests {
             );
             assert!(row.cells.global.effective, "{id:?}");
         }
+    }
+
+    // Not in the TS: the Update check is on unless config.json says `update_check: false`, read from the global
+    // file's text (the daemon's settings info does not carry it).
+    #[test]
+    fn update_check_row() {
+        use SettingId::UpdateCheck;
+        let unset = settings_info(Some(REPO), Some(global()), false, None);
+        let cell = row(&unset, UpdateCheck).cells.global;
+        assert_eq!((cell.text.as_str(), cell.set, cell.built_in), ("on", false, Some(true)));
+        assert!(detail(&unset, UpdateCheck, Global).relation.starts_with("once a day"));
+        let options = choice_options(&unset, UpdateCheck, Global);
+        assert_eq!(
+            choice_change(&unset, UpdateCheck, Global, &options[1]),
+            Some(SettingChange {
+                path: vec![String::from("update_check")],
+                value: Some(json!(false)),
+            })
+        );
+        let off = settings_info(
+            Some(REPO),
+            Some(with(global(), "update_check", json!(false))),
+            false,
+            None,
+        );
+        let cell = row(&off, UpdateCheck).cells.global;
+        assert_eq!((cell.text.as_str(), cell.set), ("off", true));
+        assert!(
+            detail(&off, UpdateCheck, Global)
+                .relation
+                .starts_with("Off: Deckhand doesn't look")
+        );
+        assert_eq!(choice_change(&off, UpdateCheck, Global, &options[1]), None);
     }
 
     // Not in the TS: Scroll speed is a global-only number with a few choices, plus one set with + / −.

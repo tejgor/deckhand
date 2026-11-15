@@ -123,6 +123,9 @@ pub struct AppConfig {
     /// Not in the TS: unless false, agents Deckhand launches may run `deckhand` commands without asking (Claude:
     /// `--allowedTools`). The skill that tells them about the commands is added either way.
     pub allow_deckhand_commands: Option<bool>,
+    /// Not in the TS: unless false, the daemon looks for a new Deckhand release once a day
+    /// (`deckhand_sys::self_update_check`). Settings (`C`) saves it.
+    pub update_check: Option<bool>,
     /// Global project defaults (deckhand.json schema), kept as stored (`null` included).
     #[serde(default, deserialize_with = "crate::events::present_value")]
     pub defaults: Option<Value>,
@@ -166,6 +169,7 @@ impl AppConfig {
             claude_scroll_override: raw.get("claude_scroll_override").and_then(Value::as_bool),
             scroll_speed: raw.get("scroll_speed").and_then(Value::as_f64).map(JsNumber),
             allow_deckhand_commands: raw.get("allow_deckhand_commands").and_then(Value::as_bool),
+            update_check: raw.get("update_check").and_then(Value::as_bool),
             // `defaults: parsed.defaults` keeps even null.
             defaults: raw.get("defaults").cloned(),
         }

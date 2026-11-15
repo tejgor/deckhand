@@ -143,17 +143,22 @@ pub fn installed_versions(versions: Option<&AgentVersions>) -> InstalledVersions
         .collect()
 }
 
-/// TS: agentVersions.ts updateHint: the app header's quiet hint (`codex update · G`, `2 agent updates · G`, or
-/// nothing: all current, or latest unknown).
-pub fn update_hint(versions: Option<&AgentVersions>) -> String {
-    let available: Vec<ProgramKey> = AGENT_PROGRAMS
+/// The installed agents with a newer release, in [`AGENT_PROGRAMS`] order.
+pub fn agents_with_updates(versions: Option<&AgentVersions>) -> Vec<ProgramKey> {
+    AGENT_PROGRAMS
         .iter()
         .copied()
         .filter(|&program| {
             agent_update_status(versions.map(|versions| version_info(versions, program)))
                 == AgentUpdateStatus::UpdateAvailable
         })
-        .collect();
+        .collect()
+}
+
+/// TS: agentVersions.ts updateHint: the app header's quiet hint (`codex update · G`, `2 agent updates · G`, or
+/// nothing: all current, or latest unknown).
+pub fn update_hint(versions: Option<&AgentVersions>) -> String {
+    let available = agents_with_updates(versions);
     match available.as_slice() {
         [] => String::new(),
         [program] => format!("{program} update · G"),

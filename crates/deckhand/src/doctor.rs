@@ -11,6 +11,8 @@
 // B1 wires `deckhand doctor` into the binary; until then only the tests reach these items.
 #![allow(dead_code)]
 
+use deckhand_core::self_update::{UPDATE_COMMAND, UpdateCheck, newer_release};
+use deckhand_sys::self_update_check::{read_update_check, update_check_path};
 use std::path::{Path, PathBuf};
 
 use deckhand_client::client::DaemonState;
@@ -332,6 +334,20 @@ async fn run_daemon_check() {
     }
     let state = deckhand_client::client::daemon_state().await;
     crate::setup::write_stdout(&format_daemon_report(&state, &deckhand_sys::paths::daemon_log_path()));
+    let check = read_update_check(&update_check_path()).await;
+    crate::setup::write_stdout(&format_release_report(BUILD_VERSION, check.as_ref()));
+}
+
+/// Not in the TS: `deckhand doctor`'s line about Deckhand's own release, from the daemon's last look (it never looks
+/// itself).
+pub fn format_release_report(current: &str, check: Option<&UpdateCheck>) -> String {
+    match check {
+        None => format!("Deckhand: {current} (no release check yet)\n"),
+        Some(check) => match newer_release(current, Some(&check.latest)) {
+            Some(new) => format!("• Deckhand: {new} is available (this is {current}): {UPDATE_COMMAND}\n"),
+            None => format!("✓ Deckhand: {current}, the latest release\n"),
+        },
+    }
 }
 
 /// `deckhand doctor`'s daemon line for `state` (`log`: where an unresponsive daemon's log is).
@@ -398,6 +414,26 @@ mod tests {
         let (status, text) = format_notification_report(None);
         assert_eq!(status, DoctorStatus::Healthy);
         assert!(text.contains("isn't known yet"));
+    }
+
+    #[test]
+    fn doctor_reports_deckhands_own_release() {
+        let check = |latest: &str| UpdateCheck {
+            latest: latest.to_owned(),
+            checked_at: "2026-11-15T10:00:00.000Z".to_owned(),
+        };
+        assert_eq!(
+            format_release_report("3.3.0", None),
+            "Deckhand: 3.3.0 (no release check yet)\n"
+        );
+        assert_eq!(
+            format_release_report("3.3.0", Some(&check("3.4.0"))),
+            "• Deckhand: 3.4.0 is available (this is 3.3.0): deckhand update\n"
+        );
+        assert_eq!(
+            format_release_report("3.4.0", Some(&check("3.4.0"))),
+            "✓ Deckhand: 3.4.0, the latest release\n"
+        );
     }
 
     #[test]

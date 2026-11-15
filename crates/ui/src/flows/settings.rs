@@ -591,6 +591,10 @@ impl SettingsFlow {
                 agent_hooks: Some(value),
                 ..AppConfig::default()
             },
+            SettingId::UpdateCheck => AppConfig {
+                update_check: Some(value),
+                ..AppConfig::default()
+            },
             _ => AppConfig {
                 notifications: Some(value),
                 ..AppConfig::default()
@@ -611,6 +615,8 @@ impl SettingsFlow {
                         let state = if value { "on" } else { "off" };
                         let applies = if test_notification {
                             " · sent a test notification: if macOS asks, allow Deckhand"
+                        } else if id == SettingId::UpdateCheck {
+                            if value { " · the daemon looks once a day" } else { "" }
                         } else if value {
                             " · applies to new and restarted sessions"
                         } else {

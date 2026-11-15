@@ -2,8 +2,9 @@
 //!
 //! A daemon outlives the binary it started from: after an update of the same protocol version the client keeps using
 //! the old daemon, which keeps running the old daemon and worker code. That is compatible, so it is only mentioned
-//! (a footer notice once per daemon, `deckhand doctor`) with `deckhand restart` as the way to pick the update up. A
-//! daemon of another protocol is refused elsewhere (`deckhand_client::client`); its hint names the same command.
+//! (the header's `daemon 3.3.0 · deckhand restart`, the Agents screen, `deckhand doctor`) with `deckhand restart` as
+//! the way to pick the update up. A daemon of another protocol is refused elsewhere (`deckhand_client::client`); its
+//! hint names the same command.
 //! Restarting the daemon interrupts running sessions; the next UI offers to resume them (or `s` resumes each).
 
 use std::cmp::Ordering;
@@ -109,31 +110,34 @@ pub fn compare_builds(client: &str, daemon: Option<&str>) -> BuildRelation {
     }
 }
 
-/// The UI's footer notice when a compatible daemon of another build is running; `None` for the same build.
-pub fn update_notice(client: &str, daemon: Option<&str>) -> Option<String> {
-    let text = match (compare_builds(client, daemon), daemon) {
-        (BuildRelation::Same, _) => return None,
-        (BuildRelation::DaemonOlder, Some(daemon)) => {
-            format!("Daemon {daemon} is still running (this is {client}) · restart when convenient: {RESTART_COMMAND}")
+/// The header's hint while a compatible daemon of another build runs (`None`: the same build): `daemon 3.3.0 ·
+/// deckhand restart`, or for a newer daemon than this executable `daemon 3.4.0 is newer · deckhand update`.
+pub fn daemon_hint(client: &str, daemon: Option<&str>) -> Option<String> {
+    let shown = daemon.unwrap_or("older");
+    match compare_builds(client, daemon) {
+        BuildRelation::Same => None,
+        BuildRelation::DaemonNewer => Some(format!("daemon {shown} is newer · deckhand update")),
+        BuildRelation::DaemonOlder | BuildRelation::Unordered | BuildRelation::DaemonUnknown => {
+            Some(format!("daemon {shown} · {RESTART_COMMAND}"))
         }
-        (BuildRelation::DaemonNewer, Some(daemon)) => format!(
-            "Daemon {daemon} is newer than this deckhand ({client}) · update this install, or {RESTART_COMMAND} to run {client}"
-        ),
-        (BuildRelation::Unordered, Some(daemon)) => {
-            format!("Daemon {daemon} is running (this is {client}) · restart when convenient: {RESTART_COMMAND}")
-        }
-        _ => {
-            format!("An older daemon is still running (this is {client}) · restart when convenient: {RESTART_COMMAND}")
-        }
-    };
-    Some(text)
+    }
 }
 
-/// The identity a notice is shown once for: the daemon process and both builds. A new daemon (another pid), another
-/// daemon build or another executable build each get the notice again.
-pub fn notice_key(daemon_pid: Option<u32>, daemon: Option<&str>, client: &str) -> String {
-    let pid = daemon_pid.map_or_else(|| "?".to_owned(), |pid| pid.to_string());
-    format!("pid={pid} daemon={} client={client}", daemon.unwrap_or("?"))
+/// The Agents screen's line about the running daemon (`daemon`: its build; `None` when it reported none).
+pub fn agents_screen_daemon_line(client: &str, daemon: Option<&str>) -> String {
+    let Some(shown) = daemon else {
+        return format!(
+            "An older daemon is still running (this is {client}) · restart when convenient: {RESTART_COMMAND}"
+        );
+    };
+    match compare_builds(client, daemon) {
+        BuildRelation::Same => format!("Daemon {shown}, the same build"),
+        BuildRelation::DaemonNewer => format!(
+            "Daemon {shown} is newer than this deckhand ({client}) · update this install, or {RESTART_COMMAND} to run \
+             {client}"
+        ),
+        _ => format!("Daemon {shown} is still running (this is {client}) · restart when convenient: {RESTART_COMMAND}"),
+    }
 }
 
 /// `deckhand doctor`'s line about the running daemon (`daemon_pid` as reported, else from `daemon.pid`).
@@ -237,36 +241,44 @@ mod tests {
     }
 
     #[test]
-    fn the_notice_names_both_builds_and_the_restart_command() {
-        assert_eq!(update_notice("3.0.1", Some("3.0.1")), None);
+    fn the_header_names_another_daemon_build_and_what_to_run() {
+        assert_eq!(daemon_hint("3.0.1", Some("3.0.1")), None);
         assert_eq!(
-            update_notice("3.0.1", Some("3.0.0")).as_deref(),
-            Some("Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart")
+            daemon_hint("3.0.1", Some("3.0.0")).as_deref(),
+            Some("daemon 3.0.0 · deckhand restart")
         );
         assert_eq!(
-            update_notice("3.0.1", Some("3.0.2")).as_deref(),
-            Some(
-                "Daemon 3.0.2 is newer than this deckhand (3.0.1) · update this install, or deckhand restart to run 3.0.1"
-            )
+            daemon_hint("3.0.1", Some("dev")).as_deref(),
+            Some("daemon dev · deckhand restart")
         );
         assert_eq!(
-            update_notice("3.0.1", Some("dev")).as_deref(),
-            Some("Daemon dev is running (this is 3.0.1) · restart when convenient: deckhand restart")
+            daemon_hint("3.0.1", None).as_deref(),
+            Some("daemon older · deckhand restart")
         );
         assert_eq!(
-            update_notice("3.0.1", None).as_deref(),
-            Some("An older daemon is still running (this is 3.0.1) · restart when convenient: deckhand restart")
+            daemon_hint("3.0.1", Some("3.0.2")).as_deref(),
+            Some("daemon 3.0.2 is newer · deckhand update")
         );
     }
 
     #[test]
-    fn the_notice_key_changes_with_the_daemon_process_and_either_build() {
-        let key = notice_key(Some(42), Some("3.0.0"), "3.0.1");
-        assert_eq!(key, "pid=42 daemon=3.0.0 client=3.0.1");
-        assert_ne!(key, notice_key(Some(43), Some("3.0.0"), "3.0.1"));
-        assert_ne!(key, notice_key(Some(42), Some("3.0.1"), "3.0.2"));
-        assert_ne!(key, notice_key(Some(42), Some("3.0.0"), "3.0.2"));
-        assert_eq!(notice_key(None, None, "3.0.1"), "pid=? daemon=? client=3.0.1");
+    fn the_agents_screen_explains_the_daemon_build() {
+        assert_eq!(
+            agents_screen_daemon_line("3.0.1", Some("3.0.1")),
+            "Daemon 3.0.1, the same build"
+        );
+        assert_eq!(
+            agents_screen_daemon_line("3.0.1", Some("3.0.0")),
+            "Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart"
+        );
+        assert_eq!(
+            agents_screen_daemon_line("3.0.1", Some("3.0.2")),
+            "Daemon 3.0.2 is newer than this deckhand (3.0.1) · update this install, or deckhand restart to run 3.0.1"
+        );
+        assert_eq!(
+            agents_screen_daemon_line("3.0.1", None),
+            "An older daemon is still running (this is 3.0.1) · restart when convenient: deckhand restart"
+        );
     }
 
     #[test]

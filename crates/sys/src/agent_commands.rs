@@ -129,8 +129,11 @@ pub fn linked_executable(plugin_dir: &Path) -> PathBuf {
 
 /// `<plugin dir>/bin`, holding `deckhand` as a link to `exe` (replaced when it points elsewhere). Put first on an
 /// agent's `PATH`, the `deckhand` commands it runs are this build's, whichever `deckhand` the `PATH` names (a dev
-/// build's agents would otherwise run the installed one).
+/// build's agents would otherwise run the installed one). A Homebrew `exe` in its versioned Cellar directory (how
+/// Linux reports a running executable) is linked by Homebrew's `opt` path instead, which `brew upgrade` keeps valid.
 pub fn link_executable(plugin_dir: &Path, exe: &Path) -> Result<PathBuf> {
+    let stable = deckhand_core::self_update::homebrew_stable_path(exe).filter(|stable| stable.exists());
+    let exe = stable.as_deref().unwrap_or(exe);
     let link = linked_executable(plugin_dir);
     let bin = plugin_dir.join("bin");
     if std::fs::read_link(&link).is_ok_and(|target| target == exe) {

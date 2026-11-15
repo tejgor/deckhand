@@ -281,6 +281,8 @@ impl Daemon {
             }
         });
         self.agents.borrow_mut().timer = Some(timer);
+        // Not in the TS: Deckhand's own release, for the UI's header and the Agents screen.
+        self.start_release_check();
         let detection = self.detect_merges(None);
         drop(spawn(detection));
         let weak = self.downgrade();
@@ -461,8 +463,18 @@ impl Daemon {
         if std::mem::replace(&mut self.lifecycle.borrow_mut().shutting_down, true) {
             return;
         }
-        let agents_timer = self.agents.borrow_mut().timer.take();
-        if let Some(mut timer) = agents_timer {
+        let (agents_timer, release_timer, first_release_check) = {
+            let mut agents = self.agents.borrow_mut();
+            (
+                agents.timer.take(),
+                agents.release_timer.take(),
+                agents.first_release_check.take(),
+            )
+        };
+        for mut timer in [agents_timer, release_timer].into_iter().flatten() {
+            timer.clear();
+        }
+        if let Some(mut timer) = first_release_check {
             timer.clear();
         }
         let merge_timer = self.merge.borrow_mut().timer.take();

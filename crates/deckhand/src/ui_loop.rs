@@ -135,6 +135,7 @@ fn app_props(
     let view = Rc::clone(&round_trip.terminal_view);
     let collapsed_steps = Rc::clone(&round_trip.collapsed_task_steps);
     AppProps {
+        update_check_path: Some(deckhand_sys::self_update_check::update_check_path()),
         repo_root: repo_root.to_owned(),
         cwd: repo_root.to_owned(),
         initial_selected_id: state.selected_id.clone(),

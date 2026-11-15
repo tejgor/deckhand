@@ -4,6 +4,11 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+### Added
+
+- **`deckhand update`** updates Deckhand the way you installed it (Homebrew, the installer script or `cargo install --git`), asking first, then offers to restart the daemon when the running one is an older build. Other installs get the steps to follow. See [Updating Deckhand](docs/features.md#updating-deckhand).
+- **New release check**: once a day the daemon asks GitHub for the latest release; a newer one shows in the header (`deckhand 3.3.0 → 3.4.0 · G`), on the Agents screen (`G`) and in `deckhand doctor`. Settings (`C`) › Deckhand › Update check turns it off.
+
 ### Changed
 
 - **`deckhand ls` in a session lists its whole tree**: its top-level session and every session under it, in any checkout, indented under their parents, the sessions it can message. `--all`, or running it by hand, lists the checkout's sessions as before. See [Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents).
@@ -11,6 +16,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **Short session names**: the guides tell agents and orchestrators to name every session (and parked task) in 2 to 4 words naming the work, not a sentence, and to always pass `--title` to `deckhand new`. Without one, a session is named after its prompt's first sentence, not its whole first line. See [Starting a session from a command](docs/features.md#starting-a-session-from-a-command).
 - **Codex replies through its tool**: a message that wants an answer tells a Codex that has the `deckhand` tool to reply with the tool rather than a shell command its sandbox would block.
 - **`O` asks for a name, then the idea**: two fields, `tab` between them. The name (2–4 words, optional) names the orchestrator and its idea's line instead of the idea's first line; `deckhand do --title <name>` does the same. See [The orchestrator](docs/features.md#the-orchestrator).
+- **One update hint**: the header shows Deckhand's and the agents' updates in one `· G` hint (`deckhand → 3.4.0 + codex · G`).
+- **Older daemon**: an older daemon still running after an update now shows in the header (`daemon 3.3.0 · deckhand restart`) for as long as it runs, instead of once in the footer. The Agents screen says it in full.
 
 ### Fixed
 

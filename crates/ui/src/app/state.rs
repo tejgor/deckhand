@@ -268,6 +268,9 @@ pub struct AppProps {
     pub initial_collapsed_task_steps: Option<Vec<String>>,
     /// Not in the TS: the attach a plan ended (Deckhand detached to ask for it): attached again once you answer it.
     pub plan_reattach: Option<UiExitResult>,
+    /// Not in the TS: the `update-check` file the daemon keeps the latest Deckhand release in
+    /// (`deckhand_sys::self_update_check::update_check_path`); `None` (tests) reads none.
+    pub update_check_path: Option<std::path::PathBuf>,
     pub callbacks: AppCallbacks,
 }
 
@@ -347,6 +350,12 @@ pub struct RepoData {
     pub repo_sessions: Vec<SessionRecord>,
     pub sessions_loaded: bool,
     pub agent_versions: Option<AgentVersions>,
+    /// Not in the TS: the latest Deckhand release the daemon found (the `update-check` file, read at connect and when
+    /// the Agents screen opens).
+    pub deckhand_latest: Option<String>,
+    /// Not in the TS: the connected daemon's build as its ping said (`Some(None)`: it reported none, so it is older);
+    /// `None` until it answered.
+    pub daemon_build: Option<Option<String>>,
     pub tasks_doc: Option<TasksDoc>,
     /// TS `tasks`: `parseTasks(tasksDoc?.text ?? '')`, reparsed when the text changes (the top-level lines).
     pub tasks: Vec<Task>,

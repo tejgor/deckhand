@@ -22,6 +22,7 @@ pub mod orchestrator_guide;
 pub mod plan;
 pub mod project_config;
 pub mod project_config_document;
+pub mod self_update;
 pub mod session_features;
 pub mod session_lines;
 pub mod session_order;

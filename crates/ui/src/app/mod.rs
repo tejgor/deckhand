@@ -519,6 +519,9 @@ macro_rules! with_props {
         let props = $crate::flows::agents::AgentsFlowProps {
             client: app.connection.client.as_ref(),
             versions: app.data.agent_versions.as_ref(),
+            deckhand_latest: app.data.deckhand_latest.as_deref(),
+            update_check_path: app.props.update_check_path.as_deref(),
+            daemon_build: app.data.daemon_build.as_ref().map(Option::as_deref),
         };
         ($call)(&mut app.flows.agents, &props)
     }};
@@ -1658,6 +1661,7 @@ impl FlowHost for App {
                 FlowEffect::SetError(error) => self.set_error(error),
                 FlowEffect::SetStatus(status) => self.set_status(status),
                 FlowEffect::Versions(versions) => self.data.agent_versions = Some(*versions),
+                FlowEffect::DeckhandLatest(latest) => self.data.deckhand_latest = latest,
                 FlowEffect::Changes(record) => {
                     if record.session_id == self.selected_id_ref() {
                         self.panes.changes = *record;

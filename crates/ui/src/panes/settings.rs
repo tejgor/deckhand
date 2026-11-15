@@ -547,6 +547,7 @@ fn section_name(section: SettingSection) -> &'static str {
         SettingSection::Commands => "Commands",
         SettingSection::Worktrees => "Worktrees",
         SettingSection::Agents => "Agents",
+        SettingSection::Deckhand => "Deckhand",
     }
 }
 

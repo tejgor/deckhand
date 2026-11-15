@@ -231,6 +231,19 @@ pub async fn prompt_yes(question: &str, assume_yes: bool) -> Option<bool> {
     line.ok().flatten().map(|line| is_yes(&line))
 }
 
+/// Not in the TS: `<question> [Y/n] `, where an empty answer is yes and `n`/`no` is no (anything else: no). `None`
+/// once stdin has ended.
+pub async fn prompt_default_yes(question: &str) -> Option<bool> {
+    write_stdout(&format!("{question} [Y/n] "));
+    let line = tokio::task::spawn_blocking(|| read_answer(libc::STDIN_FILENO)).await;
+    line.ok().flatten().map(|line| default_yes(&line))
+}
+
+/// The answer to a `[Y/n]` question: empty or yes.
+fn default_yes(answer: &str) -> bool {
+    jsstr::js_trim(answer).is_empty() || is_yes(answer)
+}
+
 /// Node's stream read size (64 KiB).
 const READ_CHUNK: usize = 64 * 1024;
 
@@ -536,6 +549,16 @@ mod tests {
         }
         for answer in ["", "\n", "n", "no", "yess", "y y", "ja"] {
             assert!(!is_yes(answer), "{answer:?}");
+        }
+    }
+
+    #[test]
+    fn a_default_yes_question_takes_an_empty_answer_as_yes() {
+        for answer in ["", "\n", " \r\n", "y", "Yes\n"] {
+            assert!(default_yes(answer), "{answer:?}");
+        }
+        for answer in ["n", "no\n", "nope", "later"] {
+            assert!(!default_yes(answer), "{answer:?}");
         }
     }
 

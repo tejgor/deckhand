@@ -67,19 +67,25 @@ This puts the binary in `~/.cargo/bin`.
 
 ## Updating
 
-Update the way you installed:
+`deckhand update` updates Deckhand the way you installed it, then offers to restart the daemon:
+
+- **Homebrew**: runs `brew upgrade tejgor/tap/deckhand`.
+- **Installer script**: runs the new release's installer into the same directory.
+- **Cargo** (`--git`): runs `cargo install --git … --tag vX.Y.Z --locked --force deckhand`.
+
+It shows the command and asks before running it (`--yes` skips the question). Deckhand looks for a new release once a day and shows it in its header (`deckhand 3.3.0 → 3.4.0 · G`); see [Updating Deckhand](features.md#updating-deckhand), including how to turn the check off.
+
+For the other methods, update by hand. `deckhand update` tells you how:
 
 | Installed with | Update with |
 | --- | --- |
-| Homebrew | `brew upgrade deckhand` |
-| Installer script | Run the installer again |
 | Release archive | Download and install the new archive |
-| Cargo | Add `--force` to the `cargo install` command |
+| Cargo from a checkout | `git pull`, then `cargo install --path crates/deckhand --locked` ([dev-build.md](dev-build.md#updating-your-own-deckhand-from-this-checkout)) |
 
-Then check the **Daemon restart** line in the [release notes](https://github.com/tejgor/deckhand/releases):
+After updating, the running daemon may still be the old version:
 
-- **Required**: the new version speaks a different protocol to the daemon, so `deckhand` refuses the running daemon until you run `deckhand restart`.
-- **Not required**: Deckhand keeps using the running daemon and tells you once, at the bottom of the screen (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Run `deckhand restart` when it suits you, to pick up daemon fixes.
+- **Another protocol** (the release notes say **Daemon restart: required**): `deckhand` refuses the running daemon until you run `deckhand restart`. `deckhand update` offers to.
+- **The same protocol**: Deckhand keeps using the running daemon, and its header says so (`daemon 3.3.0 · deckhand restart`). Run `deckhand restart` when it suits you, to pick up daemon fixes.
 
 `deckhand restart` stops the daemon and starts the new version's. This interrupts running sessions; the next time you open Deckhand it offers to resume them in a checklist (or `s` resumes each). It asks first when sessions are running, saying what each is doing; `--yes` skips the question, and is required when there is no terminal to ask on. `deckhand doctor --check` shows which version the running daemon is.
 

@@ -19,6 +19,7 @@ mod notifier;
 mod restart;
 mod setup;
 mod ui_loop;
+mod update;
 
 use std::future::Future;
 use std::io::Write;

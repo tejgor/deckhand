@@ -1,8 +1,7 @@
 ⟦magenta⟧╭──────────────────────────────────────────────────────────────────────────────╮
 ⟦magenta⟧│ ⟦magenta bold⟧Settings · mono                                   ⟦yellow⟧deckhand.json: needs trust ⟦magenta⟧│
 ⟦magenta⟧│                        ⟦magenta bold⟧Global (all repos)          ⟦gray⟧This repo                 ⟦magenta⟧│
-⟦magenta⟧│   ⟦gray⟧↑ 6 more                                                                   ⟦magenta⟧│
-⟦magenta⟧│   ⟦⟧Actions              ⟦gray⟧—                           ⟦yellow⟧test ⚠ needs trust        ⟦magenta⟧│
+⟦magenta⟧│   ⟦gray⟧↑ 7 more                                                                   ⟦magenta⟧│
 ⟦magenta⟧│  ⟦magentaBright bold⟧Worktrees                                                                   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Location           ⟦cyan bold⟧● ⟦gray italic⟧/state/worktrees/<name>     ⟦yellow⟧/dev/worktrees/<name> ⚠   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)    ⟦gray⟧—                         ⟦magenta⟧│
@@ -12,6 +11,7 @@
 ⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                         ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                        ⟦magenta⟧│
 ⟦magenta⟧│ ⟦cyan bold⟧❯ ⟦bold⟧Scroll speed       ⟦cyan bold inverse⟧●⟦inverse⟧ ⟦cyan bold inverse⟧2⟦inverse⟧                        ⟦⟧                             ⟦magenta⟧│
+⟦magenta⟧│   ⟦gray⟧↓ 2 more                                                                   ⟦magenta⟧│
 ⟦magenta⟧│ ╭──────────────────────────────────────────────────────────────────────────╮ │
 ⟦magenta⟧│ │ ⟦magenta bold⟧Scroll speed · Global                                                    ⟦magenta⟧│ │
 ⟦magenta⟧│ │   ⟦⟧○ 0.5      every other wheel event: slower                             ⟦magenta⟧│ │

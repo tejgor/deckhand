@@ -42,6 +42,8 @@ pub enum FlowEffect<H> {
     SetStatus(Option<String>),
     /// TS agentsFlow `setVersions(versions)`.
     Versions(Box<AgentVersions>),
+    /// Not in the TS: the latest Deckhand release as the `update-check` file says now (agentsFlow, on opening).
+    DeckhandLatest(Option<String>),
     /// TS changesFlow `onChanges(record)`: a refreshed Changes record (kept only if still for the selection).
     Changes(Box<ChangesRecord>),
     /// TS changesFlow `onAttach()`: attach the selected session's lazygit (the Git target).
@@ -77,6 +79,7 @@ impl<H> std::fmt::Debug for FlowEffect<H> {
             FlowEffect::SetError(error) => f.debug_tuple("SetError").field(error).finish(),
             FlowEffect::SetStatus(status) => f.debug_tuple("SetStatus").field(status).finish(),
             FlowEffect::Versions(_) => f.write_str("Versions(..)"),
+            FlowEffect::DeckhandLatest(latest) => f.debug_tuple("DeckhandLatest").field(latest).finish(),
             FlowEffect::Changes(_) => f.write_str("Changes(..)"),
             FlowEffect::AttachGit => f.write_str("AttachGit"),
             FlowEffect::TasksDoc(_) => f.write_str("TasksDoc(..)"),
