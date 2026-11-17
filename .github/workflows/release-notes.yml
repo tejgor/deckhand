@@ -40,3 +40,17 @@ jobs:
           fi
           printf '\n%s\n' "$line" >> "$RUNNER_TEMP/notes.md"
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+      # CHANGELOG.md links into the repository (docs/features.md#…); on a release page those resolve under
+      # /releases/tag/ and break, so point them at the release's own files.
+      - name: Make links to the repository's files absolute
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$RUNNER_TEMP/links.md"
+          sed -E "s#\]\((docs/|CHANGELOG\.md|README\.md|HANDOFF\.md)#](https://github.com/$GITHUB_REPOSITORY/blob/$TAG/\1#g" \
+            "$RUNNER_TEMP/links.md" > "$RUNNER_TEMP/links-absolute.md"
+          if cmp -s "$RUNNER_TEMP/links.md" "$RUNNER_TEMP/links-absolute.md"; then
+            echo "No relative links to fix."
+            exit 0
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/links-absolute.md"
