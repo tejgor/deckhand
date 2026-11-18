@@ -4,6 +4,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-18
+
 ### Added
 
 - **Copy from the Preview while typing to the agent**: drag across the agent's screen to select it (shown reversed, kept inside the Preview) and let go to copy it to the clipboard; the status line says what was copied. Terminals can't select while Deckhand reports the mouse, so before you had to attach. See [Typing to an agent in the Preview](docs/features.md#typing-to-an-agent-in-the-preview).
@@ -91,7 +93,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **One-time migration**: the first daemon start moves old tasks and worktree notes into the new list. It copies everything first to `~/.deckhand/notes/trash/work-items-migration-<time>/`, with a `migration-report.txt` saying what moved where. If it fails, Deckhand keeps running and tries again at the next start. See [Upgrading from tasks and worktree notes](docs/features.md#upgrading-from-tasks-and-worktree-notes).
 - **Update together**: every Deckhand that shares a state directory (a stable and a dev build pointed at the same one, say) must be updated at the same time. An older one would show the new list wrongly.
 
-[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.5.0...HEAD
+[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.6.0...HEAD
+[3.6.0]: https://github.com/tejgor/deckhand/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/tejgor/deckhand/compare/v3.4.5...v3.5.0
 [3.4.5]: https://github.com/tejgor/deckhand/compare/v3.4.0...v3.4.5
 [3.4.0]: https://github.com/tejgor/deckhand/compare/v3.3.0...v3.4.0
