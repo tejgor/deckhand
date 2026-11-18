@@ -918,6 +918,9 @@ impl App {
 
     /// TS `setMode`.
     pub fn set_mode(&mut self, mode: Mode) {
+        if mode != self.mode {
+            self.preview_focus.selection = None;
+        }
         self.mode = mode;
     }
 

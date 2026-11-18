@@ -1,6 +1,7 @@
 //! deckhand-ui.
 
 pub mod app;
+pub mod clipboard;
 pub mod flow;
 pub mod flows;
 pub mod input;

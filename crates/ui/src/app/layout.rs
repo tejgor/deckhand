@@ -722,7 +722,9 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
                 focused: app.mode == Mode::PreviewFocus,
             };
             render_preview_pane(&props, buf, pane);
-            app.preview_focus.body = Some(preview_body(pane));
+            let body = preview_body(pane);
+            app.preview_focus.body = Some(body);
+            crate::app::modes::preview_select::draw_selection(app, buf, body);
         }
         RightPaneTab::Terminal => {
             let props = TerminalPaneProps {

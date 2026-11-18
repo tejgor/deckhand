@@ -4,6 +4,10 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+### Added
+
+- **Copy from the Preview while typing to the agent**: drag across the agent's screen to select it (shown reversed, kept inside the Preview) and let go to copy it to the clipboard; the status line says what was copied. Terminals can't select while Deckhand reports the mouse, so before you had to attach. See [Typing to an agent in the Preview](docs/features.md#typing-to-an-agent-in-the-preview).
+
 ## [3.5.0] - 2026-11-18
 
 ### Changed

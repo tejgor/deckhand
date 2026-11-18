@@ -9,6 +9,7 @@ pub mod idea;
 pub mod messages;
 pub mod plan;
 pub mod preview_focus;
+pub mod preview_select;
 pub mod resume;
 pub mod review;
 pub mod search;

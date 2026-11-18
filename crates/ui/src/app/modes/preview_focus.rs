@@ -1,7 +1,8 @@
 //! Preview focus (→ on a running session's Preview): typing to the agent in place. Every key goes to the agent as
-//! the terminal sent it, until Ctrl+] or Ctrl+Space (or h twice quickly); the mouse wheel scrolls the preview, or a fullscreen agent's
-//! own view. Terminal focus (→ on the Terminal tab) types into the shell shown the same way. Also the changes-/
-//! notes-focus hand-off to their flows.
+//! the terminal sent it, until Ctrl+] or Ctrl+Space (or h twice quickly); the mouse wheel scrolls the preview, or a
+//! fullscreen agent's own view, and a drag selects and copies ([`crate::app::modes::preview_select`]). Terminal focus
+//! (→ on the Terminal tab) types into the shell shown the same way. Also the changes-/notes-focus hand-off to their
+//! flows.
 
 use std::time::{Duration, Instant};
 
@@ -15,6 +16,7 @@ use deckhand_protocol::data::{RightPaneTab, SessionStatus};
 use deckhand_protocol::screen::ScreenModes;
 
 use crate::app::event_loop::is_mouse_report;
+use crate::app::modes::preview_select::on_mouse_report;
 use crate::app::state::{App, Mode};
 use crate::app::{WheelDirection, mouse_wheel_sequence, parse_mouse_wheel};
 use crate::flow::Flow;
@@ -52,10 +54,18 @@ pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
 /// [`on_raw_key`] at `now` (epoch milliseconds).
 fn on_raw_key_at(app: &mut App, event: &KeyEvent, now: i64) {
     let sequence = event.sequence.as_str();
-    // The wheel arrives through `on_mouse_data`; clicks and motion are not forwarded.
-    if is_mouse_report(sequence) || event.input.key.event_type == Some(KeyEventType::Release) {
+    // The wheel arrives through `on_mouse_data`; a press, drag and release select the agent's screen. None of it is
+    // forwarded.
+    if is_mouse_report(sequence) {
+        if app.mode == Mode::PreviewFocus {
+            on_mouse_report(app, sequence);
+        }
         return;
     }
+    if event.input.key.event_type == Some(KeyEventType::Release) {
+        return;
+    }
+    app.preview_focus.selection = None;
     let paused = app
         .preview_focus
         .last_key_at

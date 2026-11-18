@@ -411,6 +411,10 @@ pub struct PreviewFocusState {
     pub held_h: Option<Timer>,
     /// Not in the TS: when the last key of this stint came (epoch milliseconds), to tell an h after a pause.
     pub last_key_at: Option<i64>,
+    /// Not in the TS: the agent's screen selected with the mouse ([`crate::app::modes::preview_select`]).
+    pub selection: Option<crate::app::modes::preview_select::Selection>,
+    /// Not in the TS: where a selection is copied to (the system clipboard; a fake in tests).
+    pub clipboard: crate::clipboard::Clipboard,
 }
 
 /// TS: the filter menu's way back (f): the filter and selection it was opened on.
@@ -791,6 +795,8 @@ impl App {
                 ctrl_c_hinted: false,
                 held_h: None,
                 last_key_at: None,
+                selection: None,
+                clipboard: crate::clipboard::Clipboard::default(),
             },
             filter: None,
             review: ReviewState::default(),

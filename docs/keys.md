@@ -165,6 +165,7 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 | `h` `h` (quickly, after a pause) | Typing to the agent: back to the session list too. An `h` after a 0.4 s pause in typing waits 0.3 s for a second one, then goes to the agent; mid-typing (`withhold`), in a paste or in a shell, `h` is just text |
 | any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included. The first `ctrl+c` of each stint says so in the status line |
 | mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
+| mouse drag | On Preview: select the agent's screen and copy it to the clipboard when you let go; a plain click clears it ([how](features.md#typing-to-an-agent-in-the-preview)) |
 
 While you type, the rest of the sidebar is dimmed (the selected row stays bright) and the pane's header shows a filled *typing to the agent* (or *typing into shell N*). When typing ends by itself, because the agent exited or the shell closed, keys you were still typing are held back until you pause for 0.75 s, so they can't run list commands.
 

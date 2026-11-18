@@ -167,9 +167,12 @@ const SPINNER_PERIOD: Duration = Duration::from_millis(120);
 /// TS: the numeric selection's confirmation delay.
 const NUMERIC_SELECTION_DELAY: Duration = Duration::from_millis(300);
 
-/// TS: the mouse modes preview focus turns on (and off, in reverse).
-const MOUSE_ON: &str = "\u{1b}[?1000h\u{1b}[?1002h\u{1b}[?1003h\u{1b}[?1006h\u{1b}[?1015h\u{1b}[?1016h";
-const MOUSE_OFF: &str = "\u{1b}[?1016l\u{1b}[?1015l\u{1b}[?1006l\u{1b}[?1003l\u{1b}[?1002l\u{1b}[?1000l";
+/// The mouse modes preview focus turns on (and off, in reverse): button presses and releases (1000) with motion while a
+/// button is down (1002), for the wheel and for selecting, reported as SGR (1006). The TS also asked for any motion
+/// (1003, a report per pointer move with no use here), urxvt's coordinates (1015, superseded by SGR) and SGR pixel
+/// coordinates (1016, which would break mapping a report to a cell).
+const MOUSE_ON: &str = "\u{1b}[?1000h\u{1b}[?1002h\u{1b}[?1006h";
+const MOUSE_OFF: &str = "\u{1b}[?1006l\u{1b}[?1002l\u{1b}[?1000l";
 const PASTE_ON: &str = "\u{1b}[?2004h";
 const PASTE_OFF: &str = "\u{1b}[?2004l";
 
@@ -1626,6 +1629,22 @@ mod tests {
             hide_status(&mut app, "again");
             assert_eq!(app.messages.status_message, None);
         });
+    }
+
+    #[test]
+    fn preview_focus_asks_for_button_events_in_sgr_and_undoes_them_in_reverse() {
+        // Presses, releases and drags (the wheel and selecting), as SGR: no any-motion, urxvt or pixel reports.
+        assert_eq!(MOUSE_ON, "\u{1b}[?1000h\u{1b}[?1002h\u{1b}[?1006h");
+        assert_eq!(MOUSE_OFF, "\u{1b}[?1006l\u{1b}[?1002l\u{1b}[?1000l");
+        let modes = |text: &str, end: char| -> Vec<String> {
+            text.split('\u{1b}')
+                .filter(|part| !part.is_empty())
+                .map(|part| part.trim_start_matches("[?").trim_end_matches(end).to_owned())
+                .collect()
+        };
+        let mut off = modes(MOUSE_OFF, 'l');
+        off.reverse();
+        assert_eq!(modes(MOUSE_ON, 'h'), off);
     }
 
     #[test]

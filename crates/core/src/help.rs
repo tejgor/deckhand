@@ -259,7 +259,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Back (Ctrl+Space too; on Preview, h twice quickly after a pause); every other key goes to it, Esc and Ctrl+C included",
             },
             HelpLine::Note {
-                note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
+                note: "Drag on Preview to copy. Wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps Claude's scrolling.",
             },
             HelpLine::Note {
                 note: "Agents ask for approvals in their own terminal: answer them here (→) or open it (Enter). Terminal, Git and Dev belong to the worktree: all its sessions share them, also after their agents exit.",
@@ -618,6 +618,7 @@ mod tests {
         assert!(panes.contains("type to the agent (running) or the shell"));
         assert!(panes.contains("Ctrl+] Back (Ctrl+Space too; on Preview, h twice quickly after a pause)"));
         assert!(panes.contains("Esc and Ctrl+C included"));
+        assert!(panes.contains("Drag on Preview to copy."));
     }
 
     #[test]
