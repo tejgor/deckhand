@@ -4,6 +4,10 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+### Changed
+
+- **Plan sessions report back**: each session an orchestrator's plan starts is told to message its parent with an update once it has finished: a sub-session its parent session, a top-level entry the orchestrator, which tells you in a line. See [The orchestrator](docs/features.md#the-orchestrator).
+
 ## [3.4.5] - 2026-11-15
 
 ### Changed

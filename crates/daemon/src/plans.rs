@@ -133,6 +133,21 @@ fn plan_in_scope(repo_root: &str, subscription: &ClientSubscription, repo_key: O
     repo_key.is_some() && subscription.repo_key.as_deref() == repo_key
 }
 
+/// What a plan session under `parent` is told after its brief: to send its parent an update once it has finished (a
+/// sub-session's parent is the session it was planned under, a top-level entry's the orchestrator).
+pub fn report_to_parent(parent: &SessionRecord) -> String {
+    let name = if parent.role == Some(SessionRole::Orchestrator) {
+        format!("◎ {}", parent.title)
+    } else {
+        parent.title.clone()
+    };
+    format!(
+        "When you have finished this task, send your parent session, \"{name}\", an update (what you did, and anything \
+         left open): `deckhand send {} \"<update>\"`.",
+        parent.id
+    )
+}
+
 /// The input creating plan session `session` sends, under `parent` (an existing or just created session).
 pub fn plan_session_input(
     session: &PlanSession,
@@ -163,7 +178,10 @@ pub fn plan_session_input(
         task_id: session.task.clone(),
         project_fingerprint: None,
         fork_from_session_id: None,
-        prompt: Some(session.prompt.clone()),
+        prompt: Some(match parent {
+            Some(parent) => format!("{}\n\n{}", session.prompt.trim_end(), report_to_parent(parent)),
+            None => session.prompt.clone(),
+        }),
         submit: None,
         stacked: (new && session.flat == Some(true)).then_some(false),
         role: None,
@@ -1590,6 +1608,7 @@ mod tests {
         };
         let mut parent = (*session("p", "/repo", "/wt/p")).clone();
         parent.id = "p".into();
+        parent.title = "Auth rework".into();
         let new = plan_session_input(&plan_session(PlanWorktree::New), Some(&parent), "/elsewhere");
         assert_eq!(
             (new.cwd.as_str(), new.repo_root.as_str(), new.worktree_mode),
@@ -1598,7 +1617,17 @@ mod tests {
         assert_eq!(new.parent_session_id.as_deref(), Some("p"));
         assert_eq!(new.sub_session_kind, Some(SubSessionKind::Clean));
         assert_eq!((new.base_branch.as_deref(), new.stacked), (Some("main"), Some(false)));
-        assert_eq!((new.prompt.as_deref(), new.submit), (Some("Write them"), None));
+        // Told to send its parent an update once it has finished.
+        assert_eq!(
+            (new.prompt.as_deref(), new.submit),
+            (
+                Some(
+                    "Write them\n\nWhen you have finished this task, send your parent session, \"Auth rework\", an \
+                     update (what you did, and anything left open): `deckhand send p \"<update>\"`."
+                ),
+                None
+            )
+        );
         assert_eq!(new.task_id.as_deref(), Some("t1"));
         let same = plan_session_input(&plan_session(PlanWorktree::Same), Some(&parent), "/repo");
         assert_eq!(
@@ -1614,6 +1643,19 @@ mod tests {
         assert_eq!(
             (top.cwd.as_str(), top.parent_session_id, top.sub_session_kind),
             ("/repo", None, None)
+        );
+        // Without a parent (a plan applied by hand) there is nobody to tell.
+        assert_eq!(top.prompt.as_deref(), Some("Write them"));
+        // An orchestrator's own sub-sessions send it theirs.
+        parent.role = Some(SessionRole::Orchestrator);
+        parent.title = "Auth tokens".into();
+        let under_orchestrator = plan_session_input(&plan_session(PlanWorktree::New), Some(&parent), "/repo");
+        assert!(
+            under_orchestrator
+                .prompt
+                .as_deref()
+                .is_some_and(|prompt| prompt.ends_with("send your parent session, \"◎ Auth tokens\", an update (what \
+                                                       you did, and anything left open): `deckhand send p \"<update>\"`."))
         );
     }
 }

@@ -25,8 +25,9 @@ stacked or flat; then the parked work. Revise it until the user agrees. Create n
 … `EOF`, then the same with `deckhand plan apply -`. It returns at once: tell the user the plan waits for them in \
 Deckhand, then end your turn.
 5. Their answer comes as a message. `[The user approved your plan …]` lists what was created: report it, then stop. \
-`[The user cancelled your plan …]`: ask what to change (their note may say) and propose again. Do not monitor the \
-sessions or wait for them: they work with the user. When the user asks, you may send instructions to your sessions \
+`[The user cancelled your plan …]`: ask what to change (their note may say) and propose again. Each session is told \
+to message its parent once finished: yours message you; tell the user in a line. Do not monitor the sessions or wait \
+for them: they work with the user. When the user asks, you may send instructions to your sessions \
 with `deckhand send <id> <message>`. You stay open: to extend the idea later, read both lists again and apply \
 another plan.
 
@@ -84,6 +85,7 @@ mod tests {
             "stacked",
             "\"flat\": true only for independent work",
             "Do not monitor",
+            "yours message you",
             "When the user asks, you may send instructions to your sessions with `deckhand send",
             "press O",
             "your own sub-session",

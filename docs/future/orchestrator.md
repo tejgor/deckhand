@@ -4,7 +4,7 @@
 
 ## Why
 
-Today, to have Deckhand split work into sessions you start a session, wait for the agent, then ask it, and its guide says to take Deckhand actions only when asked. What is wanted instead: describe a problem once, have it split into sessions and sub-sessions with complete briefs, then do the actual work inside those sessions. The orchestrator is a **planner and dispatcher, not a supervisor**: work never flows back into it, so it stays small and is reused for idea after idea. Supervising (waiting on children, reading results, sending follow-ups) stays in `deckhand-cli.md`, *Later: orchestration*, and is not needed here.
+Today, to have Deckhand split work into sessions you start a session, wait for the agent, then ask it, and its guide says to take Deckhand actions only when asked. What is wanted instead: describe a problem once, have it split into sessions and sub-sessions with complete briefs, then do the actual work inside those sessions. The orchestrator is a **planner and dispatcher, not a supervisor**: it never waits on or watches its sessions, so it stays small. Since 2026-11-18 each plan session is told to message its parent once it has finished (a top-level entry the orchestrator), so a short update does flow back, by message. Supervising (waiting on children, reading results, sending follow-ups) stays in `deckhand-cli.md`, *Later: orchestration*, and is not needed here.
 
 For a tree of sessions to mean anything in Git, a parent has to be where its children's work comes together. That is part 1.
 
