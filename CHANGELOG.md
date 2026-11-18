@@ -4,6 +4,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-11-18
+
 ### Changed
 
 - **Plan sessions report back**: each session an orchestrator's plan starts is told to message its parent with an update once it has finished: a sub-session its parent session, a top-level entry the orchestrator, which tells you in a line. See [The orchestrator](docs/features.md#the-orchestrator).
@@ -85,7 +87,8 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **One-time migration**: the first daemon start moves old tasks and worktree notes into the new list. It copies everything first to `~/.deckhand/notes/trash/work-items-migration-<time>/`, with a `migration-report.txt` saying what moved where. If it fails, Deckhand keeps running and tries again at the next start. See [Upgrading from tasks and worktree notes](docs/features.md#upgrading-from-tasks-and-worktree-notes).
 - **Update together**: every Deckhand that shares a state directory (a stable and a dev build pointed at the same one, say) must be updated at the same time. An older one would show the new list wrongly.
 
-[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.4.5...HEAD
+[Unreleased]: https://github.com/tejgor/deckhand/compare/v3.5.0...HEAD
+[3.5.0]: https://github.com/tejgor/deckhand/compare/v3.4.5...v3.5.0
 [3.4.5]: https://github.com/tejgor/deckhand/compare/v3.4.0...v3.4.5
 [3.4.0]: https://github.com/tejgor/deckhand/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/tejgor/deckhand/compare/v3.2.0...v3.3.0
