@@ -25,9 +25,10 @@ use ratatui::layout::Rect;
 
 use deckhand_core::display::{HintPart, error_message, fit_hint, strip_terminal_controls};
 use deckhand_core::jsstr::date::now_ms;
-use deckhand_core::jsstr::js_len;
+use deckhand_core::jsstr::{js_len, path};
 use deckhand_core::key::Input;
 use deckhand_core::plan::entry_line;
+use deckhand_core::session_scope::checkout_in_scope;
 use deckhand_protocol::data::{AttachTarget, PendingPlan, PlanDecision, RightPaneTab, SessionStatus, UiExitResult};
 use deckhand_protocol::events::PlanSettled;
 use deckhand_sys::async_util::Timer;
@@ -109,6 +110,41 @@ fn parked(plan: &PendingPlan) -> bool {
     plan.parked == Some(true)
 }
 
+/// Whether `plan` belongs to this Deckhand's checkout: its orchestrator runs here, so this sidebar lists it and the
+/// sessions the plan creates ([`checkout_in_scope`], as for sessions). A plan of another checkout of the repository
+/// never opens by itself here: the header only says where it waits, and `P` opens it when this checkout has none.
+pub fn ours(app: &App, plan: &PendingPlan) -> bool {
+    checkout_in_scope(&plan.repo_root, &app.props.repo_root)
+}
+
+/// The oldest new plan (not put aside) of this checkout: the one that opens by itself.
+fn oldest_new(app: &App) -> Option<String> {
+    app.plans
+        .queue
+        .iter()
+        .find(|plan| !parked(plan) && ours(app, plan))
+        .map(|plan| plan.id.clone())
+}
+
+/// How another checkout is named: `⎇ <branch>` as a session working there records it, else `⎇ <its directory>`.
+pub fn checkout_name(app: &App, checkout: &str) -> String {
+    let root = path::resolve(checkout);
+    let branch = app.data.repo_sessions.iter().find_map(|session| {
+        let worktree = session.worktree.as_ref()?;
+        let at = worktree.path.as_deref().map(path::resolve)?;
+        (at == root)
+            .then_some(worktree.branch.as_deref()?)
+            .filter(|branch| !branch.is_empty())
+    });
+    match branch {
+        Some(branch) => format!("⎇ {branch}"),
+        None => {
+            let base = path::basename(&root);
+            format!("⎇ {}", if base.is_empty() { root.as_str() } else { base.as_str() })
+        }
+    }
+}
+
 /// On mount, with an attach to go back to: forgotten unless a new plan is waiting by [`REATTACH_WAIT`].
 pub fn arm_reattach(app: &mut App) {
     if app.plans.reattach.is_none() {
@@ -116,7 +152,7 @@ pub fn arm_reattach(app: &mut App) {
     }
     app.plans.reattach_timer = Some(app.dispatch().after(REATTACH_WAIT, |app: &mut App| {
         app.plans.reattach_timer = None;
-        if !app.plans.queue.iter().any(|plan| !parked(plan)) && app.mode != Mode::ConfirmPlan {
+        if oldest_new(app).is_none() && app.mode != Mode::ConfirmPlan {
             app.plans.reattach = None;
         }
     }));
@@ -133,19 +169,14 @@ pub fn plan_pending(app: &mut App, plan: PendingPlan) {
     // ISO timestamps sort as text.
     queue.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
     // An older new plan came after the one shown (a reconnect sends them again): it shows first, answered by nobody
-    // yet. One opened with `P` stays.
-    if let Some((shown, _)) = shown_plan(app).filter(|(plan, _)| app.mode == Mode::ConfirmPlan && !parked(plan))
+    // yet. One opened with `P` (put aside, or another checkout's) stays.
+    if let Some((shown, _)) =
+        shown_plan(app).filter(|(plan, _)| app.mode == Mode::ConfirmPlan && !parked(plan) && ours(app, plan))
         && app.plans.answering.is_none()
         && app.plans.cancelling.is_none()
     {
         let shown = shown.id.clone();
-        let oldest = app
-            .plans
-            .queue
-            .iter()
-            .find(|plan| !parked(plan))
-            .map(|plan| plan.id.clone());
-        if let Some(oldest) = oldest.filter(|oldest| *oldest != shown) {
+        if let Some(oldest) = oldest_new(app).filter(|oldest| *oldest != shown) {
             show(app, oldest, true);
         }
     }
@@ -190,18 +221,40 @@ pub fn shown_plan(app: &App) -> Option<(&PendingPlan, usize)> {
     Some((plan, app.plans.queue.len() - 1))
 }
 
-/// How many plans wait that the dialog does not show (the header says so).
-pub fn plans_waiting_hidden(app: &App) -> usize {
+/// The plans waiting that the dialog does not show, as the header counts them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PlansWaiting {
+    /// This checkout's (`P` opens the oldest).
+    pub here: usize,
+    /// Other checkouts' of the repository: how many, and the checkout's name when they all wait in one.
+    pub elsewhere: usize,
+    pub elsewhere_in: Option<String>,
+}
+
+/// How many plans wait that the dialog does not show (the header says so), this checkout's and other checkouts'.
+pub fn plans_waiting_hidden(app: &App) -> PlansWaiting {
     if app.mode == Mode::ConfirmPlan {
-        0
-    } else {
-        app.plans.queue.len()
+        return PlansWaiting::default();
+    }
+    let (here, elsewhere): (Vec<&PendingPlan>, Vec<&PendingPlan>) =
+        app.plans.queue.iter().partition(|plan| ours(app, plan));
+    let first = elsewhere.first().map(|plan| path::resolve(&plan.repo_root));
+    let one_checkout = elsewhere
+        .iter()
+        .all(|plan| Some(path::resolve(&plan.repo_root)) == first);
+    PlansWaiting {
+        here: here.len(),
+        elsewhere: elsewhere.len(),
+        elsewhere_in: first
+            .filter(|_| one_checkout)
+            .map(|checkout| checkout_name(app, &checkout)),
     }
 }
 
-/// Whether a new plan (not put aside) waits behind the screen shown, to open once you close it (the footer says so).
+/// Whether a new plan (not put aside) of this checkout waits behind the screen shown, to open once you close it (the
+/// footer says so).
 pub fn new_plan_waiting_hidden(app: &App) -> bool {
-    app.mode != Mode::ConfirmPlan && app.plans.queue.iter().any(|plan| !parked(plan))
+    app.mode != Mode::ConfirmPlan && oldest_new(app).is_some()
 }
 
 /// How many plans the session `id` applied wait for an answer (its details say so).
@@ -213,26 +266,38 @@ pub fn plans_of(app: &App, id: &str) -> usize {
         .count()
 }
 
-/// The header's word for `count` plans waiting: `◎ 1 plan waiting · P`.
+/// The header's word for `count` plans of this checkout waiting: `◎ 1 plan waiting · P`.
 pub fn waiting_text(count: usize) -> String {
     let plans = if count == 1 { "plan" } else { "plans" };
     format!("◎ {count} {plans} waiting · P")
 }
 
-/// Shows the oldest new plan (not put aside) when nothing would be lost: from the session list, or typing to an agent
-/// or a shell (left, and given back after the answer). Runs as an effect too, so a plan that waited opens as you leave
-/// a screen.
+/// The header's quiet note for plans waiting in other checkouts: `◎ 1 plan waiting in ⎇ fix-auth`, or after this
+/// checkout's (`more`) `1 more in ⎇ fix-auth`; `in other checkouts` when they wait in several.
+pub fn elsewhere_text(waiting: &PlansWaiting) -> Option<String> {
+    let count = waiting.elsewhere;
+    if count == 0 {
+        return None;
+    }
+    let place = waiting
+        .elsewhere_in
+        .as_deref()
+        .map_or_else(|| "other checkouts".to_owned(), str::to_owned);
+    if waiting.here > 0 {
+        return Some(format!("{count} more in {place}"));
+    }
+    let plans = if count == 1 { "plan" } else { "plans" };
+    Some(format!("◎ {count} {plans} waiting in {place}"))
+}
+
+/// Shows the oldest new plan (not put aside) of this checkout when nothing would be lost: from the session list, or
+/// typing to an agent or a shell (left, and given back after the answer). Runs as an effect too, so a plan that waited
+/// opens as you leave a screen. Another checkout's plan never opens by itself.
 pub fn open_if_free(app: &mut App) {
     if app.mode == Mode::ConfirmPlan || app.messages.busy || app.connection.exit.is_some() {
         return;
     }
-    let Some(id) = app
-        .plans
-        .queue
-        .iter()
-        .find(|plan| !parked(plan))
-        .map(|plan| plan.id.clone())
-    else {
+    let Some(id) = oldest_new(app) else {
         return;
     };
     match app.mode {
@@ -251,9 +316,17 @@ pub fn open_if_free(app: &mut App) {
     show(app, id, true);
 }
 
-/// `P` on the session list: the oldest plan waiting, put aside or not.
+/// `P` on the session list: the oldest plan of this checkout waiting, put aside or not; only when there is none, the
+/// oldest of another checkout, to answer it from here.
 pub fn reopen(app: &mut App) {
-    let Some(id) = app.plans.queue.first().map(|plan| plan.id.clone()) else {
+    let oldest = |here: bool| {
+        app.plans
+            .queue
+            .iter()
+            .find(|plan| ours(app, plan) == here)
+            .map(|plan| plan.id.clone())
+    };
+    let Some(id) = oldest(true).or_else(|| oldest(false)) else {
         app.set_status(Some("No plan is waiting".to_owned()));
         return;
     };
@@ -278,26 +351,27 @@ fn close_shown(app: &mut App, decision: Option<PlanDecision>) {
     let Some(id) = app.plans.shown.take() else {
         return;
     };
-    let ours = app.plans.answering.is_some();
+    let answered_here = app.plans.answering.is_some();
     let plan = app.plans.queue.iter().find(|plan| plan.id == id).cloned();
     match decision {
         Some(_) => app.plans.queue.retain(|plan| plan.id != id),
         None => {
-            if let Some(plan) = app.plans.queue.iter_mut().find(|plan| plan.id == id) {
+            // Another checkout's plan closes without being put aside: it still opens by itself in its own checkout.
+            let here = plan.as_ref().is_some_and(|plan| ours(app, plan));
+            if let Some(plan) = app.plans.queue.iter_mut().find(|plan| plan.id == id).filter(|_| here) {
                 plan.parked = Some(true);
             }
         }
     }
     if let Some(plan) = plan {
-        app.set_status(Some(settled_text(&plan, decision, ours)));
+        let text = if decision.is_none() && !ours(app, &plan) {
+            format!("The plan still waits in {}", checkout_name(app, &plan.repo_root))
+        } else {
+            settled_text(&plan, decision, answered_here)
+        };
+        app.set_status(Some(text));
     }
-    if let Some(next) = app
-        .plans
-        .queue
-        .iter()
-        .find(|plan| !parked(plan))
-        .map(|plan| plan.id.clone())
-    {
+    if let Some(next) = oldest_new(app) {
         show(app, next, true);
         return;
     }
@@ -427,12 +501,13 @@ fn handle_cancel_line(app: &mut App, input: &Input) {
     }
 }
 
-/// Puts the shown plan aside (`plan-park`; one opened with `P` is aside already) and moves on.
+/// Puts the shown plan aside (`plan-park`; one opened with `P` is aside already) and moves on. Another checkout's plan
+/// just closes: it never opened by itself here, and it must go on doing so in its own checkout.
 fn put_aside(app: &mut App) {
     let Some((plan, _)) = shown_plan(app) else {
         return;
     };
-    if parked(plan) {
+    if parked(plan) || !ours(app, plan) {
         close_shown(app, None);
         return;
     }
@@ -496,6 +571,8 @@ fn answer(app: &mut App, answer: Answer, note: Option<String>) {
 #[derive(Clone, Copy, Debug)]
 pub struct PlanDialogProps<'a> {
     pub plan: &'a PendingPlan,
+    /// Another checkout's plan: that checkout's name (`⎇ fix-auth`), said beside what it is for.
+    pub checkout: Option<&'a str>,
     /// Plans waiting besides this one.
     pub more: usize,
     pub answering: Option<Answer>,
@@ -526,10 +603,13 @@ pub fn plan_dialog_rows(props: &PlanDialogProps<'_>, width: u16) -> DialogRows {
         Wrap::Wrap,
     ));
     let idea = summary.idea.as_deref().filter(|idea| !idea.is_empty());
+    let place = props
+        .checkout
+        .map_or_else(String::new, |checkout| format!(" in {checkout}"));
     let from = match (idea, plan.caller_title.as_deref().filter(|title| !title.is_empty())) {
-        (Some(idea), _) => format!("A plan for ◎ {idea}: {}.", summary.counts),
-        (None, Some(caller)) => format!("{caller}'s plan: {}.", summary.counts),
-        (None, None) => format!("A plan of {}.", summary.counts),
+        (Some(idea), _) => format!("A plan for ◎ {idea}{place}: {}.", summary.counts),
+        (None, Some(caller)) => format!("{caller}'s plan{place}: {}.", summary.counts),
+        (None, None) => format!("A plan of {}{place}.", summary.counts),
     };
     let explanation = match (summary.sessions.is_empty(), idea.is_some()) {
         (true, true) => format!("{from} Its tasks are parked under the idea."),
@@ -645,7 +725,7 @@ mod tests {
     use serde_json::json;
 
     use deckhand_core::key::Key;
-    use deckhand_protocol::data::PlanDecision;
+    use deckhand_protocol::data::{PlanDecision, SessionRecord};
 
     use super::*;
     use crate::app::layout::{PLAN_WAITING_MESSAGE, footer_messages, header_rows};
@@ -676,6 +756,27 @@ mod tests {
             "createdAt": format!("2026-11-14T12:{minute:02}:00.000Z"),
         }))
         .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// [`pending`], of an orchestrator running in another checkout of the repository: the worktree
+    /// `/wt/fix_coaching_tone`, on the branch `fix-coaching-tone`.
+    fn elsewhere(id: &str, minute: u32) -> PendingPlan {
+        let mut plan = pending(id, minute);
+        plan.repo_root = "/wt/fix_coaching_tone".to_owned();
+        plan.caller_session_id = Some("far".to_owned());
+        plan
+    }
+
+    /// The session that works in `/wt/fix_coaching_tone`, launched from this checkout (`/repo`): it names that
+    /// checkout by its branch.
+    fn fix_session() -> SessionRecord {
+        let mut record = session("fix", "Fix coaching tone", SessionStatus::Running);
+        record.worktree = Some(
+            serde_json::from_value(json!({"mode": "managed", "path": "/wt/fix_coaching_tone",
+                                          "branch": "fix-coaching-tone"}))
+            .unwrap_or_else(|error| panic!("{error}")),
+        );
+        record
     }
 
     /// [`pending`], put aside.
@@ -1112,10 +1213,184 @@ mod tests {
         });
     }
 
+    #[test]
+    fn another_checkouts_plan_waits_quietly_and_never_opens_by_itself() {
+        local(async {
+            let (mut app, _rx) = app(AppProps::default());
+            let _daemon = Daemon::connect(&mut app);
+            app.data.repo_sessions = vec![session("a", "A", SessionStatus::Running), fix_session()];
+            // Typing to an agent: the plan does not take it over.
+            app.set_selected_id(Some("a".to_owned()));
+            browse::step_into_pane(&mut app);
+            plan_pending(&mut app, elsewhere("far1", 0));
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            assert_eq!(app.preview_focus.session_id.as_deref(), Some("a"));
+            // On the session list, still not; no footer line, only the header's note naming the checkout, no `P`.
+            app.set_mode(Mode::Browse);
+            open_if_free(&mut app);
+            assert_eq!(app.mode, Mode::Browse);
+            assert!(!new_plan_waiting_hidden(&app));
+            assert!(
+                !footer_messages(&app)
+                    .iter()
+                    .any(|message| message.text == PLAN_WAITING_MESSAGE)
+            );
+            assert!(
+                header(&app).contains("◎ 1 plan waiting in ⎇ fix-coaching-tone   "),
+                "{}",
+                header(&app)
+            );
+            assert!(!header(&app).contains("· P"), "{}", header(&app));
+            // A narrow header drops the note first.
+            app.browse.terminal_size.cols = 40;
+            assert!(!header(&app).contains("plan waiting"), "{}", header(&app));
+            assert!(header(&app).contains("● "), "{}", header(&app));
+            app.browse.terminal_size.cols = 130;
+            // A second one there, of a checkout no session names: by its directory; two checkouts: not named.
+            plan_pending(&mut app, elsewhere("far2", 1));
+            assert!(
+                header(&app).contains("◎ 2 plans waiting in ⎇ fix-coaching-tone"),
+                "{}",
+                header(&app)
+            );
+            let mut third = elsewhere("far3", 2);
+            third.repo_root = "/wt/other_idea".to_owned();
+            assert_eq!(checkout_name(&app, &third.repo_root), "⎇ other_idea");
+            plan_pending(&mut app, third);
+            assert!(
+                header(&app).contains("◎ 3 plans waiting in other checkouts"),
+                "{}",
+                header(&app)
+            );
+        });
+    }
+
+    #[test]
+    fn another_checkouts_plan_does_not_reattach_or_count_for_an_attach_it_did_not_end() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .start_paused(true)
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, async {
+            let props = AppProps {
+                plan_reattach: Some(attach("orch")),
+                ..AppProps::default()
+            };
+            let (mut app, mut rx) = app(props);
+            arm_reattach(&mut app);
+            plan_pending(&mut app, elsewhere("far1", 0));
+            assert_eq!(app.mode, Mode::Browse);
+            tokio::time::advance(REATTACH_WAIT).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.plans.reattach, None);
+            assert_eq!(app.connection.exit, None);
+        });
+    }
+
+    #[test]
+    fn p_opens_this_checkouts_plan_first_and_another_checkouts_only_when_there_is_none() {
+        local(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            let mut daemon = Daemon::connect(&mut app);
+            app.data.repo_sessions = vec![session("orch", "Orchestrator", SessionStatus::Running), fix_session()];
+            // The other checkout's is older; this checkout's opens by itself all the same, and is put aside.
+            plan_pending(&mut app, elsewhere("far", 0));
+            plan_pending(&mut app, pending("p1", 5));
+            assert_eq!(shown(&app), Some("p1"));
+            press(&mut app, &esc());
+            let park = daemon.next().await;
+            assert_eq!(park["planId"], "p1");
+            daemon.ok(&park, json!({"ok": true})).await;
+            apply(&mut app, &mut rx).await;
+            // Both waiting: this checkout's first, with its key; the other's after it, quiet.
+            let both = header(&app);
+            assert!(
+                both.contains("◎ 1 plan waiting · P   1 more in ⎇ fix-coaching-tone   "),
+                "{both}"
+            );
+            app.handle_input(&text("P"));
+            assert_eq!(shown(&app), Some("p1"));
+            press(&mut app, &enter());
+            let decide = daemon.next().await;
+            assert_eq!(decide["planId"], "p1");
+            daemon.ok(&decide, json!({"ok": true})).await;
+            apply(&mut app, &mut rx).await;
+            // The other checkout's did not open next.
+            assert_eq!(app.mode, Mode::Browse);
+            // Now P opens it, deliberately; esc closes it without putting it aside (it still opens by itself in its own
+            // checkout).
+            app.handle_input(&text("P"));
+            assert_eq!(shown(&app), Some("far"));
+            press(&mut app, &esc());
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.plans.queue[0].parked, None);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("The plan still waits in ⎇ fix-coaching-tone")
+            );
+            // Answered from here, as any plan: the daemon creates its sessions where it belongs.
+            app.handle_input(&text("P"));
+            press(&mut app, &enter());
+            let decide = daemon.next().await;
+            assert_eq!(
+                (
+                    decide["type"].as_str(),
+                    decide["planId"].as_str(),
+                    decide["approve"].as_bool()
+                ),
+                (Some("plan-decide"), Some("far"), Some(true))
+            );
+            daemon.ok(&decide, json!({"ok": true})).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.mode, Mode::Browse);
+            assert!(app.plans.queue.is_empty());
+        });
+    }
+
+    #[test]
+    fn a_new_plan_of_this_checkout_waits_behind_another_checkouts_plan_opened_with_p() {
+        let (mut app, _rx) = app(AppProps::default());
+        plan_pending(&mut app, elsewhere("far", 0));
+        app.handle_input(&text("P"));
+        assert_eq!(shown(&app), Some("far"));
+        plan_pending(&mut app, pending("p1", 1));
+        assert_eq!(shown(&app), Some("far"));
+        // Closing it shows this checkout's.
+        press(&mut app, &esc());
+        assert_eq!(shown(&app), Some("p1"));
+    }
+
+    #[test]
+    fn the_dialog_names_the_checkout_of_another_checkouts_plan() {
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.repo_sessions = vec![fix_session()];
+        let mut plan = elsewhere("far", 0);
+        plan.summary.idea = Some("Coaching tone".to_owned());
+        plan_pending(&mut app, plan);
+        app.handle_input(&text("P"));
+        let (plan, more) = shown_plan(&app).unwrap_or_else(|| panic!("no plan shown"));
+        let checkout = (!ours(&app, plan)).then(|| checkout_name(&app, &plan.repo_root));
+        assert_eq!(checkout.as_deref(), Some("⎇ fix-coaching-tone"));
+        let props = PlanDialogProps {
+            checkout: checkout.as_deref(),
+            ..props(&app)
+        };
+        assert_eq!(more, 0);
+        let lines = texts(&plan_dialog_rows(&props, 120));
+        assert!(
+            lines[1].starts_with("A plan for ◎ Coaching tone in ⎇ fix-coaching-tone: 3 sessions, 1 task."),
+            "{lines:?}"
+        );
+        // This checkout's names none.
+        assert!(ours(&app, &pending("p1", 0)));
+    }
+
     fn props(app: &App) -> PlanDialogProps<'_> {
         let (plan, more) = shown_plan(app).unwrap_or_else(|| panic!("no plan shown"));
         PlanDialogProps {
             plan,
+            checkout: None,
             more,
             answering: app.plans.answering,
             cancelling: app.plans.cancelling.as_deref(),

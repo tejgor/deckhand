@@ -44,7 +44,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
 | `O` | A new [orchestrator](features.md#the-orchestrator) (`◎`) for an idea: the **New orchestrator** dialog asks for a **Name** and *What do you want to do?* ([its keys](#new-orchestrator-dialog); `ctrl+s` starts it and selects it, `esc` cancels; `enter` on it attaches once it runs). One per idea: every idea starts another. See [Plan confirmation](#plan-confirmation) |
-| `P` | Open the oldest orchestrator plan waiting for your answer, one you put aside too (the header says `◎ 1 plan waiting · P`); see [Plan confirmation](#plan-confirmation) |
+| `P` | Open the oldest orchestrator plan waiting for your answer, one you put aside too (the header says `◎ 1 plan waiting · P`); only when this checkout has none, the oldest of another checkout (the header says `◎ 1 plan waiting in ⎇ <branch>`); see [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
@@ -182,7 +182,7 @@ While you type, the rest of the sidebar is dimmed (the selected row stays bright
 
 Both detach keys still work when the attached program switches the terminal to an enhanced keyboard mode (kitty's or xterm's modifyOtherKeys, as Codex can).
 
-When an orchestrator applies a plan, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once you answer the plan or put it aside. A plan you put aside does not detach you again.
+When an orchestrator applies a plan, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once you answer the plan or put it aside. A plan you put aside does not detach you again, nor does a plan whose orchestrator runs in another checkout than the Deckhand you attached from.
 
 ## New orchestrator dialog
 
@@ -200,7 +200,7 @@ A pasted line break stays a line break in the idea (in the name it is a space). 
 
 ## Plan confirmation
 
-An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand; the command returns at once, and the orchestrator is told your answer in a message ([The orchestrator](features.md#the-orchestrator)). The dialog shows the idea it is for, the sessions it would create as a tree, its parked work (backlog tasks, for a plan run by hand), the start of the idea's brief and how many more plans wait. A new plan opens it on the session list and while you type to an agent or a shell (typing resumes after you close it), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ 1 plan waiting · P` in the header. Several new plans are shown one at a time, oldest first.
+An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand; the command returns at once, and the orchestrator is told your answer in a message ([The orchestrator](features.md#the-orchestrator)). The dialog shows the idea it is for, the sessions it would create as a tree, its parked work (backlog tasks, for a plan run by hand), the start of the idea's brief and how many more plans wait. A new plan opens it on the session list and while you type to an agent or a shell (typing resumes after you close it), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ 1 plan waiting · P` in the header. All this only in the Deckhand of the checkout its orchestrator runs in: in another checkout of the repository the header just says where it waits (`◎ 1 plan waiting in ⎇ <branch>`), and `P` opens it when that checkout has none of its own. Several new plans are shown one at a time, oldest first.
 
 | Key | Action |
 | --- | --- |

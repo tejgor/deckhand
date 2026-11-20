@@ -128,7 +128,7 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("P")],
-        action: "open the oldest plan waiting for your answer (one put aside too)",
+        action: "open the oldest plan waiting for your answer (one put aside too; another checkout's only when this one has none)",
         help: HelpRef::Topic("Sessions"),
     },
     Binding {

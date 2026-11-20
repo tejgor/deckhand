@@ -42,7 +42,8 @@ use crate::app::modes::create::{
 use crate::app::modes::idea::render_idea_dialog;
 use crate::app::modes::messages::{MessagesDialogProps, render_messages_dialog, shown_rows, shown_title};
 use crate::app::modes::plan::{
-    PlanDialogProps, new_plan_waiting_hidden, plans_waiting_hidden, render_plan_dialog, shown_plan, waiting_text,
+    PlanDialogProps, checkout_name, elsewhere_text, new_plan_waiting_hidden, ours, plans_waiting_hidden,
+    render_plan_dialog, shown_plan, waiting_text,
 };
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
@@ -556,14 +557,17 @@ pub fn header_rows(app: &App) -> [Row; 2] {
         .and_then(|build| daemon_hint(BUILD_VERSION, build.as_deref()));
     let connected = app.connection.client.is_some();
     let mut right = Vec::new();
-    // Not in the TS: plans waiting for an answer (`P` opens the oldest), put aside or behind this screen.
+    // Not in the TS: plans waiting for an answer (`P` opens the oldest), put aside or behind this screen; then, quiet,
+    // where other checkouts' plans wait (the first thing to go when the header is too narrow).
     let plans = plans_waiting_hidden(app);
-    if plans > 0 {
+    if plans.here > 0 {
         right.push(Seg::new(
-            format!("{}   ", waiting_text(plans)),
+            format!("{}   ", waiting_text(plans.here)),
             TextStyle::fg(THEME.warn).bold(true),
         ));
     }
+    let elsewhere = elsewhere_text(&plans).map(|text| Seg::new(format!("{text}   "), muted));
+    let elsewhere_at = right.len();
     if !task_count.is_empty() {
         right.push(Seg::new(format!("{task_count}   "), muted));
     }
@@ -577,6 +581,11 @@ pub fn header_rows(app: &App) -> [Row; 2] {
         format!("● {}", describe_connection(connected)),
         TextStyle::fg(connection_color(connected)),
     ));
+    if let Some(elsewhere) = elsewhere
+        && row_width(&left) + row_width(&right) + row_width(std::slice::from_ref(&elsewhere)) <= cols
+    {
+        right.insert(elsewhere_at, elsewhere);
+    }
     // The sidebar header shows the filter, search and counts, so the repo path gets the whole row.
     let repo_label_width = cols.max(1);
     let repo = truncate(&compact_path(&app.props.repo_root, repo_label_width), repo_label_width);
@@ -877,8 +886,10 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
         }
         Mode::ConfirmPlan => {
             if let Some((plan, more)) = shown_plan(app) {
+                let checkout = (!ours(app, plan)).then(|| checkout_name(app, &plan.repo_root));
                 let props = PlanDialogProps {
                     plan,
+                    checkout: checkout.as_deref(),
                     more,
                     answering: app.plans.answering,
                     cancelling: app.plans.cancelling.as_deref(),

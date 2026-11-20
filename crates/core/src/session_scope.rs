@@ -25,6 +25,13 @@ pub fn session_matches_scope(session: &SessionRecord, repo_root: &str) -> bool {
         || is_path_inside(&root, &session.cwd)
 }
 
+/// Not in the TS: whether work running in `checkout` (an orchestrator's checkout, a waiting plan's `repoRoot`) is this
+/// checkout's at `repo_root`, as [`session_matches_scope`] decides for a session working there: the same path, or
+/// inside it.
+pub fn checkout_in_scope(checkout: &str, repo_root: &str) -> bool {
+    is_path_inside(repo_root, checkout)
+}
+
 /// Not in the TS: the sessions [`session_matches_scope`] keeps, and every descendant of one, in list order.
 ///
 /// A sub-session started in a new worktree keeps its parent's `repoRoot`, which is not this checkout when the parent
@@ -181,6 +188,21 @@ pub(crate) mod tests {
         for (parent, child, expected) in paths {
             assert_eq!(is_path_inside(parent, child), expected, "{child} inside {parent}");
         }
+    }
+
+    #[test]
+    fn a_checkout_is_this_one_when_it_is_the_same_path_or_inside_it() {
+        assert!(checkout_in_scope("/repos/main", "/repos/main/"), "the same checkout");
+        assert!(
+            checkout_in_scope("/repos/main/.worktrees/x", "/repos/main"),
+            "a worktree inside it, as its sessions are listed"
+        );
+        assert!(!checkout_in_scope("/worktrees/fix", "/repos/main"), "another worktree");
+        assert!(
+            !checkout_in_scope("/repos/main", "/repos/main/.worktrees/x"),
+            "the main checkout from a worktree"
+        );
+        assert!(!checkout_in_scope("/repos/main-x", "/repos/main"), "a name prefix");
     }
 
     #[test]

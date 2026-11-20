@@ -9,6 +9,10 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 - **Choose where a merge goes**: `t` in the merge confirmation lists the repository's other checkouts that are on a branch (the main checkout and every other worktree) and merges into the one you pick, instead of always the launch checkout. It replaces the stacked-only `t` that switched between two targets. See [Merging and done](docs/features.md#merging-and-done).
 - **Why a message waits**: a session's details and its messages view (`e`) say why the next held message waits: the session is starting, working, asking a question, showing a menu, has a task draft waiting, has *unsent text in its input, delivers in 4 min, or press enter*, or an earlier message did not start a turn (Enter releases it). The daemon's log says it too. See [Messages between sessions](docs/features.md#messages-between-sessions).
 
+### Changed
+
+- **A plan opens only where its orchestrator runs**: a waiting plan no longer opens by itself, detaches you or interrupts your typing in a Deckhand opened in another checkout of the repository; its header says quietly where the plan waits (`◎ 1 plan waiting in ⎇ fix-coaching-tone`), and `P` opens it there only when that checkout has none of its own, with the dialog naming its checkout. See [The orchestrator](docs/features.md#the-orchestrator).
+
 ### Fixed
 
 - **Messages no longer wait forever on text you deleted**: text typed into a session and removed with backspace, `esc` or a word delete, or a letter typed into a menu, held its messages until you pressed Enter, for days if you never did. Deckhand now follows what you typed key by key (deleting it all releases the message at once), and unsent text holds a message for at most 5 minutes after your last key, unless your last words are still on the session's screen. Needs a daemon restart. See [Messages between sessions](docs/features.md#messages-between-sessions).

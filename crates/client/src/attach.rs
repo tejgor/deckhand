@@ -29,6 +29,7 @@ use tokio::sync::mpsc;
 use deckhand_core::display::ThemeMode;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::{js_collapse_whitespace, js_len, js_slice, js_trim};
+use deckhand_core::session_scope::checkout_in_scope;
 use deckhand_core::wheel::{WheelDirection, WheelScaler};
 use deckhand_protocol::Request;
 use deckhand_protocol::ServerMessage;
@@ -60,7 +61,8 @@ pub struct AttachSessionOptions {
     /// Not in the TS: the sessions the status line counts.
     pub status_scope: StatusScope,
     /// Not in the TS: end the attach when a plan waits for an answer in the attached session's repository
-    /// (`plan-pending`), so Deckhand can ask ([`AttachEnd::PlanPending`]).
+    /// (`plan-pending`), so Deckhand can ask ([`AttachEnd::PlanPending`]). Only a plan of the UI's checkout
+    /// (`status_scope.root`, where its orchestrator runs): another checkout's plan does not open there by itself.
     pub detach_on_plan: bool,
 }
 
@@ -1177,10 +1179,12 @@ impl<C: Console> Proxy<'_, C> {
             return done;
         }
         // Not in the TS: the plan is what you wait for while you talk to the orchestrator, and Deckhand asks for it. A
-        // plan you put aside waits without ending the attach (it is sent again to every subscriber).
+        // plan you put aside waits without ending the attach (it is sent again to every subscriber), and so does one of
+        // another checkout of the repository (the UI there asks for it, not this one).
         if self.options.detach_on_plan
             && self.attached
-            && matches!(&message, ServerMessage::PlanPending(pending) if pending.plan.parked != Some(true))
+            && matches!(&message, ServerMessage::PlanPending(pending)
+                if pending.plan.parked != Some(true) && self.plan_of_this_checkout(&pending.plan.repo_root))
         {
             self.detach();
             return Some(Ok(AttachEnd::PlanPending));
@@ -1332,6 +1336,15 @@ impl<C: Console> Proxy<'_, C> {
             Some(status) => status.agent_rows(),
             None => attach_rows_on(self.console),
         }
+    }
+
+    /// Whether a plan for `checkout` belongs to the UI the attach came from (`status_scope.root`; any, without one).
+    fn plan_of_this_checkout(&self, checkout: &str) -> bool {
+        self.options
+            .status_scope
+            .root
+            .as_deref()
+            .is_none_or(|root| checkout_in_scope(checkout, root))
     }
 
     /// Whether the attach subscribes to its session's repository: for the status line, or to hear of plans.
@@ -2190,6 +2203,52 @@ mod tests {
         };
         let (result, ()) = tokio::join!(attach, driver);
         assert_eq!(result.unwrap(), AttachEnd::Detached);
+    }
+
+    /// A plan of another checkout of the repository (its orchestrator runs in another worktree) does not end an attach
+    /// made from the UI of `/r`: the UI there asks for it. One of `/r` still does.
+    #[tokio::test(flavor = "current_thread")]
+    async fn another_checkouts_plan_does_not_detach() {
+        let plan = |id: &str, repo_root: &str| {
+            json!({"type": "plan-pending", "plan": {
+                "id": id, "repoRoot": repo_root, "plan": {"sessions": [], "tasks": []},
+                "summary": {"sessions": [], "tasks": [], "counts": "nothing"},
+                "createdAt": "2026-01-01T00:00:00.000Z"}})
+        };
+        let (mut console, state, client, mut daemon) = setup(false, None);
+        let options = AttachSessionOptions {
+            detach_on_plan: true,
+            status_scope: StatusScope {
+                root: Some("/r".to_owned()),
+            },
+            ..AttachSessionOptions::default()
+        };
+        let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
+        let driver = async {
+            daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": "req", "ok": true}))
+                .await;
+            let list = daemon.recv().await;
+            assert_eq!(daemon.recv().await["type"], "resize");
+            let sessions = json!([session_json("s1", "running")]);
+            daemon
+                .send(json!({"type": "response", "requestId": list["requestId"], "ok": true, "data": sessions}))
+                .await;
+            let subscribe = daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": subscribe["requestId"], "ok": true, "data": sessions}))
+                .await;
+            // The orchestrator runs in the worktree `/wt/fix_coaching_tone`: typing goes on.
+            daemon.send(plan("p1", "/wt/fix_coaching_tone")).await;
+            send_input(&state, ConsoleEvent::Data(b"x".to_vec()));
+            assert_eq!(daemon.recv().await["type"], "input");
+            // This checkout's (`/r/` is the same path) ends it.
+            daemon.send(plan("p2", "/r/")).await;
+            assert_eq!(daemon.recv().await, json!({"type": "detach", "sessionId": "s1"}));
+        };
+        let (result, ()) = tokio::join!(attach, driver);
+        assert_eq!(result.unwrap(), AttachEnd::PlanPending);
     }
 
     #[tokio::test(flavor = "current_thread")]
