@@ -480,7 +480,7 @@ impl Daemon {
         }
         self.drop_draft(session_id, None, true);
         self.send_worker_event(session_id, agent_input(&paste(&text)));
-        self.messages_on_draft_typed(&worker);
+        self.messages_on_draft_typed(&worker, &text);
         self.log(&format!("typed the task draft into {session_id}")).await;
         Ok(())
     }

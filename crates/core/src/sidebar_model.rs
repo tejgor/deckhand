@@ -12,7 +12,7 @@ use crate::display::{
     wrap_words,
 };
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
-use crate::messages_model::{MESSAGE_MARKER, MessagesBrief, brief_text};
+use crate::messages_model::{MESSAGE_MARKER, MessagesBrief, brief_text, held_reason_text};
 use crate::notes::{checklist_counts, fit_first};
 use crate::session_features::{
     SESSION_FILTERS, SessionFilter, SessionFilterCounts, filter_session_list, session_blocked, session_filter_key,
@@ -1225,6 +1225,17 @@ fn details<S: SessionLike>(
     {
         let tone = if brief.held > 0 { THEME.accent } else { THEME.muted };
         lines.push(vec![detail(brief_text(brief, now_ms, width), tone)]);
+        // Why they wait, in up to two lines.
+        if let Some(reason) = brief.held_reason.as_ref().filter(|_| brief.held > 0)
+            && room(&lines) >= 1
+        {
+            let text = held_reason_text(reason, now_ms);
+            lines.extend(
+                title_lines(&text, width, room(&lines).min(2))
+                    .into_iter()
+                    .map(|text| vec![detail(text, THEME.muted)]),
+            );
+        }
     }
     // Open checklist items of its note: the first line to go when rows are short.
     if let Some(checklist) = own_checklist_text(session, width).filter(|text| !text.is_empty())
@@ -2108,6 +2119,7 @@ mod tests {
         let all = [&session];
         let brief = MessagesBrief {
             held: 2,
+            held_reason: None,
             last_direction: crate::messages_model::Direction::Received,
             last_party: "Login UI".to_owned(),
             last_created_at: ago(3),
@@ -2136,6 +2148,24 @@ mod tests {
         assert_eq!(
             short.last().map(String::as_str),
             Some("✉ 2 waiting · last from Login UI 3m (answered)")
+        );
+        // Why the next one waits, under it, in up to two lines.
+        let waiting = MessagesBrief {
+            held_reason: Some(deckhand_protocol::data::HeldReason {
+                kind: deckhand_protocol::data::HeldReasonKind::UnsentText,
+                until: Some(ago(-4)),
+            }),
+            ..brief.clone()
+        };
+        let full = lines(12, Some(&waiting));
+        assert_eq!(
+            full[full.len() - 4..],
+            [
+                "✉ 2 waiting · last from Login UI 3m (answered)",
+                "unsent text in its input, delivers in 4 min, or",
+                "press enter",
+                "☐ 2 open"
+            ]
         );
         // No messages: no line.
         assert!(!lines(10, None).iter().any(|line| line.contains('✉')));

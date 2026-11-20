@@ -1,3 +1,4 @@
+use super::unsent::{Guard, Unsent};
 use super::*;
 
 use std::cell::RefCell;
@@ -218,6 +219,7 @@ fn record(id: &str, from: Option<&str>, to: &str, status: MessageStatus) -> Mess
         delivered_at: None,
         updated_at: "2026-01-01T00:00:00.000Z".into(),
         note: None,
+        held_reason: None,
         extra: IndexMap::new(),
     }
 }
@@ -280,18 +282,135 @@ fn headers_say_who_sent_it_and_how_to_answer() {
     assert_eq!(rendered(&notice, ReplyBy::Shell), notice.text);
 }
 
+/// The unsent text after typing each of `keys` (at the input, no dialog).
+fn typed(keys: &[&str]) -> Unsent {
+    let mut unsent = Unsent::default();
+    for key in keys {
+        unsent.type_keys(key, false);
+    }
+    unsent
+}
+
 #[test]
 fn typed_text_holds_the_queue_until_it_is_sent_or_cleared() {
-    assert_eq!(typed_effect("fix the"), Some(true));
-    assert_eq!(typed_effect("\x1b[200~pasted\rlines\x1b[201~"), Some(true));
-    assert_eq!(typed_effect("fix it\r"), Some(false));
-    assert_eq!(typed_effect("\r"), Some(false));
-    assert_eq!(typed_effect("\x03"), Some(false));
-    assert_eq!(typed_effect("\x15"), Some(false));
-    assert_eq!(typed_effect("\rnext"), Some(true));
-    // Moving the cursor or a digit answering a menu leaves the input as it was.
-    assert_eq!(typed_effect("\x1b[A"), None);
-    assert_eq!(typed_effect("2"), None);
+    assert!(typed(&["fix the"]).holds());
+    assert_eq!(typed(&["fix the"]).count, 7);
+    assert!(typed(&["\x1b[200~pasted\rlines\x1b[201~"]).holds());
+    for cleared in ["fix it\r", "\r", "\x03", "\x15", "\x1b[13u"] {
+        let mut unsent = typed(&["fix the"]);
+        assert!(unsent.type_keys(cleared, false).cleared, "{cleared:?}");
+        assert!(!unsent.holds(), "{cleared:?}");
+    }
+    assert!(typed(&["\rnext"]).holds());
+    // Mouse reports, focus changes, shift+tab and the function keys leave the input as it was.
+    for nothing in ["\x1b[<64;1;5M", "\x1b[I", "\x1b[O", "\x1b[Z", "\x1bOP", "\x1b[15~"] {
+        assert_eq!(typed(&[nothing]), Unsent::default(), "{nothing:?}");
+    }
+}
+
+#[test]
+fn typed_then_backspaced_to_empty_holds_nothing() {
+    let mut unsent = typed(&["fix"]);
+    unsent.type_keys("\x7f\x7f", false);
+    assert_eq!((unsent.count, unsent.holds()), (1, true));
+    // ctrl+h is a backspace too; at zero nothing is left to hold.
+    unsent.type_keys("\x08", false);
+    assert!(!unsent.holds());
+    assert_eq!(unsent, Unsent::default());
+    // Never below zero.
+    unsent.type_keys("\x7f\x7fa", false);
+    assert_eq!(unsent.count, 1);
+}
+
+#[test]
+fn a_letter_typed_into_a_question_or_menu_is_not_counted() {
+    let mut unsent = Unsent::default();
+    unsent.type_keys("2", true);
+    unsent.type_keys("yes\x1b[B", true);
+    unsent.type_keys("\x1b[200~an answer\x1b[201~", true);
+    assert!(!unsent.holds(), "{unsent:?}");
+    // Your draft stays what it was: Enter answers the dialog, not the input.
+    let mut unsent = typed(&["draft"]);
+    unsent.type_keys("1\r", true);
+    assert_eq!(unsent.count, 5);
+}
+
+#[test]
+fn esc_word_deletes_history_tab_and_edits_after_the_cursor_moved_are_uncertain() {
+    for keys in [
+        &["fix the", "\x1b"][..],
+        &["fix the", "\x17"],
+        &["fix the", "\x1b\x7f"],
+        &["fix the", "\x1b[A"],
+        &["\x1b[A"],
+        &["fix the", "\t"],
+        &["fix the", "\x1b[D", "x"],
+        &["fix the", "\x01", "\x7f"],
+        &["fix the", "\x1b[H", "\x1b[3~"],
+        &["fix the", "\x1b[1;5D", "\x0b"],
+        &["\x1b[200~fix the\x1b[201~"],
+    ] {
+        let unsent = typed(keys);
+        assert!(unsent.uncertain && unsent.holds(), "{keys:?}");
+        // Uncertain survives backspacing to what the count says is empty.
+        let mut unsent = unsent;
+        unsent.type_keys(&"\x7f".repeat(20), false);
+        assert!(unsent.holds(), "{keys:?}");
+    }
+    // The cursor moving alone changes nothing yet; an edit after it does.
+    let mut unsent = typed(&["fix the", "\x1b[D", "\x1b[C"]);
+    assert!(!unsent.uncertain);
+    unsent.type_keys("s", false);
+    assert!(unsent.uncertain);
+    assert!(typed(&["\x1b[200~x\x1b[201~"]).pasted);
+}
+
+/// A Claude-like screen: the agent's last words, the input box holding `input` (wrapped at 24 columns), a footer.
+fn screen_with(input: &str) -> String {
+    let mut lines = vec!["⏺ Done. The tests pass.".to_owned(), String::new()];
+    lines.push(format!("╭{}╮", "─".repeat(28)));
+    let chars: Vec<char> = input.chars().collect();
+    let rows: Vec<String> = if chars.is_empty() {
+        vec![String::new()]
+    } else {
+        chars.chunks(24).map(|row| row.iter().collect()).collect()
+    };
+    for (at, row) in rows.iter().enumerate() {
+        let lead = if at == 0 { "> " } else { "  " };
+        lines.push(format!("│ {lead}{row:<24} │"));
+    }
+    lines.push(format!("╰{}╯", "─".repeat(28)));
+    lines.push("  ⏵⏵ accept edits on (shift+tab to cycle)".to_owned());
+    lines.join("\n")
+}
+
+#[test]
+fn the_guard_finds_typed_words_on_the_screen_however_they_wrap() {
+    let unsent = typed(&["Please rebase onto main first, then run the tests", "\x1b"]);
+    assert_eq!(
+        unsent.guard(&screen_with("Please rebase onto main first, then run the tests")),
+        Guard::Visible
+    );
+    assert_eq!(unsent.guard(&screen_with("")), Guard::Gone);
+    // A word or two deleted from the end: the rest is still a draft.
+    let unsent = typed(&["Please rebase onto main first", "\x17", "\x17"]);
+    assert_eq!(unsent.guard(&screen_with("Please rebase onto ")), Guard::Visible);
+    // Too little typed to check.
+    assert_eq!(typed(&["ok", "\x1b"]).guard(&screen_with("ok")), Guard::Short);
+    // A paste the agent shows as a placeholder can't be checked; one it shows is a draft.
+    let pasted = typed(&["\x1b[200~line one\nline two\nline three\x1b[201~"]);
+    assert_eq!(
+        pasted.guard(&screen_with("[Pasted text #1 +2 lines]")),
+        Guard::Unverifiable
+    );
+    assert_eq!(
+        pasted.guard(&screen_with("line one line two line three")),
+        Guard::Visible
+    );
+    // A task draft holds without the guard.
+    let mut draft = Unsent::default();
+    draft.draft_typed("Fix the login");
+    assert!(draft.holds());
 }
 
 #[test]
@@ -430,12 +549,12 @@ fn a_message_is_held_while_its_target_starts_works_waits_or_you_type() {
         *b.draft.borrow_mut() = None;
         // You typed text you have not sent: held until Enter, and for a moment after any key.
         daemon.messages_on_input("b", "half a sente");
-        b.inbox.typed_at.set(None);
+        b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
         daemon.pump_messages("b");
         fake.nothing_typed().await;
         assert_eq!(status_of(&daemon, &id), MessageStatus::Held);
         daemon.messages_on_input("b", "nce\r");
-        assert!(!b.inbox.user_text.get());
+        assert!(!b.inbox.unsent.borrow().holds());
         fake.nothing_typed().await;
         // Once the typing pause is over, it is typed.
         b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
@@ -837,9 +956,10 @@ fn no_turn_after_a_delivery_stops_the_queue_and_tells_the_waiting_sender() {
                 .unwrap_or_default()
                 .starts_with("Typed, but no turn started")
         );
-        // The next message is not typed blindly after it.
-        send_ok(&daemon, send("b", "Second", Some("a"), None)).await;
+        // The next message is not typed blindly after it, and says so.
+        let second = send_ok(&daemon, send("b", "Second", Some("a"), None)).await.message.id;
         fake.nothing_typed().await;
+        assert_eq!(kind_of(&daemon, &second), Some(HeldReasonKind::Stalled));
         // Once you sent what was in the input, the queue goes on.
         daemon.messages_on_input("b", "\r");
         b.inbox.typed_at.set(None);
@@ -996,5 +1116,279 @@ fn a_session_relaunched_with_an_unread_reply_or_a_question_takes_its_messages() 
             let worker = daemon.launch.borrow().workers.get("b").cloned().unwrap();
             worker.inbox.turn.borrow_mut().take();
         }
+    });
+}
+
+/// The held message's reason now.
+fn reason_of(daemon: &Daemon, id: &str) -> Option<HeldReason> {
+    daemon.message(id).unwrap().held_reason
+}
+
+fn kind_of(daemon: &Daemon, id: &str) -> Option<HeldReasonKind> {
+    reason_of(daemon, id).map(|reason| reason.kind)
+}
+
+/// The daemon's log so far (its lines without their times).
+async fn logged(dir: &Path) -> Vec<String> {
+    settle().await;
+    std::fs::read_to_string(dir.join("daemon.log"))
+        .unwrap_or_default()
+        .lines()
+        .map(|line| line.split_once("] daemon ").map_or(line, |(_, rest)| rest).to_owned())
+        .collect()
+}
+
+/// Session `b` with text typed into it `TYPING_QUIET` ago and the unsent-text limit 300 ms after that: the limit
+/// passes 300 ms from now.
+async fn typed_into(daemon: &Daemon, screen: &str, keys: &[&str]) -> (Rc<WorkerRuntime>, Fake) {
+    daemon.messages.borrow_mut().unsent_limit = TYPING_QUIET + Duration::from_millis(300);
+    let (b, fake) = running(daemon, "b", "Token storage", None).await;
+    *b.screen.borrow_mut() = Some(screen.to_owned());
+    for keys in keys {
+        daemon.messages_on_input("b", keys);
+    }
+    b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
+    (b, fake)
+}
+
+#[test]
+fn a_letter_typed_into_a_menu_does_not_hold_the_queue() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (b, mut fake) = running(&daemon, "b", "Token storage", None).await;
+        *b.screen.borrow_mut() = Some("Do you trust the files in this folder?\n❯ 1. Yes\n  2. No".into());
+        daemon.messages_on_input("b", "y");
+        assert!(!b.inbox.unsent.borrow().holds());
+        // Or into a question, which the attention says.
+        *b.screen.borrow_mut() = Some(screen_with(""));
+        set_attention(&daemon, "b", AttentionState::NeedsInput);
+        daemon.messages_on_input("b", "use the keychain");
+        assert!(!b.inbox.unsent.borrow().holds());
+        set_attention(&daemon, "b", AttentionState::ResponseEnded);
+        b.inbox.typed_at.set(None);
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        assert!(fake.delivered().await.ends_with("\nHello"));
+        assert_eq!(status_of(&daemon, &id), MessageStatus::Delivered);
+    });
+}
+
+#[test]
+fn text_typed_then_backspaced_to_empty_releases_the_queue() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (b, mut fake) = typed_into(&daemon, &screen_with("fix"), &["fix"]).await;
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        fake.nothing_typed().await;
+        assert_eq!(kind_of(&daemon, &id), Some(HeldReasonKind::UnsentText));
+        daemon.messages_on_input("b", "\x7f\x7f\x7f");
+        b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
+        daemon.pump_messages("b");
+        assert!(fake.delivered().await.ends_with("\nHello"));
+    });
+}
+
+#[test]
+fn a_turn_starting_empties_the_input_and_a_tool_signal_within_it_does_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (b, mut fake) = typed_into(&daemon, &screen_with("half a thought"), &["half a thought"]).await;
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        fake.nothing_typed().await;
+        hook(&daemon, "b", json!({"hook_event_name": "UserPromptSubmit"})).await;
+        assert!(!b.inbox.unsent.borrow().holds());
+        // Typed while it works: a tool's working signal is not a new turn.
+        daemon.messages_on_input("b", "next");
+        hook(&daemon, "b", json!({"hook_event_name": "PostToolUse"})).await;
+        assert!(b.inbox.unsent.borrow().holds());
+        daemon.messages_on_input("b", "\x15");
+        hook(&daemon, "b", json!({"hook_event_name": "Stop"})).await;
+        b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
+        daemon.pump_messages("b");
+        assert!(fake.delivered().await.ends_with("\nHello"));
+        assert_eq!(status_of(&daemon, &id), MessageStatus::Delivered);
+    });
+}
+
+#[test]
+fn past_the_limit_an_uncertain_hold_ends_once_the_typed_words_leave_the_screen() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let text = "rebase onto main first";
+        let (b, mut fake) = typed_into(&daemon, &screen_with(text), &[text, "\x1b"]).await;
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        let reason = reason_of(&daemon, &id).unwrap();
+        assert_eq!(reason.kind, HeldReasonKind::UnsentText);
+        assert!(reason.until.is_some());
+        // Past the limit (its timer looks again), the words are still on the screen: a real draft, held.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        fake.nothing_typed().await;
+        assert_eq!(
+            reason_of(&daemon, &id),
+            Some(HeldReason {
+                kind: HeldReasonKind::UnsentText,
+                until: None
+            })
+        );
+        // They go (a second esc cleared the input): the next screen update delivers it.
+        *b.screen.borrow_mut() = Some(screen_with(""));
+        daemon.messages_on_screen("b", &b);
+        assert!(fake.delivered().await.ends_with("\nHello"));
+        assert!(!b.inbox.unsent.borrow().holds());
+        let log = logged(dir.path()).await;
+        assert!(
+            log.contains(&format!(
+                "message {id} to b: the unsent text in its input no longer holds it after 3300 ms: what was typed is \
+                 no longer on its screen"
+            )),
+            "{log:#?}"
+        );
+    });
+}
+
+#[test]
+fn a_stale_mark_is_released_by_its_timer_without_any_event() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        // Typed, then cleared by keys whose effect is unknown (esc twice): the input is empty.
+        let (_b, mut fake) = typed_into(&daemon, &screen_with(""), &["fix the login tests", "\x1b", "\x1b"]).await;
+        send_ok(&daemon, send("b", "Hello", None, None)).await;
+        assert!(fake.delivered().await.ends_with("\nHello"));
+    });
+}
+
+#[test]
+fn past_the_limit_short_text_is_released() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (_b, mut fake) = typed_into(&daemon, &screen_with("ok"), &["ok", "\x1b[D", "!"]).await;
+        send_ok(&daemon, send("b", "Short", None, None)).await;
+        assert!(fake.delivered().await.ends_with("\nShort"));
+    });
+}
+
+#[test]
+fn past_the_limit_an_unverifiable_paste_keeps_holding() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let paste = "\x1b[200~line one\nline two\nline three\x1b[201~";
+        let (b, mut fake) = typed_into(&daemon, &screen_with("[Pasted text #1 +2 lines]"), &[paste]).await;
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        fake.nothing_typed().await;
+        assert_eq!(kind_of(&daemon, &id), Some(HeldReasonKind::UnsentPaste));
+        // Clearing it releases it.
+        daemon.messages_on_input("b", "\x15");
+        b.inbox.typed_at.set(Some(Instant::now() - TYPING_QUIET));
+        daemon.pump_messages("b");
+        assert!(fake.delivered().await.ends_with("\nHello"));
+    });
+}
+
+#[test]
+fn a_message_sent_long_after_the_last_key_is_checked_at_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (b, mut fake) = running(&daemon, "b", "Token storage", None).await;
+        *b.screen.borrow_mut() = Some(screen_with(""));
+        daemon.messages_on_input("b", "fix the login tests");
+        daemon.messages_on_input("b", "\x17\x17\x17\x17");
+        b.inbox
+            .typed_at
+            .set(Some(Instant::now() - UNSENT_LIMIT - Duration::from_secs(60)));
+        send_ok(&daemon, send("b", "Hello", None, None)).await;
+        assert!(fake.delivered().await.ends_with("\nHello"));
+    });
+}
+
+#[test]
+fn a_held_message_says_why_and_the_log_says_when_that_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (b, mut fake) = running(&daemon, "b", "Token storage", None).await;
+        daemon.patch_session("b", |session| session.status = SessionStatus::Starting);
+        let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+        let mut seen = vec![kind_of(&daemon, &id)];
+        let mut look = |daemon: &Daemon| {
+            daemon.pump_messages("b");
+            seen.push(kind_of(daemon, &id));
+        };
+        daemon.patch_session("b", |session| session.status = SessionStatus::Running);
+        set_attention(&daemon, "b", AttentionState::Working);
+        look(&daemon);
+        look(&daemon);
+        set_attention(&daemon, "b", AttentionState::NeedsInput);
+        look(&daemon);
+        set_attention(&daemon, "b", AttentionState::ResponseEnded);
+        *b.screen.borrow_mut() = Some("Do you trust the files in this folder?\n❯ 1. Yes".into());
+        look(&daemon);
+        *b.screen.borrow_mut() = Some(screen_with("Fix the login"));
+        daemon.messages_on_draft_typed(&b, "Fix the login");
+        look(&daemon);
+        b.inbox.unsent.borrow_mut().clear();
+        daemon.messages_on_input("b", "half a thought");
+        look(&daemon);
+        daemon.patch_session("b", |session| session.status = SessionStatus::Exited);
+        look(&daemon);
+        use HeldReasonKind::*;
+        assert_eq!(
+            seen,
+            [
+                Starting, Working, Working, Question, Menu, Draft, UnsentText, NotRunning
+            ]
+            .map(Some)
+        );
+        fake.nothing_typed().await;
+        // The unsent text says when it delivers, as the UI shows it.
+        daemon.patch_session("b", |session| session.status = SessionStatus::Running);
+        daemon.pump_messages("b");
+        let reason = reason_of(&daemon, &id).unwrap();
+        assert_eq!(
+            deckhand_core::messages_model::held_reason_text(&reason, deckhand_core::jsstr::date::now_ms()),
+            "unsent text in its input, delivers in 5 min, or press enter"
+        );
+        // Logged once per change, never on every look (written in the background, so in any order).
+        let mut held: Vec<String> = logged(dir.path())
+            .await
+            .into_iter()
+            .filter_map(|line| {
+                line.strip_prefix(&format!("message {id} to b held: "))
+                    .map(str::to_owned)
+            })
+            .collect();
+        held.sort();
+        let mut expected = [
+            "the session is starting",
+            "the session is working on a turn",
+            "the session waits on a question or permission",
+            "the session shows a menu",
+            "a task draft waits in its input: send or clear it",
+            "unsent text in its input, delivers in 5 min, or press enter",
+            "the session is not running: delivered once it runs again",
+            "unsent text in its input, delivers in 5 min, or press enter",
+        ];
+        expected.sort();
+        assert_eq!(held, expected);
+        // Not kept in the file: it is the daemon's view now.
+        daemon.save_messages().await.unwrap();
+        let file = std::fs::read_to_string(dir.path().join(MESSAGES_FILE)).unwrap();
+        assert!(!file.contains("heldReason"), "{file}");
     });
 }

@@ -213,7 +213,7 @@ No other key acts while it shows. When a plan opens by itself, keys typed on as 
 
 ## Messages
 
-`e` shows the selected session's [messages](features.md#messages-between-sessions), newest first: what it sent (`→`) and was sent (`←`), each with the other end (`you` for a message you sent by hand, and for the answer to one), how long ago, its status (held, delivered, answered, cancelled, dropped, returned), its ID and its replies' IDs, then its text. The selected message shows whole; the others show their first three lines. A reply to a message you sent by hand comes back to you (`returned`): this is where you read it, in the messages of the session that answered. Nothing is sent from here: type to the agent.
+`e` shows the selected session's [messages](features.md#messages-between-sessions), newest first: what it sent (`→`) and was sent (`←`), each with the other end (`you` for a message you sent by hand, and for the answer to one), how long ago, its status (held, delivered, answered, cancelled, dropped, returned), its ID and its replies' IDs, then its text; the next held message also says why it waits (`held: …`). The selected message shows whole; the others show their first three lines. A reply to a message you sent by hand comes back to you (`returned`): this is where you read it, in the messages of the session that answered. Nothing is sent from here: type to the agent.
 
 | Key | Action |
 | --- | --- |

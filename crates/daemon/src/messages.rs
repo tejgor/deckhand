@@ -8,6 +8,12 @@
 //! next message is typed as one bracketed paste under its header and submitted with Enter. The next one waits for the
 //! turn that one starts to end.
 //!
+//! **Unsent text** is kept from the keys alone ([`unsent`]): a count of what was typed and not deleted, uncertain
+//! after keys whose effect can't be known. It holds for at most [`UNSENT_LIMIT`] after the last key; then the guard
+//! looks for the typed text on the screen: still there, it keeps holding (and looks again); gone, too short to check,
+//! it is released. Every hold says why on the queue's next message (`heldReason`), logged when it changes, and every
+//! hold looks again on a timer, so none waits on an event that may never come.
+//!
 //! **Turns.** For an agent that reports turn signals (a hook arrived during this launch: Claude, Codex with hooks), a
 //! turn starts with a working signal and ends with response-ended (or failed, rate-limited, an interrupt or a stale
 //! working signal). If no turn starts within [`TURN_START_WAIT`] of the Enter, the message is marked so (its `note`),
@@ -38,9 +44,10 @@ use std::time::{Duration, Instant};
 
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::date;
+use deckhand_core::messages_model::held_reason_text;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AttentionState, MessageKind, MessageRecord, MessageStatus, ProgramKey, SendMessageResult,
-    SessionRecord, SessionStatus, WaitOutcome, WaitOutcomeKind,
+    AgentActivityStatus, AttentionState, HeldReason, HeldReasonKind, MessageKind, MessageRecord, MessageStatus,
+    ProgramKey, SendMessageResult, SessionRecord, SessionStatus, WaitOutcome, WaitOutcomeKind,
 };
 use deckhand_protocol::events::{MessagesUpdated, ServerMessage};
 use deckhand_protocol::wire::{CancelMessage, ListMessages, ReplyMessage, SendMessage};
@@ -52,9 +59,13 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use crate::daemon::Daemon;
-use crate::hooks::{DRAFT_SETTLE, agent_input, paste, shows_agent_prompt, types_letters};
+use crate::hooks::{DRAFT_SETTLE, agent_input, paste, shows_agent_prompt};
 use crate::launch::WorkerRuntime;
 use crate::server::{ClientHandle, ClientSubscription, send_message};
+
+pub mod unsent;
+
+use unsent::{Guard, Unsent};
 
 /// The file in the state directory.
 pub const MESSAGES_FILE: &str = "messages.json";
@@ -73,6 +84,17 @@ pub const TURN_START_WAIT: Duration = Duration::from_secs(10);
 
 /// A message waits this long after the last key you typed into its target.
 pub const TYPING_QUIET: Duration = Duration::from_secs(3);
+
+/// Unsent text in its target's input holds a message at most this long after the last key typed into it; then the
+/// guard looks for the text on the screen.
+pub const UNSENT_LIMIT: Duration = Duration::from_secs(5 * 60);
+
+/// Past [`UNSENT_LIMIT`], how often a message held by text still on the screen (or an unverifiable paste) looks
+/// again, besides each screen update.
+pub const GUARD_RECHECK: Duration = Duration::from_secs(60);
+
+/// How often any other held message looks again, in case the event it waits for never comes.
+pub const HOLD_RECHECK: Duration = Duration::from_secs(60);
 
 /// Between the paste and the Enter that submits it (an Enter inside the paste would only add a line).
 pub const SUBMIT_AFTER_PASTE: Duration = Duration::from_millis(150);
@@ -120,6 +142,8 @@ pub struct MessagesState {
     pub save: Option<Coalescer<Result<()>>>,
     /// [`TURN_START_WAIT`], shorter in tests.
     pub turn_start_wait: Duration,
+    /// [`UNSENT_LIMIT`], shorter in tests.
+    pub unsent_limit: Duration,
 }
 
 impl Default for MessagesState {
@@ -131,6 +155,7 @@ impl Default for MessagesState {
             waiters: HashMap::new(),
             save: None,
             turn_start_wait: TURN_START_WAIT,
+            unsent_limit: UNSENT_LIMIT,
         }
     }
 }
@@ -140,10 +165,14 @@ impl Default for MessagesState {
 pub struct Inbox {
     /// A lifecycle hook arrived during this launch: its turns are known from signals.
     pub signals: Cell<bool>,
-    /// You typed text into the agent (or a draft was typed) that has not been sent: Enter, ctrl+c or ctrl+u clear it.
-    pub user_text: Cell<bool>,
+    /// What you typed into the agent's input (or a draft Deckhand typed) and has not been sent, from the keys.
+    pub unsent: RefCell<Unsent>,
     /// When you last typed into the agent.
     pub typed_at: Cell<Option<Instant>>,
+    /// The same, as a wall-clock time (ms), for when the unsent-text hold ends.
+    pub typed_ms: Cell<Option<i64>>,
+    /// The agent works on a turn (its last attention was working): a new turn starts on the next working signal.
+    pub working: Cell<bool>,
     /// When its screen last changed.
     pub screen_at: Cell<Option<Instant>>,
     /// A message is being typed (between its paste and its Enter).
@@ -168,10 +197,25 @@ pub struct MessageTurn {
 #[derive(Debug, PartialEq, Eq)]
 enum Hold {
     Ready,
-    /// Look again after this (typing pause, screen settle).
-    Retry(Duration),
-    /// An event (activity, a signal, Enter, running) looks again.
-    Wait,
+    /// Held: why (`None`: a short wait, a typing pause or a screen settling, that keeps the reason shown), and when to
+    /// look again at the latest (an event, activity, a signal, Enter, running, may look sooner).
+    Held {
+        reason: Option<HeldReason>,
+        recheck: Duration,
+    },
+}
+
+impl Hold {
+    fn held(kind: HeldReasonKind) -> Hold {
+        Hold::Held {
+            reason: Some(HeldReason { kind, until: None }),
+            recheck: HOLD_RECHECK,
+        }
+    }
+
+    fn short(recheck: Duration) -> Hold {
+        Hold::Held { reason: None, recheck }
+    }
 }
 
 /// `messages.json`.
@@ -185,6 +229,24 @@ struct MessagesFile {
 
 fn now_iso() -> String {
     date::to_iso_string(date::now_ms()).unwrap_or_default()
+}
+
+fn millis(duration: Duration) -> i64 {
+    i64::try_from(duration.as_millis()).unwrap_or(i64::MAX)
+}
+
+/// `5 min`, `90 s`: a limit in words, for the log.
+fn duration_words(duration: Duration) -> String {
+    let secs = duration.as_secs();
+    if duration.subsec_millis() > 0 {
+        format!("{} ms", duration.as_millis())
+    } else if secs >= 60 && secs.is_multiple_of(60) {
+        format!("{} min", secs / 60)
+    } else if secs > 0 {
+        format!("{secs} s")
+    } else {
+        "0 s".to_owned()
+    }
 }
 
 /// `text` cut to `units` UTF-16 units (never inside a character), and whether it was cut.
@@ -201,8 +263,9 @@ fn cut(text: &str, units: usize) -> (String, bool) {
     (text[..end].to_owned(), end < text.len())
 }
 
-/// Keeps at most [`KEPT_TEXT_UNITS`] of a message that left the queue.
+/// Keeps at most [`KEPT_TEXT_UNITS`] of a message that left the queue, and forgets why it was held.
 fn shorten(message: &mut MessageRecord) {
+    message.held_reason = None;
     let (kept, cut_short) = cut(&message.text, KEPT_TEXT_UNITS);
     if cut_short {
         message.text = kept;
@@ -317,18 +380,6 @@ pub fn prune(messages: &mut Vec<MessageRecord>, known: &HashSet<String>) {
     messages.retain(|_| flags.next().unwrap_or(false));
 }
 
-/// What typed `data` does to the text in the agent's input: `Some(true)` leaves text there (letters, a paste),
-/// `Some(false)` sends or clears it (Enter, ctrl+c, ctrl+u after the last letters), `None` neither.
-pub fn typed_effect(data: &str) -> Option<bool> {
-    if data.contains("\x1b[200~") {
-        return Some(true);
-    }
-    match data.rfind(['\r', '\x03', '\x15']) {
-        Some(at) => Some(types_letters(data.get(at + 1..).unwrap_or_default())),
-        None => types_letters(data).then_some(true),
-    }
-}
-
 impl Daemon {
     fn messages_path(&self) -> PathBuf {
         self.paths.config_dir.join(MESSAGES_FILE)
@@ -380,6 +431,10 @@ impl Daemon {
             })
             .map(|message| message.id.clone())
             .collect();
+        // Why a message was held is the previous daemon's view: each pump says it again.
+        for message in &mut messages {
+            message.held_reason = None;
+        }
         {
             let mut state = self.messages.borrow_mut();
             state.messages = messages;
@@ -422,6 +477,13 @@ impl Daemon {
                                 .messages
                                 .iter()
                                 .filter_map(|message| serde_json::to_value(message).ok())
+                                .map(|mut value| {
+                                    // Why it is held is the daemon's view now, not kept.
+                                    if let Some(fields) = value.as_object_mut() {
+                                        fields.remove("heldReason");
+                                    }
+                                    value
+                                })
                                 .collect();
                             messages.extend(state.foreign.iter().cloned());
                             let file = MessagesFile {
@@ -581,6 +643,7 @@ impl Daemon {
             delivered_at: None,
             updated_at: now,
             note: None,
+            held_reason: None,
             extra: IndexMap::new(),
         }
     }
@@ -838,6 +901,10 @@ impl Daemon {
         let cancelled = cancelled.unwrap_or(message);
         self.publish_messages(std::slice::from_ref(&cancelled));
         self.log(&format!("message {} cancelled", cancelled.id)).await;
+        // The next one says why it waits.
+        if let Some(target) = cancelled.to_session_id.as_deref() {
+            self.pump_messages(target);
+        }
         Ok(cancelled)
     }
 
@@ -870,27 +937,96 @@ impl Daemon {
             .collect()
     }
 
-    /// Whether `target`'s queue can move now.
-    fn delivery_hold(&self, target: &str) -> Hold {
-        let (Some(session), Some(worker)) = (self.get_session(target), self.worker(target)) else {
-            return Hold::Wait;
+    /// Whether `target`'s queue can move now, its next message being `next`. Past [`UNSENT_LIMIT`], the guard
+    /// releases unsent text that is gone from the screen (logged).
+    fn delivery_hold(&self, target: &str, next: &MessageRecord) -> Hold {
+        let Some(session) = self.get_session(target) else {
+            return Hold::held(HeldReasonKind::NotRunning);
+        };
+        if session.status == SessionStatus::Starting {
+            return Hold::held(HeldReasonKind::Starting);
+        }
+        let Some(worker) = self.worker(target) else {
+            return Hold::held(HeldReasonKind::NotRunning);
         };
         if session.status != SessionStatus::Running || worker.channel.is_exited() {
-            return Hold::Wait;
+            return Hold::held(HeldReasonKind::NotRunning);
         }
         let inbox = &worker.inbox;
-        if inbox.delivering.get() || inbox.turn.borrow().is_some() {
-            return Hold::Wait;
+        if inbox.delivering.get() {
+            return Hold::short(HOLD_RECHECK);
         }
-        let state = session.attention.as_ref().map(|attention| attention.state);
-        if matches!(state, Some(AttentionState::NeedsInput | AttentionState::Working)) {
-            return Hold::Wait;
+        if let Some(turn) = inbox.turn.borrow().as_ref() {
+            return match (turn.stalled, turn.started) {
+                (true, _) => Hold::held(HeldReasonKind::Stalled),
+                (false, true) => Hold::held(HeldReasonKind::Working),
+                // Typed, its turn about to start: a moment.
+                (false, false) => Hold::short(HOLD_RECHECK),
+            };
         }
-        if session.agent_status != Some(AgentActivityStatus::Idle)
-            || worker.draft.borrow().is_some()
-            || inbox.user_text.get()
-        {
-            return Hold::Wait;
+        match session.attention.as_ref().map(|attention| attention.state) {
+            Some(AttentionState::NeedsInput) => return Hold::held(HeldReasonKind::Question),
+            Some(AttentionState::Working) => return Hold::held(HeldReasonKind::Working),
+            _ => {}
+        }
+        match session.agent_status {
+            Some(AgentActivityStatus::Idle) => {}
+            Some(AgentActivityStatus::Active) => return Hold::held(HeldReasonKind::Working),
+            _ => return Hold::held(HeldReasonKind::Starting),
+        }
+        let unsent = inbox.unsent.borrow().clone();
+        if worker.draft.borrow().is_some() || unsent.draft {
+            return Hold::held(HeldReasonKind::Draft);
+        }
+        if unsent.holds() {
+            let limit = self.messages.borrow().unsent_limit;
+            let left = inbox
+                .typed_at
+                .get()
+                .and_then(|at| limit.checked_sub(at.elapsed()))
+                .filter(|left| !left.is_zero());
+            if let Some(left) = left {
+                let until_ms = inbox
+                    .typed_ms
+                    .get()
+                    .map_or_else(|| date::now_ms() + millis(left), |at| at + millis(limit));
+                return Hold::Held {
+                    reason: Some(HeldReason {
+                        kind: HeldReasonKind::UnsentText,
+                        until: date::to_iso_string(until_ms),
+                    }),
+                    recheck: left,
+                };
+            }
+            let screen = worker.screen.borrow().clone().unwrap_or_default();
+            let why = match unsent.guard(&screen) {
+                Guard::Visible => {
+                    return Hold::Held {
+                        reason: Some(HeldReason {
+                            kind: HeldReasonKind::UnsentText,
+                            until: None,
+                        }),
+                        recheck: GUARD_RECHECK,
+                    };
+                }
+                Guard::Unverifiable => {
+                    return Hold::Held {
+                        reason: Some(HeldReason {
+                            kind: HeldReasonKind::UnsentPaste,
+                            until: None,
+                        }),
+                        recheck: GUARD_RECHECK,
+                    };
+                }
+                Guard::Short => "too little was typed to check",
+                Guard::Gone => "what was typed is no longer on its screen",
+            };
+            inbox.unsent.borrow_mut().clear();
+            self.log_soon(format!(
+                "message {} to {target}: the unsent text in its input no longer holds it after {}: {why}",
+                next.id,
+                duration_words(limit)
+            ));
         }
         if let Some(left) = inbox
             .typed_at
@@ -898,15 +1034,14 @@ impl Daemon {
             .and_then(|at| TYPING_QUIET.checked_sub(at.elapsed()))
             .filter(|left| !left.is_zero())
         {
-            return Hold::Retry(left);
+            return Hold::short(left);
         }
-        let at_input = worker
-            .screen
-            .borrow()
-            .as_deref()
-            .is_some_and(|screen| !screen.trim().is_empty() && !shows_agent_prompt(screen));
-        if !at_input {
-            return Hold::Wait;
+        let screen = worker.screen.borrow().clone().unwrap_or_default();
+        if screen.trim().is_empty() {
+            return Hold::held(HeldReasonKind::Starting);
+        }
+        if shows_agent_prompt(&screen) {
+            return Hold::held(HeldReasonKind::Menu);
         }
         if let Some(left) = inbox
             .screen_at
@@ -914,24 +1049,50 @@ impl Daemon {
             .and_then(|at| DRAFT_SETTLE.checked_sub(at.elapsed()))
             .filter(|left| !left.is_zero())
         {
-            return Hold::Retry(left);
+            return Hold::short(left);
         }
         Hold::Ready
     }
 
-    /// Delivers `target`'s next held message if it is idle at its input, or looks again later.
+    /// Delivers `target`'s next held message if it is idle at its input, or says why it waits and looks again later.
     pub fn pump_messages(&self, target: &str) {
         let Some(next) = self.held_to(target).into_iter().next() else {
             return;
         };
-        match self.delivery_hold(target) {
+        match self.delivery_hold(target, &next) {
             Hold::Ready => {
                 if let Some(worker) = self.worker(target) {
                     self.deliver(target, &worker, next);
                 }
             }
-            Hold::Retry(after) => self.retry_messages(target, after),
-            Hold::Wait => {}
+            Hold::Held { reason, recheck } => {
+                if let Some(reason) = reason {
+                    self.say_why_held(target, &next, reason);
+                }
+                self.retry_messages(target, recheck);
+            }
+        }
+    }
+
+    /// Sets why `next` (held for `target`) waits; tells the UIs when it changed, and logs it when its kind did.
+    fn say_why_held(&self, target: &str, next: &MessageRecord, reason: HeldReason) {
+        if next.held_reason.as_ref() == Some(&reason) {
+            return;
+        }
+        let new_kind = next.held_reason.as_ref().map(|old| old.kind) != Some(reason.kind);
+        let text = held_reason_text(&reason, date::now_ms());
+        // Not a change of the message itself: its `updatedAt` stays, and the file never keeps it.
+        let changed = {
+            let mut state = self.messages.borrow_mut();
+            let Some(message) = state.messages.iter_mut().find(|message| message.id == next.id) else {
+                return;
+            };
+            message.held_reason = Some(reason);
+            message.clone()
+        };
+        self.broadcast_messages(std::slice::from_ref(&changed));
+        if new_kind {
+            self.log_soon(format!("message {} to {target} held: {text}", next.id));
         }
     }
 
@@ -1032,6 +1193,8 @@ impl Daemon {
         self.log_soon(format!(
             "message {message_id}: no turn started in {target} after it was typed; its queue waits"
         ));
+        // The next message says why it waits.
+        self.pump_messages(target);
     }
 
     /// A turn started in `target` (a working signal, or activity without signals).
@@ -1116,7 +1279,16 @@ impl Daemon {
             .attention
             .as_ref()
             .filter(|attention| attention.carried.is_none());
-        match attention.map(|attention| attention.state) {
+        let state = attention.map(|attention| attention.state);
+        let working = state == Some(AttentionState::Working);
+        // A turn starts (the first working signal, not each tool's): what was in the input was sent.
+        if working && !worker.inbox.working.replace(true) {
+            worker.inbox.unsent.borrow_mut().clear();
+        }
+        if !working {
+            worker.inbox.working.set(false);
+        }
+        match state {
             Some(AttentionState::Working) => self.turn_started(&worker),
             Some(AttentionState::NeedsInput) => self.tell_waiters_waiting(target),
             Some(AttentionState::ResponseEnded | AttentionState::Failed | AttentionState::Limited) => {
@@ -1127,7 +1299,8 @@ impl Daemon {
         self.pump_messages(target);
     }
 
-    /// After the session's screen activity changed: without signals it starts and ends a message's turn.
+    /// After the session's screen activity changed: without signals it starts and ends a message's turn. It never
+    /// empties the unsent text: typing changes the screen too, so activity may be your own keys.
     pub fn messages_on_activity(&self, target: &str, status: AgentActivityStatus) {
         let Some(worker) = self.worker(target) else {
             return;
@@ -1150,33 +1323,38 @@ impl Daemon {
         }
     }
 
-    /// After you typed `data` into the agent: text left in its input holds the queue until sent or cleared, and every
-    /// key holds it for [`TYPING_QUIET`].
+    /// After you typed `data` into the agent: the text left in its input ([`Unsent`]) holds the queue until sent,
+    /// cleared or past [`UNSENT_LIMIT`] and gone from the screen; every key holds it for [`TYPING_QUIET`]. Letters
+    /// typed while a question, permission or menu shows go to it, not to the input.
     pub fn messages_on_input(&self, target: &str, data: &str) {
         let Some(worker) = self.worker(target) else {
             return;
         };
         worker.inbox.typed_at.set(Some(Instant::now()));
-        match typed_effect(data) {
-            Some(true) => worker.inbox.user_text.set(true),
-            Some(false) => {
-                worker.inbox.user_text.set(false);
-                // You sent what was in the input: a stalled message is yours to deal with now.
-                let mut turn = worker.inbox.turn.borrow_mut();
-                if turn.as_ref().is_some_and(|turn| turn.stalled) {
-                    *turn = None;
-                }
+        worker.inbox.typed_ms.set(Some(date::now_ms()));
+        let in_dialog = self.get_session(target).is_some_and(|session| {
+            session
+                .attention
+                .as_ref()
+                .is_some_and(|attention| attention.state == AttentionState::NeedsInput && attention.carried.is_none())
+        }) || worker.screen.borrow().as_deref().is_some_and(shows_agent_prompt);
+        let typed = worker.inbox.unsent.borrow_mut().type_keys(data, in_dialog);
+        if typed.cleared {
+            // You sent what was in the input: a stalled message is yours to deal with now.
+            let mut turn = worker.inbox.turn.borrow_mut();
+            if turn.as_ref().is_some_and(|turn| turn.stalled) {
+                *turn = None;
             }
-            None => {}
         }
         if !self.held_to(target).is_empty() {
             self.retry_messages(target, TYPING_QUIET);
         }
     }
 
-    /// A task draft was typed into the agent's input: it holds the queue as your own text would.
-    pub fn messages_on_draft_typed(&self, worker: &WorkerRuntime) {
-        worker.inbox.user_text.set(true);
+    /// A task draft (`text`) was typed into the agent's input: it holds the queue until sent or cleared (no time
+    /// limit: the agent may show it as a placeholder).
+    pub fn messages_on_draft_typed(&self, worker: &WorkerRuntime, text: &str) {
+        worker.inbox.unsent.borrow_mut().draft_typed(text);
     }
 
     /// `target` exited (or was removed): its held messages are dropped, their senders told (a waiting `send --wait`,

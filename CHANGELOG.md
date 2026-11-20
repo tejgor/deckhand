@@ -7,10 +7,16 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 ### Added
 
 - **Choose where a merge goes**: `t` in the merge confirmation lists the repository's other checkouts that are on a branch (the main checkout and every other worktree) and merges into the one you pick, instead of always the launch checkout. It replaces the stacked-only `t` that switched between two targets. See [Merging and done](docs/features.md#merging-and-done).
+- **Why a message waits**: a session's details and its messages view (`e`) say why the next held message waits: the session is starting, working, asking a question, showing a menu, has a task draft waiting, has *unsent text in its input, delivers in 4 min, or press enter*, or an earlier message did not start a turn (Enter releases it). The daemon's log says it too. See [Messages between sessions](docs/features.md#messages-between-sessions).
 
 ### Fixed
 
+- **Messages no longer wait forever on text you deleted**: text typed into a session and removed with backspace, `esc` or a word delete, or a letter typed into a menu, held its messages until you pressed Enter, for days if you never did. Deckhand now follows what you typed key by key (deleting it all releases the message at once), and unsent text holds a message for at most 5 minutes after your last key, unless your last words are still on the session's screen. Needs a daemon restart. See [Messages between sessions](docs/features.md#messages-between-sessions).
 - **`m` on a sub-session in its parent's worktree**: it said *Not in a worktree, so there is nothing to merge*, although `m` on the parent worked. It now merges the worktree the sub-session works in. Needs a daemon restart (`deckhand restart`).
+
+### Upgrading
+
+- **Daemon restart required**: the daemon protocol changed (65 to 66). `deckhand update` offers the restart; or run `deckhand restart`. Held messages are kept across it.
 
 ## [3.6.0] - 2026-11-18
 

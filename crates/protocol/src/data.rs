@@ -1669,6 +1669,41 @@ string_union! {
     }
 }
 
+string_union! {
+    /// Why the next message of a session's queue is held.
+    HeldReasonKind {
+        /// The session is not running (exited, or the daemon has no worker for it): it waits for it to run again.
+        NotRunning = "not-running",
+        /// The session is starting, or its agent has not settled at its input yet.
+        Starting = "starting",
+        /// The session is working on a turn.
+        Working = "working",
+        /// The session waits on a question or permission (never typed into a dialog).
+        Question = "question",
+        /// The session shows a menu.
+        Menu = "menu",
+        /// A task draft waits in (or to be typed into) its input.
+        Draft = "draft",
+        /// Text typed into its input and not sent: released at `until` unless it is still on the screen.
+        UnsentText = "unsent-text",
+        /// A paste in its input that cannot be found on its screen (the agent may show it as a placeholder).
+        UnsentPaste = "unsent-paste",
+        /// An earlier message was typed but no turn started: Enter in the session releases it.
+        Stalled = "stalled",
+    }
+}
+
+/// Why a held message waits: only the next message of its target's queue has one. Not kept in `messages.json`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeldReason {
+    pub kind: HeldReasonKind,
+    /// `unsent-text`: when the time limit releases it (unless the text is still on the session's screen then);
+    /// absent once the limit has passed and the text was still there.
+    pub until: Option<String>,
+}
+
 /// A message from one session (or you, by hand) to another, its reply, or Deckhand's notice. Kept in the state
 /// directory's `messages.json`: every held message, and the recent ones of each session.
 #[skip_serializing_none]
@@ -1702,6 +1737,8 @@ pub struct MessageRecord {
     pub updated_at: String,
     /// Why it was dropped, or that no turn started after it was typed.
     pub note: Option<String>,
+    /// Held, the next of its queue: why it waits (the daemon's view now; not kept in `messages.json`).
+    pub held_reason: Option<HeldReason>,
     /// Keys this version does not know.
     #[serde(flatten)]
     pub extra: IndexMap<String, Value>,

@@ -398,6 +398,11 @@ pub fn messages_dialog_rows(props: &MessagesDialogProps<'_>, width: u16) -> Mess
             rows.body
                 .push(indent("… only its start was kept".to_owned(), muted.italic(true)));
         }
+        if let Some(held) = row.held.as_deref() {
+            for line in wrap_text(&format!("held: {held}"), text_width) {
+                rows.body.push(indent(line, TextStyle::fg(THEME.accent)));
+            }
+        }
         if let Some(note) = row.note.as_deref() {
             for line in wrap_text(&format!("! {note}"), text_width) {
                 rows.body.push(indent(line, TextStyle::fg(THEME.warn)));
@@ -475,7 +480,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use deckhand_core::key::Key;
-    use deckhand_protocol::data::SessionStatus;
+    use deckhand_protocol::data::{HeldReason, HeldReasonKind, SessionStatus};
 
     use super::*;
     use crate::app::modes::browse::tests::{Daemon, apply, local, named, text};
@@ -907,6 +912,62 @@ mod tests {
             "{view:#?}"
         );
         assert!(view.iter().any(|line| line.contains("› ← you · ")), "{view:#?}");
+    }
+
+    /// The whole app drawn `width` by `height`.
+    fn app_screen(app: &mut App, width: u16, height: u16) -> Vec<String> {
+        use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap_or_else(|error| panic!("{error}"));
+        terminal
+            .draw(|frame| crate::app::layout::render_app(app, frame))
+            .unwrap_or_else(|error| panic!("{error}"));
+        let buffer = terminal.backend().buffer();
+        (0..buffer.area.height)
+            .map(|y| {
+                let mut row = String::new();
+                let mut x = 0;
+                while x < buffer.area.width {
+                    let symbol = buffer[(x, y)].symbol();
+                    row.push_str(symbol);
+                    x += u16::try_from(string_width(symbol).max(1)).unwrap_or(1);
+                }
+                row
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_details_and_the_view_say_why_the_next_held_message_waits() {
+        let (mut app, _rx) = with_messages();
+        let mut next = walkthrough()[4].clone();
+        next.held_reason = Some(HeldReason {
+            kind: HeldReasonKind::Stalled,
+            until: None,
+        });
+        messages_updated(&mut app, vec![next]);
+        let browse = app_screen(&mut app, 130, 36);
+        assert!(
+            browse.iter().any(|line| line.contains("✉ 2 waiting · last from you")),
+            "{browse:#?}"
+        );
+        assert!(
+            browse.iter().any(|line| line.contains("an earlier message was typed")),
+            "{browse:#?}"
+        );
+        open(&mut app);
+        let view = app_screen(&mut app, 130, 36);
+        assert!(
+            view.iter()
+                .any(|line| line.contains("held: an earlier message was typed but no turn started")),
+            "{view:#?}"
+        );
+        // Only under the next one: the one after it waits behind it.
+        assert_eq!(
+            view.iter().filter(|line| line.contains("held: ")).count(),
+            1,
+            "{view:#?}"
+        );
     }
 
     fn assert_pane(name: &str, frame: &[String]) {

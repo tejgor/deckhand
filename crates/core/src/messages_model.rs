@@ -1,13 +1,14 @@
 //! Messages between sessions as the UI shows them (`deckhand send` / `deckhand reply`; the daemon's
 //! `crates/daemon/src/messages.rs` keeps them). Pure: which messages wait for a session (the sidebar's `✉N`), a
-//! session's log (what it sent and was sent), the details block's line and the rows of the messages view.
+//! session's log (what it sent and was sent), the details block's line, why the next one waits, and the rows of the
+//! messages view.
 //!
 //! A message without a sender came from you (by hand) or, for a notice, from Deckhand; one without a target is a reply
 //! to a message you sent by hand, handed back to you (`returned`).
 
 use std::collections::HashMap;
 
-use deckhand_protocol::data::{MessageKind, MessageRecord, MessageStatus};
+use deckhand_protocol::data::{HeldReason, HeldReasonKind, MessageKind, MessageRecord, MessageStatus};
 
 use crate::jsstr::{date, js_len};
 use crate::notes::fit_first;
@@ -118,6 +119,50 @@ pub fn party_name(party: &Party, title_of: TitleOf<'_>) -> String {
     }
 }
 
+/// Why a held message waits, in words, at `now_ms` (the details, the messages view and the daemon's log say it so).
+pub fn held_reason_text(reason: &HeldReason, now_ms: i64) -> String {
+    let text = match reason.kind {
+        HeldReasonKind::NotRunning => "the session is not running: delivered once it runs again",
+        HeldReasonKind::Starting => "the session is starting",
+        HeldReasonKind::Working => "the session is working on a turn",
+        HeldReasonKind::Question => "the session waits on a question or permission",
+        HeldReasonKind::Menu => "the session shows a menu",
+        HeldReasonKind::Draft => "a task draft waits in its input: send or clear it",
+        HeldReasonKind::UnsentText => match reason.until.as_deref().and_then(date::parse) {
+            Some(until) => {
+                return format!(
+                    "unsent text in its input, delivers {}, or press enter",
+                    time_left(until - now_ms)
+                );
+            }
+            None => "unsent text still in its input: press enter or clear it",
+        },
+        HeldReasonKind::UnsentPaste => "a paste in its input that can't be checked: press enter or clear it",
+        HeldReasonKind::Stalled => "an earlier message was typed but no turn started: press enter in the session",
+    };
+    text.to_owned()
+}
+
+/// `in 4 min` (rounded up), `in under a minute`, `in a moment`.
+fn time_left(ms: i64) -> String {
+    match ms {
+        ..=0 => "in a moment".to_owned(),
+        1..60_000 => "in under a minute".to_owned(),
+        _ => format!("in {} min", (ms + 59_999) / 60_000),
+    }
+}
+
+/// Why `session_id`'s queue waits: the reason its next held message carries.
+pub fn held_reason<'a>(
+    messages: impl IntoIterator<Item = &'a MessageRecord>,
+    session_id: &str,
+) -> Option<&'a HeldReason> {
+    messages
+        .into_iter()
+        .filter(|message| message.status == MessageStatus::Held && message.to_session_id.as_deref() == Some(session_id))
+        .find_map(|message| message.held_reason.as_ref())
+}
+
 /// A status in words, as the messages view shows it.
 pub fn status_text(status: MessageStatus) -> &'static str {
     status.as_str()
@@ -144,6 +189,8 @@ pub struct LogRow {
     pub replies: Vec<String>,
     /// Why it was dropped, or that no turn started after it was typed.
     pub note: Option<String>,
+    /// Held, the next of its queue: why it waits ([`held_reason_text`]).
+    pub held: Option<String>,
     pub text: String,
     /// Only its start is kept (it left the queue longer than that).
     pub truncated: bool,
@@ -171,6 +218,11 @@ pub fn log_row(message: &MessageRecord, session_id: &str, now_ms: i64, title_of:
         status: message.status,
         replies: message.replies.clone().unwrap_or_default(),
         note: message.note.clone().filter(|note| !note.trim().is_empty()),
+        held: message
+            .held_reason
+            .as_ref()
+            .filter(|_| message.status == MessageStatus::Held)
+            .map(|reason| held_reason_text(reason, now_ms)),
         text: message.text.clone(),
         truncated: message.text_truncated == Some(true),
         cancellable: message.status == MessageStatus::Held,
@@ -182,6 +234,8 @@ pub fn log_row(message: &MessageRecord, session_id: &str, now_ms: i64, title_of:
 pub struct MessagesBrief {
     /// Messages held for it.
     pub held: usize,
+    /// Why the next of them waits.
+    pub held_reason: Option<HeldReason>,
     pub last_direction: Direction,
     /// The other end of its latest message.
     pub last_party: String,
@@ -203,6 +257,7 @@ pub fn messages_brief<'a>(
         .count();
     Some(MessagesBrief {
         held,
+        held_reason: held_reason(log.iter().copied(), session_id).cloned(),
         last_direction: direction(last, session_id),
         last_party: party_name(&other_party(last, session_id), title_of),
         last_created_at: last.created_at.clone(),
@@ -430,9 +485,57 @@ mod tests {
     }
 
     #[test]
+    fn a_held_message_says_why_it_waits() {
+        let reason =
+            |kind: HeldReasonKind, until: Option<String>| held_reason_text(&HeldReason { kind, until }, noon_plus(0));
+        assert_eq!(
+            reason(HeldReasonKind::UnsentText, Some(at(4))),
+            "unsent text in its input, delivers in 4 min, or press enter"
+        );
+        assert_eq!(
+            reason(HeldReasonKind::UnsentText, Some("2026-11-14T12:00:30.000Z".to_owned())),
+            "unsent text in its input, delivers in under a minute, or press enter"
+        );
+        assert_eq!(
+            reason(HeldReasonKind::UnsentText, None),
+            "unsent text still in its input: press enter or clear it"
+        );
+        assert_eq!(
+            reason(HeldReasonKind::Stalled, None),
+            "an earlier message was typed but no turn started: press enter in the session"
+        );
+        assert_eq!(
+            reason(HeldReasonKind::Working, None),
+            "the session is working on a turn"
+        );
+        // Only the next held message carries it: the brief and its row say it, the others don't.
+        let mut messages = walkthrough();
+        messages[4].held_reason = Some(HeldReason {
+            kind: HeldReasonKind::UnsentText,
+            until: Some(at(9)),
+        });
+        let brief = messages_brief(&messages, "tokens", &titles).unwrap_or_else(|| panic!("a brief"));
+        assert_eq!(
+            brief.held_reason.map(|reason| reason.kind),
+            Some(HeldReasonKind::UnsentText)
+        );
+        let row = log_row(&messages[4], "tokens", noon_plus(5), &titles);
+        assert_eq!(
+            row.held.as_deref(),
+            Some("unsent text in its input, delivers in 4 min, or press enter")
+        );
+        assert_eq!(log_row(&messages[3], "tokens", noon_plus(5), &titles).held, None);
+        // Delivered, it no longer waits.
+        messages[4].status = MessageStatus::Delivered;
+        assert_eq!(log_row(&messages[4], "tokens", noon_plus(5), &titles).held, None);
+        assert_eq!(held_reason(&messages, "tokens"), None);
+    }
+
+    #[test]
     fn a_narrow_brief_drops_the_status_then_cuts_the_party_then_keeps_the_count() {
         let brief = MessagesBrief {
             held: 2,
+            held_reason: None,
             last_direction: Direction::Received,
             last_party: "Login UI".to_owned(),
             last_created_at: at(0),

@@ -1219,6 +1219,7 @@ mod tests {
         let held = HashMap::from([("tokens".to_owned(), 2)]);
         let brief = MessagesBrief {
             held: 2,
+            held_reason: None,
             last_direction: deckhand_core::messages_model::Direction::Received,
             last_party: "Login UI".to_owned(),
             last_created_at: ago(3),
