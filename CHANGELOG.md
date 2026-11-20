@@ -4,6 +4,14 @@ Notable changes to Deckhand, newest first. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+### Added
+
+- **Choose where a merge goes**: `t` in the merge confirmation lists the repository's other checkouts that are on a branch (the main checkout and every other worktree) and merges into the one you pick, instead of always the launch checkout. It replaces the stacked-only `t` that switched between two targets. See [Merging and done](docs/features.md#merging-and-done).
+
+### Fixed
+
+- **`m` on a sub-session in its parent's worktree**: it said *Not in a worktree, so there is nothing to merge*, although `m` on the parent worked. It now merges the worktree the sub-session works in. Needs a daemon restart (`deckhand restart`).
+
 ## [3.6.0] - 2026-11-18
 
 ### Added

@@ -51,7 +51,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `S` `S` | Restart the selected exited session with a fresh conversation (press twice: the old conversation can't be resumed from Deckhand afterwards) |
 | `space` | Mark the selected session done or not done (`☑`) |
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
-| `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
+| `m` | Merge the selected session's worktree into the current branch, uncommitted; `t` in the confirmation chooses another checkout ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
 | `r` | Open the [run list](#run-list): Dev, your actions and the worktree's shells |
 | `A` | Archive or unarchive the selected session (it keeps running) |

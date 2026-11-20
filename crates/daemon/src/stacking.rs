@@ -649,4 +649,38 @@ mod tests {
         });
         assert_eq!(merged.unwrap().target_branch, "main");
     }
+
+    #[test]
+    fn a_merge_asked_from_a_sub_session_sharing_a_worktree_merges_and_marks_that_worktree() {
+        let fx = fixture();
+        let _home = Home::set(&fx.root);
+        let daemon = lead_in_feature(&fx);
+        commit(fx.linked(), "lead.txt", "lead\n", "lead work");
+        // Started in the lead's worktree: no worktree of its own, the lead's record.
+        insert(
+            &daemon,
+            in_worktree("helper", &fx.repo, &fx.linked, json!({"mode": "none", "id": "w1"})),
+        );
+        local(async {
+            let preview = daemon.merge_preview("helper", &fx.repo).await.unwrap();
+            assert_eq!(preview.source_ref, "feature");
+            assert_eq!(preview.commit_count, 1);
+            let merged = daemon
+                .merge_session_worktree("helper", WorktreeMergeMode::Merge, &fx.repo, false, false)
+                .await
+                .unwrap();
+            assert_eq!(merged.source_ref, "feature");
+            assert_eq!(merged.target_branch, "main");
+        });
+        assert!(fx.repo().join("lead.txt").exists());
+        // The marker is the worktree's: the lead shows it too.
+        let record = daemon.worktrees.borrow().records.get("w1").cloned().unwrap();
+        assert_eq!(record.merge_target_branch.as_deref(), Some("main"));
+        let lead = daemon.get_session("lead").unwrap();
+        assert!(
+            lead.worktree
+                .as_ref()
+                .is_some_and(|worktree| worktree.merged_at.is_some())
+        );
+    }
 }

@@ -555,9 +555,23 @@ pub struct MergeFlow {
     /// Not in the TS: the checkout the merge goes into (what the preview describes): the stacked target's worktree
     /// by default, else the launch checkout. Empty: not chosen, the default applies.
     pub target_cwd: String,
-    /// Not in the TS: the stacked target's worktree, when the worktree has one that resolves; `t` switches
-    /// `target_cwd` between it and the launch checkout.
+    /// Not in the TS: the stacked target's worktree, when the worktree has one that resolves: the default target.
     pub stacked_cwd: Option<String>,
+    /// Not in the TS: the root of the worktree being merged (resolved), which is never a target.
+    pub source_root: String,
+    /// Not in the TS: `t`: the list of checkouts the merge can go into is open (instead of the confirmation).
+    pub picking: Option<MergeTargetPicker>,
+}
+
+/// Not in the TS: the merge confirmation's list of checkouts to merge into (`t`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MergeTargetPicker {
+    /// The checkouts on a branch other than the worktree being merged, the likely ones first; `None` while they are
+    /// being listed.
+    pub targets: Option<Vec<WorktreeInfoRecord>>,
+    pub index: usize,
+    /// The launch checkout, which the list names.
+    pub launch_cwd: String,
 }
 
 /// TS: app.tsx `mergeConflict`: a conflicted merge's result, until it is kept or aborted.

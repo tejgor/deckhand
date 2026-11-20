@@ -12,7 +12,7 @@
 │   Squash merge into feature without committing                                                 │
 │   Cancel                                                                                       │
 │                                                                                                │
-│ enter choose • t into main • esc cancel                                                        │
+│ enter choose • t change target • esc cancel                                                    │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

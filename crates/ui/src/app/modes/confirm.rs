@@ -9,10 +9,12 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 use deckhand_client::live::{KillOptions, MergeOptions};
+use deckhand_core::display::THEME as NAMED;
 use deckhand_core::display::{
-    HintPart, compact_path, display_session_title, error_message, fit_hint, session_path_title, truncate, wrap_words,
+    HintPart, MenuItem, RowStatus, compact_path, display_session_title, error_message, fit_hint, session_path_title,
+    truncate, wrap_words,
 };
-use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim};
+use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim, path};
 use deckhand_core::key::Input;
 use deckhand_core::merge_model::{
     MergeChild, MergeConfirmInput, MergeLine, MergeNoteEntry, MergeStack, OpenStepsToggle, conflict_view,
@@ -21,19 +23,21 @@ use deckhand_core::merge_model::{
 use deckhand_core::merge_stack::{later_hops, launch_branch_from_sessions, stacked_children, working_in};
 use deckhand_core::session_lines::{MergeLines, merge_lines, open_lines, tried_text, worktree_session_ids};
 use deckhand_core::session_order::session_descendants;
+use deckhand_core::sidebar_model::agent_working;
 use deckhand_core::work_notes::open_note_text;
+use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::target_worktree_path;
 use deckhand_protocol::data::{
     CleanupInspection, ResolveMergeAction, SessionCleanupInspection, SessionRecord, SessionStatus, SessionWorktreeMode,
-    WorktreeMergeMode, WorktreeMergeResult,
+    WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
 };
 
 use crate::app::sanitize_name_input;
-use crate::app::state::{App, CleanupCheck, MergeConflict, MergeFlow, Mode};
+use crate::app::state::{App, CleanupCheck, MergeConflict, MergeFlow, MergeTargetPicker, Mode};
 use crate::app::truthy;
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::cleanup::cleanup_loss_lines;
-use crate::panes::menu::{SelectableRowProps, selectable_row};
+use crate::panes::menu::{MenuListProps, SelectableRowProps, menu_list, selectable_row};
 use crate::primitives::{
     Border, DialogRows, DialogScroll, DialogView, Row, Seg, TextStyle, Wrap, dialog_view_fitting, draw_dialog,
     draw_panel, fit_row, string_width,
@@ -101,8 +105,8 @@ pub static MERGE_KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("t")],
-        action: "merge a stacked worktree into its target's branch or the launch checkout",
-        help: HelpRef::Hidden("the confirmation shows its own hint line, with t when there is a choice"),
+        action: "list the checkouts to merge into, and choose one",
+        help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
     crate::keymap::SCROLL_DIALOG,
 ];
@@ -513,30 +517,51 @@ pub fn kill_selected(app: &mut App, options: KillOptions) {
     drop(task);
 }
 
+/// Not in the TS: whether `m` has a worktree to merge for `session`: its own, or the linked worktree it works in
+/// without one of its own (a sub-session started in its parent's worktree carries that worktree's record `id`). A
+/// merge describes the worktree, so any session in it can ask for it.
+pub fn has_worktree_to_merge(session: &SessionRecord) -> bool {
+    session.worktree.as_ref().is_some_and(|worktree| {
+        (truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None) || truthy(worktree.id.as_ref())
+    })
+}
+
+/// Whether two checkout paths name the same directory (lexically; every path here comes from Git).
+fn same_root(left: &str, right: &str) -> bool {
+    !left.is_empty() && !right.is_empty() && path::resolve(left) == path::resolve(right)
+}
+
 /// TS: m on a session in a worktree: the merge confirmation, its preview fetched fresh.
+///
+/// Not in the TS: started from inside the worktree being merged (the launch checkout is that worktree, and it is
+/// stacked on nothing), there is no checkout to offer by default, so it opens on the list of them.
 pub fn open_merge_confirm(app: &mut App) {
     let Some(session) = app.selected_session() else {
         return;
     };
-    if !session
-        .worktree
-        .as_ref()
-        .is_some_and(|worktree| truthy(worktree.path.as_ref()))
-    {
+    if !has_worktree_to_merge(&session) {
         return;
     }
     let stacked_cwd = stacked_merge_target(&app.data.repo_sessions, &session);
+    let source_root = workspace_key(&session).unwrap_or_default();
+    let default = stacked_cwd.clone().unwrap_or_else(|| app.props.cwd.clone());
+    let unchosen = same_root(&default, &source_root);
     app.merge.confirm_index = 0;
     app.merge.flow = Some(MergeFlow {
         session_id: session.id,
         commit_first: true,
-        target_cwd: stacked_cwd.clone().unwrap_or_else(|| app.props.cwd.clone()),
+        target_cwd: if unchosen { String::new() } else { default },
         stacked_cwd,
+        source_root,
         ..MergeFlow::default()
     });
     app.set_mode(Mode::ConfirmMerge);
-    // What would be merged, checked fresh each time the confirmation opens.
-    fetch_merge_preview(app);
+    if unchosen {
+        open_target_picker(app);
+    } else {
+        // What would be merged, checked fresh each time the confirmation opens.
+        fetch_merge_preview(app);
+    }
 }
 
 /// Not in the TS: the checkout a stacked worktree merges into by default, its target's worktree (the parent's branch
@@ -606,38 +631,169 @@ fn fetch_merge_preview(app: &mut App) {
     drop(task);
 }
 
-/// Not in the TS: `t` on the merge confirmation of a stacked worktree: merge into the launch checkout instead of the
-/// target's worktree, or back. The preview is fetched again for the new target. False when there is no choice.
-fn switch_merge_target(app: &mut App) -> bool {
+/// Not in the TS: the checkouts a merge of the worktree at `source_root` can go into, of those Git `listed`: on a
+/// branch (a merge needs one) and not the worktree itself. The likely ones come first: the worktree's stacked target,
+/// the launch checkout, the main checkout; the rest stay in Git's order.
+pub fn merge_targets(
+    listed: Vec<WorktreeInfoRecord>,
+    source_root: &str,
+    stacked_cwd: Option<&str>,
+    launch_cwd: &str,
+) -> Vec<WorktreeInfoRecord> {
+    let rank = |target: &WorktreeInfoRecord| {
+        if stacked_cwd.is_some_and(|stacked| same_root(&target.path, stacked)) {
+            0
+        } else if same_root(&target.path, launch_cwd) {
+            1
+        } else if target.is_main {
+            2
+        } else {
+            3
+        }
+    };
+    let mut targets: Vec<WorktreeInfoRecord> = listed
+        .into_iter()
+        .filter(|target| !target.branch.is_empty() && !same_root(&target.path, source_root))
+        .collect();
+    targets.sort_by_key(rank);
+    targets
+}
+
+/// Not in the TS: `t` on the merge confirmation: the repository's checkouts are listed, to choose where the merge
+/// goes. It works while the preview is checked too. With no other checkout to choose, it says so and nothing opens.
+fn open_target_picker(app: &mut App) {
     let launch_cwd = app.props.cwd.clone();
     let Some(flow) = app.merge.flow.as_mut() else {
-        return false;
+        return;
     };
-    let Some(stacked) = flow.stacked_cwd.clone() else {
-        return false;
+    let session_id = flow.session_id.clone();
+    flow.picking = Some(MergeTargetPicker {
+        launch_cwd: launch_cwd.clone(),
+        ..MergeTargetPicker::default()
+    });
+    let Some(client) = app.client() else {
+        return;
     };
-    flow.target_cwd = if flow.target_cwd == stacked {
-        launch_cwd
-    } else {
-        stacked
+    let reply = client.list_worktrees(&launch_cwd);
+    let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
+        // Closed, or answered already (t pressed again before the first answer).
+        let Some(flow) = app.merge.flow.as_mut().filter(|flow| {
+            flow.session_id == session_id && flow.picking.as_ref().is_some_and(|picker| picker.targets.is_none())
+        }) else {
+            return;
+        };
+        let targets = result
+            .map(|listed| merge_targets(listed, &flow.source_root, flow.stacked_cwd.as_deref(), &launch_cwd))
+            .map_err(|error| error_message(&error))
+            .and_then(|targets| {
+                if targets.iter().any(|target| !same_root(&target.path, &flow.target_cwd)) {
+                    Ok(targets)
+                } else {
+                    Err("No other checkout on a branch to merge into".to_owned())
+                }
+            });
+        match targets {
+            Ok(targets) => {
+                let index = targets
+                    .iter()
+                    .position(|target| same_root(&target.path, &flow.target_cwd))
+                    .unwrap_or(0);
+                flow.picking = Some(MergeTargetPicker {
+                    targets: Some(targets),
+                    index,
+                    launch_cwd,
+                });
+            }
+            Err(problem) => {
+                app.set_status(Some(problem));
+                close_target_picker(app);
+            }
+        }
+    });
+    drop(task);
+}
+
+/// The list of checkouts closes: back to the confirmation, or to the sessions when no target was chosen yet.
+fn close_target_picker(app: &mut App) {
+    let Some(flow) = app.merge.flow.as_mut() else {
+        return;
+    };
+    flow.picking = None;
+    if flow.target_cwd.is_empty() {
+        app.set_mode(Mode::Browse);
+    }
+}
+
+/// Enter on the list of checkouts: the merge goes into the selected one, previewed afresh.
+fn choose_merge_target(app: &mut App) {
+    let launch_cwd = app.props.cwd.clone();
+    let Some(flow) = app.merge.flow.as_mut() else {
+        return;
+    };
+    let chosen = flow
+        .picking
+        .as_ref()
+        .and_then(|picker| picker.targets.as_ref()?.get(picker.index))
+        .map(|target| target.path.clone());
+    // Still listing: there is nothing to choose yet.
+    let Some(chosen) = chosen else {
+        return;
+    };
+    flow.picking = None;
+    if same_root(&chosen, &flow.target_cwd) {
+        return;
+    }
+    // As the sessions and the launch name them, so the stacked target and the launch checkout are recognised.
+    let stacked = flow.stacked_cwd.clone().filter(|stacked| same_root(stacked, &chosen));
+    flow.target_cwd = match stacked {
+        Some(stacked) => stacked,
+        None if same_root(&launch_cwd, &chosen) => launch_cwd,
+        None => chosen,
     };
     flow.preview = None;
     flow.preview_error = None;
     flow.error = None;
     fetch_merge_preview(app);
-    true
+}
+
+/// The keys of the list of checkouts (`t` on the merge confirmation).
+fn handle_merge_target_picker(app: &mut App, input: &Input) {
+    let key = &input.key;
+    if key.escape {
+        close_target_picker(app);
+        return;
+    }
+    if key.return_ {
+        choose_merge_target(app);
+        return;
+    }
+    let Some(picker) = app.merge.flow.as_mut().and_then(|flow| flow.picking.as_mut()) else {
+        return;
+    };
+    let count = picker.targets.as_ref().map_or(0, Vec::len);
+    if key.up_arrow || input.input == "k" {
+        picker.index = picker.index.saturating_sub(1);
+    } else if key.down_arrow || input.input == "j" {
+        picker.index = count.saturating_sub(1).min(picker.index + 1);
+    }
 }
 
 /// TS: the confirm-merge branch.
 pub fn handle_confirm_merge(app: &mut App, input: &Input) {
     let key = &input.key;
     const OPTION_COUNT: usize = 3;
+    // The list of checkouts (t) takes every key while it is open.
+    if app.merge.flow.as_ref().is_some_and(|flow| flow.picking.is_some()) {
+        handle_merge_target_picker(app, input);
+        return;
+    }
     if key.escape {
         app.set_mode(Mode::Browse);
         return;
     }
-    // Switching the target works while it checks too: the new target's preview replaces the pending one.
-    if input.input == "t" && switch_merge_target(app) {
+    // Choosing the target works while it checks too: the new target's preview replaces the pending one.
+    if input.input == "t" && app.merge.flow.is_some() {
+        open_target_picker(app);
         return;
     }
     // Until the preview (or its error) is in, the choices are not shown: only Esc and t act.
@@ -741,11 +897,7 @@ pub fn merge_selected(app: &mut App, mode: WorktreeMergeMode) {
     let Some(session) = app.selected_session() else {
         return;
     };
-    let in_worktree = session
-        .worktree
-        .as_ref()
-        .is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None);
-    if !in_worktree {
+    if !has_worktree_to_merge(&session) {
         return;
     }
     let session_id = session.id.clone();
@@ -1200,8 +1352,8 @@ fn merge_line_row(line: &MergeLine) -> Row {
 }
 
 /// Not in the TS: what stacking adds to the merge confirmation of `session`'s worktree: the path from its target on,
-/// who works there, the worktrees stacked on it and the key to switch target. `None` for a flat worktree with nothing
-/// stacked on it (the confirmation as it always was).
+/// who works there and the worktrees stacked on it. `None` for a flat worktree with nothing stacked on it (the
+/// confirmation as it always was).
 fn merge_stack(props: &MergeConfirmPaneProps<'_>) -> Option<MergeStack> {
     let session = props.session?;
     let worktree = session.worktree.as_ref()?;
@@ -1237,24 +1389,12 @@ fn merge_stack(props: &MergeConfirmPaneProps<'_>) -> Option<MergeStack> {
         ),
         None => (Vec::new(), Vec::new()),
     };
-    let switch_to = stacked_cwd.map(|root| {
-        if into_target {
-            props.launch_branch.unwrap_or("the launch checkout").to_owned()
-        } else {
-            worktree
-                .target_branch
-                .clone()
-                .filter(|branch| !branch.is_empty())
-                .unwrap_or_else(|| compact_path(root, 30))
-        }
-    });
     Some(MergeStack {
         into_target,
         target_branch: worktree.target_branch.clone().filter(|branch| !branch.is_empty()),
         then,
         working,
         children,
-        switch_to,
     })
 }
 
@@ -1293,6 +1433,7 @@ pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogR
         height: MERGE_LAYOUT_ROWS,
         now: props.now,
         stack: merge_stack(props),
+        pick_target: flow.is_some(),
     });
     let on_task = flow.is_some_and(|flow| flow.on_steps);
     let mut rows = DialogRows::default();
@@ -1378,8 +1519,104 @@ pub fn render_merge_pane(
     area: Rect,
     scroll: usize,
 ) -> DialogScroll {
-    let rows = merge_pane_rows(props, area.width);
+    let rows = match props.flow.and_then(|flow| Some((flow, flow.picking.as_ref()?))) {
+        Some((flow, picker)) => merge_target_rows(props, flow, picker, area),
+        None => merge_pane_rows(props, area.width),
+    };
     draw_panel(buf, area, &Border::round(THEME.border_active), &rows, scroll)
+}
+
+/// Not in the TS: the merge screen while its target is chosen (`t`): the checkouts the merge can go into, each with
+/// its branch, where it is and what it is to this worktree; the list keeps its selection in view in `area`.
+pub fn merge_target_rows(
+    props: &MergeConfirmPaneProps<'_>,
+    flow: &MergeFlow,
+    picker: &MergeTargetPicker,
+    area: Rect,
+) -> DialogRows {
+    let content_width = usize::from(area.width).saturating_sub(4).max(1);
+    let muted = TextStyle::fg(THEME.muted);
+    let title = props.session.map_or_else(
+        || "worktree".to_owned(),
+        |session| display_session_title(session, props.sessions),
+    );
+    let mut rows = DialogRows::default();
+    rows.header.extend(fit_row(
+        &text(
+            format!("Merge \"{title}\" into"),
+            TextStyle::fg(THEME.accent).bold(true),
+        ),
+        content_width,
+        Wrap::TruncateEnd,
+    ));
+    rows.header.extend(fit_row(
+        &text("The merge is left uncommitted in the checkout you choose.", muted),
+        content_width,
+        Wrap::TruncateEnd,
+    ));
+    rows.header.push(Vec::new());
+    let back = if flow.target_cwd.is_empty() {
+        "esc cancel"
+    } else {
+        "esc back"
+    };
+    let hint: Vec<HintPart> = vec!["enter choose".into(), back.into()];
+    rows.footer.push(Vec::new());
+    rows.footer.extend(fit_row(
+        &text(fit_hint(&hint, content_width, " • "), muted),
+        content_width,
+        Wrap::TruncateEnd,
+    ));
+    let Some(targets) = picker.targets.as_deref() else {
+        rows.body.push(text("Listing the checkouts…", muted));
+        return rows;
+    };
+    let items: Vec<MenuItem> = targets
+        .iter()
+        .map(|target| {
+            let root = path::resolve(&target.path);
+            // A merge into a linked worktree waits for its agents (the daemon's `refuse_merge_while_working`).
+            let working = !target.is_main
+                && props
+                    .sessions
+                    .iter()
+                    .any(|session| agent_working(session) && workspace_key(session).as_deref() == Some(root.as_str()));
+            let notes: Vec<&str> = [
+                (flow
+                    .stacked_cwd
+                    .as_deref()
+                    .is_some_and(|stacked| same_root(stacked, &root)))
+                .then_some("its target"),
+                same_root(&picker.launch_cwd, &root).then_some("launch checkout"),
+                target.is_main.then_some("main checkout"),
+                working.then_some("agent working"),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            MenuItem {
+                key: target.path.clone(),
+                label: target.branch.clone(),
+                description: Some(compact_path(&target.path, 40)),
+                status: (!notes.is_empty()).then(|| RowStatus {
+                    text: notes.join(" · "),
+                    color: Some(if working { NAMED.warn } else { NAMED.muted }),
+                }),
+                ..MenuItem::default()
+            }
+        })
+        .collect();
+    let room = usize::from(area.height).saturating_sub(2 + rows.header.len() + rows.footer.len());
+    rows.body.extend(menu_list(
+        &MenuListProps {
+            items: &items,
+            selected: picker.index,
+            rows: Some(room.max(1)),
+            label_width: None,
+        },
+        content_width,
+    ));
+    rows
 }
 
 /// TS: app.tsx MergeConfirmPane ([`render_merge_pane`] at the top).
@@ -2551,11 +2788,45 @@ mod tests {
         drawn(|buf, area| render_merge_confirm_pane(&props, buf, area))
     }
 
+    /// The repository's checkouts as Git lists them: the launch checkout (/repo, main), the stacked sessions' two
+    /// worktrees, one more on a branch and a detached one.
+    fn checkouts() -> Value {
+        json!({"ok": true, "data": [
+            {"path": "/repo", "branch": "main", "head": "a1", "isMain": true},
+            {"path": "/wt/login", "branch": "login", "head": "a2", "isMain": false},
+            {"path": "/wt/detached", "branch": "", "head": "a3", "isMain": false},
+            {"path": "/wt/other", "branch": "other", "head": "a4", "isMain": false},
+            {"path": "/wt/lead", "branch": "feature", "head": "a5", "isMain": false},
+        ]})
+    }
+
+    /// [`checkouts`] for `list-worktrees`, else [`previews_by_target`].
+    fn previews_and_checkouts(request: &Value) -> Value {
+        if request["type"] == "list-worktrees" {
+            checkouts()
+        } else {
+            previews_by_target(request)
+        }
+    }
+
+    /// The paths the open list of checkouts offers, in order.
+    fn offered(app: &App) -> Option<Vec<String>> {
+        let picker = app.merge.flow.as_ref()?.picking.as_ref()?;
+        Some(
+            picker
+                .targets
+                .as_ref()?
+                .iter()
+                .map(|target| target.path.clone())
+                .collect(),
+        )
+    }
+
     #[test]
-    fn a_stacked_worktree_merges_into_its_target_by_default_and_t_switches() {
+    fn a_stacked_worktree_merges_into_its_target_by_default_and_t_lists_the_other_checkouts() {
         run(async {
             let (mut app, mut rx) = app_with(stacked_sessions());
-            let (client, requests) = fake_daemon(previews_by_target);
+            let (client, requests) = fake_daemon(previews_and_checkouts);
             app.connection.client = Some(client);
             open_merge_confirm(&mut app);
             settle(&mut app, &mut rx).await;
@@ -2567,49 +2838,293 @@ mod tests {
                 ("/wt/lead", Some("/wt/lead"))
             );
             assert_eq!(preview_branch(&app).as_deref(), Some("feature"));
-            // t: the launch checkout instead, previewed afresh (the target's preview goes at once).
+            // t: the checkouts are listed; the confirmation gives way to the list while they are.
             handle_confirm_merge(&mut app, &press("t"));
+            assert!(
+                merge_screen(&app)
+                    .iter()
+                    .any(|row| row.contains("Listing the checkouts…"))
+            );
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[1]["type"], "list-worktrees");
+            assert_eq!(requests.borrow()[1]["cwd"], "/repo");
+            // Its target first, then the launch checkout, then the rest; never the worktree itself or a detached one.
+            assert_eq!(
+                offered(&app),
+                Some(vec!["/wt/lead".to_owned(), "/repo".to_owned(), "/wt/other".to_owned()])
+            );
+            let screen = merge_screen(&app);
+            assert!(
+                screen.iter().any(|row| row.contains("Merge \"Login UI\" into")),
+                "{screen:#?}"
+            );
+            assert!(
+                screen
+                    .iter()
+                    .any(|row| row.contains("❯ feature") && row.contains("its target")),
+                "{screen:#?}"
+            );
+            assert!(
+                screen
+                    .iter()
+                    .any(|row| row.contains("main") && row.contains("launch checkout · main checkout")),
+                "{screen:#?}"
+            );
+            // The launch checkout instead, previewed afresh (the target's preview goes at once).
+            handle_confirm_merge(&mut app, &press("j"));
+            handle_confirm_merge(&mut app, &enter());
             let flow = app.merge.flow.clone().unwrap();
             assert_eq!(flow.target_cwd, "/repo");
-            assert!(flow.preview.is_none());
+            assert!(flow.preview.is_none() && flow.picking.is_none());
             settle(&mut app, &mut rx).await;
-            assert_eq!(requests.borrow()[1]["targetCwd"], "/repo");
+            assert_eq!(requests.borrow()[2]["targetCwd"], "/repo");
             assert_eq!(preview_branch(&app).as_deref(), Some("main"));
             // The launch checkout's branch is remembered: where a stacked merge's path ends.
             assert_eq!(app.merge.launch_branch.as_deref(), Some("main"));
-            // Switched twice before the answers: the earlier answer is dropped.
-            handle_confirm_merge(&mut app, &press("t"));
+            // The list opens on the target in use; esc leaves it as it was, and so does choosing it again.
             handle_confirm_merge(&mut app, &press("t"));
             settle(&mut app, &mut rx).await;
-            assert_eq!(requests.borrow().len(), 4);
-            assert_eq!(
-                app.merge.flow.as_ref().map(|flow| flow.target_cwd.as_str()),
-                Some("/repo")
-            );
-            assert_eq!(preview_branch(&app).as_deref(), Some("main"));
-            // And back to the target.
+            let index = |app: &App| {
+                app.merge
+                    .flow
+                    .as_ref()
+                    .and_then(|flow| Some(flow.picking.as_ref()?.index))
+            };
+            assert_eq!(index(&app), Some(1));
+            handle_confirm_merge(&mut app, &escape());
+            assert_eq!(app.mode, Mode::ConfirmMerge);
             handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let previews = |requests: &Requests| {
+                requests
+                    .borrow()
+                    .iter()
+                    .filter(|request| request["type"] == "merge-preview")
+                    .count()
+            };
+            assert_eq!(previews(&requests), 2);
+            assert_eq!(preview_branch(&app).as_deref(), Some("main"));
+            // And back to the target (k stops at the top of the list).
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &press("k"));
+            handle_confirm_merge(&mut app, &press("k"));
+            handle_confirm_merge(&mut app, &enter());
             settle(&mut app, &mut rx).await;
             assert_eq!(preview_branch(&app).as_deref(), Some("feature"));
+            assert_eq!(
+                app.merge.flow.as_ref().map(|flow| flow.target_cwd.as_str()),
+                Some("/wt/lead")
+            );
+        });
+    }
 
-            // A flat worktree has no choice: t does nothing, and the hint does not offer it.
-            let (mut flat, mut flat_rx) = app_with(vec![in_worktree(
+    #[test]
+    fn a_flat_worktree_merges_into_the_launch_checkout_by_default_and_t_chooses_another() {
+        run(async {
+            let (mut app, mut rx) = app_with(vec![in_worktree(
                 session("s1", "beta", SessionStatus::Running),
                 "w1",
                 "/wt/beta",
                 "beta",
             )]);
-            let (client, flat_requests) = fake_daemon(previews_by_target);
-            flat.connection.client = Some(client);
-            open_merge_confirm(&mut flat);
-            settle(&mut flat, &mut flat_rx).await;
-            assert_eq!(flat_requests.borrow()[0]["targetCwd"], "/repo");
-            assert_eq!(flat.merge.flow.as_ref().and_then(|flow| flow.stacked_cwd.clone()), None);
-            handle_confirm_merge(&mut flat, &press("t"));
-            settle(&mut flat, &mut flat_rx).await;
-            assert_eq!(flat_requests.borrow().len(), 1);
-            assert_eq!(preview_branch(&flat).as_deref(), Some("main"));
-            assert!(!merge_screen(&flat).iter().any(|row| row.contains("t into")));
+            let (client, requests) = fake_daemon(previews_and_checkouts);
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[0]["targetCwd"], "/repo");
+            assert_eq!(app.merge.flow.as_ref().and_then(|flow| flow.stacked_cwd.clone()), None);
+            assert!(merge_screen(&app).iter().any(|row| row.contains("t change target")));
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            // The launch checkout first; the others as Git lists them.
+            assert_eq!(
+                offered(&app),
+                Some(vec![
+                    "/repo".to_owned(),
+                    "/wt/login".to_owned(),
+                    "/wt/other".to_owned(),
+                    "/wt/lead".to_owned()
+                ])
+            );
+            // j stops at the end of the list.
+            for _ in 0..5 {
+                handle_confirm_merge(&mut app, &press("j"));
+            }
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let last = requests.borrow().last().cloned().unwrap();
+            assert_eq!(
+                (last["type"].as_str(), last["targetCwd"].as_str()),
+                (Some("merge-preview"), Some("/wt/lead"))
+            );
+            // The merge goes where the confirmation says.
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let last = requests.borrow().last().cloned().unwrap();
+            assert_eq!(
+                (last["type"].as_str(), last["targetCwd"].as_str()),
+                (Some("merge-worktree"), Some("/wt/lead"))
+            );
+        });
+    }
+
+    #[test]
+    fn t_says_when_there_is_no_other_checkout_to_merge_into() {
+        run(async {
+            let (mut app, mut rx) = app_with(vec![in_worktree(
+                session("s1", "beta", SessionStatus::Running),
+                "w1",
+                "/wt/beta",
+                "beta",
+            )]);
+            let (client, _requests) = fake_daemon(|request| {
+                if request["type"] == "list-worktrees" {
+                    json!({"ok": true, "data": [
+                        {"path": "/repo", "branch": "main", "head": "a1", "isMain": true},
+                        {"path": "/wt/beta", "branch": "beta", "head": "a2", "isMain": false},
+                    ]})
+                } else {
+                    previews_by_target(request)
+                }
+            });
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            // Only the launch checkout, which it merges into already: the confirmation stays.
+            assert_eq!(app.mode, Mode::ConfirmMerge);
+            assert_eq!(app.merge.flow.as_ref().map(|flow| flow.picking.is_none()), Some(true));
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("No other checkout on a branch to merge into")
+            );
+            assert_eq!(preview_branch(&app).as_deref(), Some("main"));
+        });
+    }
+
+    /// A sub-session started in the worktree `id` at `root`: no worktree of its own, that worktree's record.
+    fn sharing(mut record: SessionRecord, id: &str, root: &str) -> SessionRecord {
+        let mut worktree = SessionWorktreeRecord::new(SessionWorktreeMode::None);
+        worktree.id = Some(id.to_owned());
+        record.worktree = Some(worktree);
+        record.launch_worktree_root = Some(root.to_owned());
+        record.cwd = root.to_owned();
+        record
+    }
+
+    #[test]
+    fn m_on_a_sub_session_sharing_its_parent_s_worktree_merges_that_worktree() {
+        run(async {
+            let parent = in_worktree(session("p", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
+            let mut child = sharing(session("c", "review", SessionStatus::Running), "w1", "/wt/beta");
+            child.parent_session_id = Some("p".to_owned());
+            assert!(has_worktree_to_merge(&child) && has_worktree_to_merge(&parent));
+            assert!(!has_worktree_to_merge(&session(
+                "plain",
+                "plain",
+                SessionStatus::Running
+            )));
+            let (mut app, mut rx) = app_with(vec![child, parent]);
+            let (client, requests) = fake_daemon(previews_and_checkouts);
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            assert_eq!(app.mode, Mode::ConfirmMerge);
+            settle(&mut app, &mut rx).await;
+            // Asked in the sub-session's name: the daemon merges the worktree it works in.
+            let preview = requests.borrow()[0].clone();
+            assert_eq!(
+                (
+                    preview["type"].as_str(),
+                    preview["sessionId"].as_str(),
+                    preview["targetCwd"].as_str()
+                ),
+                (Some("merge-preview"), Some("c"), Some("/repo"))
+            );
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let merge = requests.borrow()[1].clone();
+            assert_eq!(
+                (
+                    merge["type"].as_str(),
+                    merge["sessionId"].as_str(),
+                    merge["targetCwd"].as_str()
+                ),
+                (Some("merge-worktree"), Some("c"), Some("/repo"))
+            );
+        });
+    }
+
+    #[test]
+    fn a_sub_session_sharing_a_stacked_worktree_merges_into_that_worktree_s_target() {
+        run(async {
+            let mut sessions = stacked_sessions();
+            let mut helper = sharing(session("h", "helper", SessionStatus::Running), "w-login", "/wt/login");
+            if let (Some(shared), Some(own)) = (helper.worktree.as_mut(), sessions[0].worktree.as_ref()) {
+                shared.id = own.id.clone();
+                shared.target_worktree_id = own.target_worktree_id.clone();
+                shared.target_branch = own.target_branch.clone();
+            }
+            sessions.insert(0, helper);
+            let (mut app, mut rx) = app_with(sessions);
+            let (client, requests) = fake_daemon(previews_and_checkouts);
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow()[0]["sessionId"], "h");
+            assert_eq!(requests.borrow()[0]["targetCwd"], "/wt/lead");
+        });
+    }
+
+    #[test]
+    fn a_merge_started_inside_the_worktree_being_merged_opens_on_the_list_of_checkouts() {
+        run(async {
+            // The UI runs in /repo, here a linked worktree (record w1) the session works in without its own.
+            let (mut app, mut rx) = app_with(vec![sharing(
+                session("s1", "beta", SessionStatus::Running),
+                "w1",
+                "/repo",
+            )]);
+            let (client, requests) = fake_daemon(|request| {
+                if request["type"] == "list-worktrees" {
+                    json!({"ok": true, "data": [
+                        {"path": "/main", "branch": "main", "head": "a1", "isMain": true},
+                        {"path": "/repo", "branch": "beta", "head": "a2", "isMain": false},
+                        {"path": "/wt/other", "branch": "other", "head": "a3", "isMain": false},
+                    ]})
+                } else {
+                    previews_by_target(request)
+                }
+            });
+            app.connection.client = Some(client);
+            open_merge_confirm(&mut app);
+            // Nothing to offer by default (it would merge into itself): no preview, the list instead.
+            assert_eq!(app.mode, Mode::ConfirmMerge);
+            let flow = app.merge.flow.clone().unwrap();
+            assert!(flow.target_cwd.is_empty() && flow.picking.is_some());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(requests.borrow().len(), 1);
+            assert_eq!(requests.borrow()[0]["type"], "list-worktrees");
+            assert_eq!(offered(&app), Some(vec!["/main".to_owned(), "/wt/other".to_owned()]));
+            assert!(merge_screen(&app).iter().any(|row| row.contains("esc cancel")));
+            // Esc with nothing chosen: back to the sessions.
+            handle_confirm_merge(&mut app, &escape());
+            assert_eq!(app.mode, Mode::Browse);
+            // Chosen: the confirmation, with that checkout's preview.
+            open_merge_confirm(&mut app);
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let last = requests.borrow().last().cloned().unwrap();
+            assert_eq!(
+                (last["type"].as_str(), last["targetCwd"].as_str()),
+                (Some("merge-preview"), Some("/main"))
+            );
+            assert_eq!(app.mode, Mode::ConfirmMerge);
+            assert!(app.merge.flow.as_ref().is_some_and(|flow| flow.preview.is_some()));
         });
     }
 
@@ -2618,7 +3133,7 @@ mod tests {
         run(async {
             let reply = serde_json::to_value(stacked_sessions()[0].clone()).unwrap();
             let (client, requests) = fake_daemon(move |request| match request["type"].as_str() {
-                Some("merge-preview") => previews_by_target(request),
+                Some("merge-preview" | "list-worktrees") => previews_and_checkouts(request),
                 Some("merge-worktree") => json!({"ok": true, "data": merge_result(
                     json!({"conflicted": true, "conflicts": ["a.txt"], "targetBranch": "feature"}),
                 )}),
@@ -2644,9 +3159,12 @@ mod tests {
             assert_eq!(requests.borrow()[2]["type"], "resolve-merge");
             assert_eq!(requests.borrow()[2]["targetCwd"], "/wt/lead");
             assert_eq!(app.mode, Mode::Browse);
-            // Switched to the launch checkout: merged there.
+            // The launch checkout chosen instead: merged there.
             open_merge_confirm(&mut app);
             handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            handle_confirm_merge(&mut app, &press("j"));
+            handle_confirm_merge(&mut app, &enter());
             settle(&mut app, &mut rx).await;
             handle_confirm_merge(&mut app, &enter());
             settle(&mut app, &mut rx).await;
@@ -2665,10 +3183,10 @@ mod tests {
             sessions[1].agent_status = Some(deckhand_protocol::data::AgentActivityStatus::Active);
             let refusal = "Auth rework is working in feature; merge when it is idle";
             let (client, _requests) = fake_daemon(move |request| {
-                if request["type"] == "merge-preview" {
-                    previews_by_target(request)
-                } else {
+                if request["type"] == "merge-worktree" {
                     json!({"ok": false, "error": refusal})
+                } else {
+                    previews_and_checkouts(request)
                 }
             });
             let (mut app, mut rx) = app_with(sessions);
@@ -2687,8 +3205,19 @@ mod tests {
             );
             assert_eq!(app.messages.error, None);
             assert!(merge_screen(&app).iter().any(|row| row.contains(refusal)));
-            // Into the launch checkout the parent's work does not hold the merge up.
+            // The list of checkouts says which one has an agent at work.
             handle_confirm_merge(&mut app, &press("t"));
+            settle(&mut app, &mut rx).await;
+            let screen = merge_screen(&app);
+            assert!(
+                screen
+                    .iter()
+                    .any(|row| row.contains("feature") && row.contains("its target · agent working")),
+                "{screen:#?}"
+            );
+            // Into the launch checkout the parent's work does not hold the merge up.
+            handle_confirm_merge(&mut app, &press("j"));
+            handle_confirm_merge(&mut app, &enter());
             settle(&mut app, &mut rx).await;
             assert!(!merge_screen(&app).iter().any(|row| row.contains("is working in")));
         });
@@ -3344,14 +3873,17 @@ mod tests {
             .iter()
             .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
             .collect();
-        // The hop being merged, then the rest of the path; who works in the target; the key to the other target.
+        // The hop being merged, then the rest of the path; who works in the target; the key to the other targets.
         assert_eq!(text[1], "Merge \"Login UI\"?");
         assert_eq!(text[2], "Into feature → main · <TMP>/home/worktrees/auth");
         assert_eq!(
             text[3],
             "⚠ Auth rework is working in feature; merging waits until it is idle"
         );
-        assert!(text.contains(&"enter choose • t into main • esc cancel"), "{text:#?}");
+        assert!(
+            text.contains(&"enter choose • t change target • esc cancel"),
+            "{text:#?}"
+        );
         // The hop merged is bold and underlined, the later one not.
         let area = Rect::new(0, 0, 98, 31);
         let mut buf = Buffer::empty(area);

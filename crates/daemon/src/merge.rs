@@ -242,21 +242,39 @@ async fn branch_or_head(root: &str) -> Result<String> {
 impl Daemon {
     /// TS: InkDaemon.mergeSource (`session does not exist`, `session does not have a worktree to merge`, `cannot merge
     /// session because its worktree was deleted`).
+    ///
+    /// Not in the TS: a session without a worktree of its own that works in a linked worktree (a sub-session started
+    /// in its parent's worktree: mode `none`, the record's `id`) merges that worktree, as its owner would: a merge
+    /// describes the worktree, not the session.
     pub fn merge_source(&self, session_id: &str) -> Result<MergeSource> {
         let Some(session) = self.get_session(session_id) else {
             return Err(DhError::msg("session does not exist"));
         };
-        let worktree = session
+        let own = session
             .worktree
             .as_ref()
             .filter(|worktree| truthy(worktree.path.as_deref()) && worktree.mode != SessionWorktreeMode::None);
-        let Some(worktree) = worktree else {
-            return Err(DhError::msg("session does not have a worktree to merge"));
+        let shared = match own {
+            Some(_) => None,
+            None => self
+                .worktree_record_of(&session)
+                .filter(|record| !record.path.is_empty()),
         };
-        if truthy(worktree.deleted_at.as_deref()) {
+        let deleted = session
+            .worktree
+            .as_ref()
+            .is_some_and(|worktree| truthy(worktree.deleted_at.as_deref()))
+            || shared
+                .as_ref()
+                .is_some_and(|record| truthy(record.deleted_at.as_deref()));
+        let worktree_path = match (own, shared) {
+            (Some(worktree), _) => worktree.path.clone().unwrap_or_default(),
+            (None, Some(record)) => record.path.clone(),
+            (None, None) => return Err(DhError::msg("session does not have a worktree to merge")),
+        };
+        if deleted {
             return Err(DhError::msg("cannot merge session because its worktree was deleted"));
         }
-        let worktree_path = worktree.path.clone().unwrap_or_default();
         Ok(MergeSource { session, worktree_path })
     }
 
@@ -935,6 +953,54 @@ pub(crate) mod tests {
         let source = daemon.merge_source("live").unwrap();
         assert_eq!(source.worktree_path, "/r/wt");
         assert_eq!(source.session.id, "live");
+    }
+
+    #[test]
+    fn merge_source_of_a_session_sharing_a_worktree_is_the_record_s_worktree() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        insert_record(
+            &daemon,
+            record(json!({"id": "w1", "path": "/r/wt", "createdAt": "2026-01-01T00:00:00.000Z"})),
+        );
+        // A sub-session started in its parent's worktree: no worktree of its own, the record it joined.
+        insert(
+            &daemon,
+            in_worktree("child", "/r", "/r/wt", json!({"mode": "none", "id": "w1"})),
+        );
+        let source = daemon.merge_source("child").unwrap();
+        assert_eq!(source.worktree_path, "/r/wt");
+        assert_eq!(source.session.id, "child");
+        // Its own worktree wins over the record's path.
+        insert(
+            &daemon,
+            in_worktree(
+                "owner",
+                "/r",
+                "/r/own",
+                json!({"mode": "managed", "path": "/r/own", "id": "w1"}),
+            ),
+        );
+        assert_eq!(daemon.merge_source("owner").unwrap().worktree_path, "/r/own");
+        let message = |id: &str| daemon.merge_source(id).unwrap_err().to_string();
+        // A record that is gone, or deleted, leaves nothing to merge.
+        insert(
+            &daemon,
+            in_worktree("orphan", "/r", "/r/old", json!({"mode": "none", "id": "w9"})),
+        );
+        assert_eq!(message("orphan"), "session does not have a worktree to merge");
+        insert_record(
+            &daemon,
+            record(json!({
+                "id": "w2", "path": "/r/gone", "createdAt": "2026-01-01T00:00:00.000Z",
+                "deletedAt": "2026-01-02T00:00:00.000Z",
+            })),
+        );
+        insert(
+            &daemon,
+            in_worktree("late", "/r", "/r/gone", json!({"mode": "none", "id": "w2"})),
+        );
+        assert_eq!(message("late"), "cannot merge session because its worktree was deleted");
     }
 
     #[test]

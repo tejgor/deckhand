@@ -155,8 +155,6 @@ pub struct MergeStack {
     /// Worktrees stacked directly on this one that are not in yet.
     #[serde(default)]
     pub children: Vec<MergeChild>,
-    /// The other target a key switches to (for the hint); none: there is no choice.
-    pub switch_to: Option<String>,
 }
 
 /// The stacked children listed before the rest are summed up in one row.
@@ -193,6 +191,9 @@ pub struct MergeConfirmInput {
     /// Not in the TS: the merge's place in a stack of worktrees; missing, a flat merge with nothing stacked on it.
     #[serde(default)]
     pub stack: Option<MergeStack>,
+    /// Not in the TS: `t` lists the checkouts the merge can go into instead (the hint offers it). Missing: off.
+    #[serde(default)]
+    pub pick_target: bool,
 }
 
 /// TS: mergeModel.ts MergeConfirmLayout.
@@ -399,13 +400,9 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             drop: None,
         });
     }
-    if let Some(other) = preview
-        .and(stack)
-        .and_then(|stack| stack.switch_to.as_deref())
-        .filter(|other| !other.is_empty())
-    {
+    if input.pick_target {
         parts.push(HintPart {
-            text: format!("t into {other}"),
+            text: "t change target".to_owned(),
             short: Some("t target".to_owned()),
             drop: None,
         });
@@ -753,6 +750,7 @@ mod tests {
             height: 40,
             now: None,
             stack: None,
+            pick_target: false,
         }
     }
 
@@ -1245,7 +1243,6 @@ mod tests {
                 into_target: true,
                 target_branch: Some("feature-a".into()),
                 then: strings(&["main"]),
-                switch_to: Some("main".into()),
                 ..MergeStack::default()
             }),
             ..input()
@@ -1277,10 +1274,15 @@ mod tests {
                 (None, Some(true), Some(true))
             );
             assert_eq!((spans[2].color, spans[2].underline), (Some(THEME.muted), None));
-            // The key that switches the target is offered while there is a choice.
+            // The key that lists the other checkouts is offered when the screen has it.
+            let choosable = merge_confirm_layout(&MergeConfirmInput {
+                pick_target: true,
+                width: 80,
+                ..stacked()
+            });
             assert_eq!(
-                layout.hint,
-                "enter choose • space commit first • t into main • esc cancel"
+                choosable.hint,
+                "enter choose • space commit first • t change target • esc cancel"
             );
 
             // Cut to the width: the spans still make up the text, the cut one keeping the ellipsis.
@@ -1302,22 +1304,34 @@ mod tests {
             let launch = merge_confirm_layout(&MergeConfirmInput {
                 stack: Some(MergeStack {
                     into_target: false,
-                    switch_to: Some("feature-a".into()),
                     ..stacked().stack.unwrap_or_default()
                 }),
                 width: 80,
+                pick_target: true,
                 ..stacked()
             });
             assert_eq!(launch.details[0].text, "Into feature-a · ~/wt/feature-a");
             assert_eq!(launch.details[0].color, Some(THEME.warn));
             assert_eq!(launch.details[0].spans, None);
-            assert!(launch.hint.contains("t into feature-a"));
+            assert!(launch.hint.contains("t change target"));
 
-            // Flat (no stack): as before, and no key to switch.
+            // Flat (no stack): as before; t is offered only where the screen says it lists the checkouts.
             let flat = merge_confirm_layout(&input());
             assert_eq!(flat.details[0].text, "Into main · ~/code/app");
             assert_eq!(flat.details[0].spans, None);
-            assert!(!flat.hint.contains("t into"));
+            assert!(!flat.hint.contains("target"));
+            let offered = merge_confirm_layout(&MergeConfirmInput {
+                pick_target: true,
+                width: 80,
+                ..input()
+            });
+            assert!(offered.hint.contains("t change target"), "{}", offered.hint);
+            // Narrow: the short form.
+            let tight = merge_confirm_layout(&MergeConfirmInput {
+                pick_target: true,
+                ..input()
+            });
+            assert!(tight.hint.contains("• t target •"), "{}", tight.hint);
         });
     }
 

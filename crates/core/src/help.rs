@@ -400,7 +400,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "m",
-                text: "Merge / squash into this branch, uncommitted (Space: commit first; conflicts: Enter keeps, x aborts)",
+                text: "Merge / squash into this branch, uncommitted (Space: commit first; t: another checkout; conflicts: Enter keeps, x aborts)",
             },
             HelpLine::Key {
                 keys: "→  Enter",

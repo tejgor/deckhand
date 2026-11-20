@@ -185,7 +185,7 @@ After a deletion, the worktree is marked deleted for every session of it (as wit
 
 ## Merging and done
 
-`m` merges (or squash-merges) the selected session's worktree into the branch of the [launch checkout](#checkouts-and-the-session-list), or a [stacked](#stacked-sub-sessions) worktree into its target's branch, in the target's worktree, without committing, so you review and commit the result. The confirmation offers **Merge**, **Squash merge** and **Cancel**, and shows, before anything runs:
+`m` merges (or squash-merges) the worktree the selected session works in into the branch of the [launch checkout](#checkouts-and-the-session-list), or a [stacked](#stacked-sub-sessions) worktree into its target's branch, in the target's worktree, without committing, so you review and commit the result. A sub-session started in its parent's worktree has no worktree of its own, so `m` on it merges that shared worktree, as `m` on its parent does. The confirmation offers **Merge**, **Squash merge** and **Cancel**, and shows, before anything runs:
 
 - `Into <branch> · <path>`: in yellow when the target is not the repository's main checkout or not on its default branch, so a surprising target stands out.
 - The commits that would be merged (count, then each one's short hash, age and subject, up to 100 before `+N more`) and the diff stat of `<target>...<source>`. A long list scrolls with `J`/`K`.
@@ -195,9 +195,11 @@ After a deletion, the worktree is marked deleted for every session of it (as wit
 - A warning when the target has uncommitted changes in files the merge would touch, since Git would refuse or mix them. Unrelated uncommitted files are fine. A merge, rebase, cherry-pick or revert in progress in the target (or unresolved conflicts) is named, and the merge is refused until it is finished.
 - The notes, which give way first when the pane is short.
 
+`t` in the confirmation chooses another target. It lists the repository's other checkouts that are on a branch: the main checkout and every other worktree, each with its branch and path. A stacked worktree's target comes first (`its target`), then the launch checkout, then the main checkout; one where an agent is working says so. `j`/`k` move, `enter` merges into that checkout instead and previews it again, and `esc` goes back. A branch that is checked out nowhere is not offered, because the merge is left uncommitted in a working tree for you to review. If Deckhand was started inside the worktree being merged and it is stacked on nothing, there is no default target, so the confirmation opens on this list.
+
 For a stacked worktree, the merge goes one hop at a time:
 
-- `Into feature → main`: the branch this merge goes into first (bold), then where that one merges after it (muted). Merging into its own target is not shown in yellow. `t` switches between the target's worktree and the launch checkout, and the preview follows.
+- `Into feature → main`: the branch this merge goes into first (bold), then where that one merges after it (muted). Merging into its own target is not shown in yellow. After `t` chooses another checkout, the line names that one alone.
 - `⚠ <session> is working in <branch>; merging waits until it is idle` when an agent in the target's worktree is working. Deckhand refuses the merge until it is idle, so it doesn't change files under a running agent. The same applies to any merge into a linked worktree, from the confirmation or not.
 - **Not in this branch yet**: merging a worktree that has worktrees stacked on it lists the ones not merged into it yet, each with how many more are stacked under it (`Login UI (+1 under it)`) and where it will merge afterwards. Nothing is blocked: they move one hop up when this merge is done.
 

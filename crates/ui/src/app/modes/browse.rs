@@ -19,7 +19,7 @@ use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
     AttachTarget, AttentionState, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord,
-    SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
+    SessionStatus, SetupState, WorktreeMode,
 };
 use deckhand_protocol::records::{AppConfig, SessionFilter, SessionView};
 use deckhand_sys::desktop::open_in_editor;
@@ -576,12 +576,8 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         .requested_worktree_mode
         .is_some_and(|mode| mode != WorktreeMode::None)
         && workspace_key(&session).is_none_or(|key| key.is_empty());
-    // m merges the session's worktree; without one it says why, as M does.
-    if text == "m"
-        && (worktree.is_none_or(|worktree| !truthy(worktree.path.as_ref()))
-            || worktree.is_some_and(|worktree| worktree.mode == SessionWorktreeMode::None)
-            || deleted)
-    {
+    // m merges the worktree the session works in (its own, or the one it shares); without one it says why, as M does.
+    if text == "m" && (!confirm::has_worktree_to_merge(&session) || deleted) {
         app.set_status(Some(
             if deleted {
                 "Its worktree was deleted: nothing to merge"
@@ -1619,7 +1615,8 @@ pub(crate) mod tests {
     use deckhand_client::live::{LiveClient, LiveClientHandlers};
     use deckhand_core::key::Key;
     use deckhand_protocol::data::{
-        AgentActivityStatus, AttachTarget, ProgramKey, SessionAttention, SessionWorktreeRecord, UiExitResult,
+        AgentActivityStatus, AttachTarget, ProgramKey, SessionAttention, SessionWorktreeMode, SessionWorktreeRecord,
+        UiExitResult,
     };
     use indexmap::IndexMap;
 
@@ -2373,6 +2370,18 @@ pub(crate) mod tests {
             app.messages.status_message.as_deref(),
             Some("Its worktree was deleted: nothing to merge")
         );
+        // A sub-session without a worktree of its own, in one that was deleted: the same answer.
+        let mut shared = SessionWorktreeRecord::new(SessionWorktreeMode::None);
+        shared.id = Some("w1".to_owned());
+        shared.deleted_at = Some("2026-01-02T00:00:00.000Z".to_owned());
+        app.data.repo_sessions[0].worktree = Some(shared);
+        app.set_status(None);
+        handle_browse(&mut app, &text("m"));
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("Its worktree was deleted: nothing to merge")
+        );
+        assert_eq!(app.mode, Mode::Browse);
         app.data.repo_sessions[0].status = SessionStatus::Exited;
         handle_browse(&mut app, &text("x"));
         assert_eq!(
@@ -2386,6 +2395,23 @@ pub(crate) mod tests {
         assert_eq!(
             app.messages.status_message.as_deref(),
             Some("Already stopped: Backspace removes it for good (asking first), s resumes it")
+        );
+    }
+
+    #[test]
+    fn m_on_a_sub_session_in_its_parent_s_worktree_opens_the_merge_confirmation() {
+        let (mut app, _rx) = with_sessions(1);
+        // Started in its parent's worktree: no worktree of its own, that worktree's record.
+        let mut shared = SessionWorktreeRecord::new(SessionWorktreeMode::None);
+        shared.id = Some("w1".to_owned());
+        app.data.repo_sessions[0].worktree = Some(shared);
+        app.data.repo_sessions[0].launch_worktree_root = Some("/wt".to_owned());
+        handle_browse(&mut app, &text("m"));
+        assert_eq!(app.messages.status_message, None);
+        assert_eq!(app.mode, Mode::ConfirmMerge);
+        assert_eq!(
+            app.merge.flow.as_ref().map(|flow| flow.source_root.as_str()),
+            Some("/wt")
         );
     }
 

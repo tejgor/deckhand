@@ -13,7 +13,7 @@
 │   Squash merge into main without committing                                                    │
 │   Cancel                                                                                       │
 │                                                                                                │
-│ enter choose • space commit first • esc cancel                                                 │
+│ enter choose • space commit first • t change target • esc cancel                               │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

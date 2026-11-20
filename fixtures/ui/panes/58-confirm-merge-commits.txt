@@ -11,7 +11,7 @@
 │   Squash merge into main without committing                                                    │
 │   Cancel                                                                                       │
 │                                                                                                │
-│ enter choose • esc cancel                                                                      │
+│ enter choose • t change target • esc cancel                                                    │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
