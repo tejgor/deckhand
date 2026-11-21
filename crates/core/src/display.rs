@@ -256,7 +256,7 @@ pub fn program_glyph(program: ProgramKey) -> &'static str {
         ProgramKey::Claude => "✶",
         ProgramKey::Pi => "π",
         ProgramKey::Codex => "◇",
-        ProgramKey::Agy => "△",
+        ProgramKey::Agy => "Λ",
     }
 }
 
@@ -871,7 +871,7 @@ mod tests {
 
     #[test]
     fn antigravity_reads_by_name_and_glyph() {
-        assert_eq!(program_glyph(ProgramKey::Agy), "△");
+        assert_eq!(program_glyph(ProgramKey::Agy), "Λ");
         assert_eq!(program_name(ProgramKey::Agy), "Antigravity");
         // The others keep the key, as the sidebar always showed them.
         for program in [ProgramKey::Claude, ProgramKey::Pi, ProgramKey::Codex] {

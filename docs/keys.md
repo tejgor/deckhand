@@ -145,7 +145,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session on
 | `✶` | Agent: Claude |
 | `π` | Agent: Pi |
 | `◇` | Agent: Codex |
-| `△` | Agent: Antigravity |
+| `Λ` | Agent: Antigravity |
 | `╎` | Left edge: shares the selected session's worktree (and its Terminal, Git and Dev) |
 | `›` | Left edge: the selected session |
 | `! N` | Header: N sessions need you (`!` or `;` jumps to them) |

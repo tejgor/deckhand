@@ -14,7 +14,7 @@
 │                  │ ❯ ✶ Claude                                               │                  │
 │                  │   π Pi                                                   │                  │
 │                  │   ◇ Codex                                                │                  │
-│                  │   △ Antigravity                                          │                  │
+│                  │   Λ Antigravity                                          │                  │
 │                  │   ⑂ Fork parent                                          │                  │
 │                  │ Parent: beta                                             │                  │
 │                  │                                                          │                  │

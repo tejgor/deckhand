@@ -15,7 +15,7 @@
 │                  │ ❯ ✶ Claude                                               │                  │
 │                  │   π Pi                                                   │                  │
 │                  │   ◇ Codex                                                │                  │
-│                  │   △ Antigravity                                          │                  │
+│                  │   Λ Antigravity                                          │                  │
 │                  │                                                          │                  │
 │                  │ enter continue • esc cancel                              │                  │
 │                  │                                                          │                  │

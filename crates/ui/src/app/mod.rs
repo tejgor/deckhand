@@ -111,7 +111,7 @@ pub const PROGRAMS: [ProgramOption; 4] = [
     ProgramOption {
         key: ProgramKey::Agy,
         label: "Antigravity",
-        glyph: "△",
+        glyph: "Λ",
     },
 ];
 

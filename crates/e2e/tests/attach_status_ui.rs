@@ -82,7 +82,7 @@ fn the_status_line_holds_its_rows_for_every_agent_and_pane() {
     ui.screen("● ready");
     // The agent picker lists Claude, Pi, Codex, Antigravity: `j` moves down (one key at a time, or they arrive as one
     // chunk).
-    let options = ["✶ Claude", "π Pi", "◇ Codex", "△ Antigravity"];
+    let options = ["✶ Claude", "π Pi", "◇ Codex", "Λ Antigravity"];
     for (index, agent) in ["claude", "pi", "codex", "agy"].into_iter().enumerate() {
         let name = format!("noisy-{agent}");
         ui.press("n");

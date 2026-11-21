@@ -159,7 +159,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "After the title: cleanup error · N hidden sub-sessions",
             },
             HelpLine::Key {
-                keys: "✶ π ◇ △",
+                keys: "✶ π ◇ Λ",
                 text: "Agent: Claude · Pi · Codex · Antigravity",
             },
             HelpLine::Key {
@@ -656,7 +656,7 @@ mod tests {
             "✶",
             "π",
             "◇",
-            "△",
+            "Λ",
             "↑",
             "╎",
             "! N",

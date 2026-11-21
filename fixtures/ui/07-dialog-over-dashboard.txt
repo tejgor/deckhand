@@ -17,7 +17,7 @@ deckhand                                                                        
 │                      │ │ agent output line 11│ ❯ ✶ Claude                                               │                      │
 │                      │ │ agent output line 12│   π Pi                                                   │                      │
 │                      │ │ agent output line 13│   ◇ Codex                                                │                      │
-│                      │ │ agent output line 14│   △ Antigravity                                          │                      │
+│                      │ │ agent output line 14│   Λ Antigravity                                          │                      │
 │                      │ │ agent output line 15│   ⑂ Fork auth refactor                                   │                      │
 │                      │ │ agent output line 16│                                                          │                      │
 │                      │ │ agent output line 17│ enter continue • esc cancel                              │                      │

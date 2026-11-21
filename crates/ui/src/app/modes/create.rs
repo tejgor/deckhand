@@ -2172,7 +2172,7 @@ mod tests {
         };
         let rows = texts(&create_pane_rows(&options, 60));
         assert_eq!(rows[0], "New sub-session under beta");
-        assert_eq!(rows[6], "  △ Antigravity");
+        assert_eq!(rows[6], "  Λ Antigravity");
         assert_eq!(rows[7], "  ⑂ Fork parent");
         assert_eq!(rows[8], "❯ ↳ From its handoff (H)");
         assert_eq!(rows[9], "Parent: beta");
