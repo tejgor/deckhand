@@ -996,9 +996,9 @@ pub fn choice_options(info: &SettingsInfo, id: SettingId, target: ConfigTargetKi
     let text = |value: &str| Some(StringOrBool::String(value.to_owned()));
     let flag = |value: bool| Some(StringOrBool::Bool(value));
     match id {
-        SettingId::DefaultAgent => ["claude", "pi", "codex"]
+        SettingId::DefaultAgent => ["claude", "pi", "codex", "agy"]
             .iter()
-            .map(|value| option(value, text(value), None))
+            .map(|value| option(agent_label(value), text(value), None))
             .collect(),
         SettingId::DefaultWorkspace => ["none", "new", "existing"]
             .iter()
@@ -1758,6 +1758,14 @@ fn workspace_label(value: &str) -> Option<&'static str> {
     }
 }
 
+/// A `defaultAgent` option's label: the stored key, except Antigravity, whose key (`agy`, its binary) is not its name.
+fn agent_label(value: &str) -> &str {
+    match value {
+        "agy" => crate::agents::agent_spec(deckhand_protocol::data::ProgramKey::Agy).label,
+        _ => value,
+    }
+}
+
 /// The config.json key of a global-only setting (TS `APP_FLAG[id]`).
 fn app_flag_key(id: SettingId) -> Option<&'static str> {
     APP_FLAG.iter().find(|(flag, _)| *flag == id).map(|(_, key)| *key)
@@ -2065,6 +2073,11 @@ fn show(info: &SettingsInfo, id: SettingId, value: &Value) -> GridCell {
     match id {
         SettingId::DefaultWorkspace => GridCell {
             text: workspace_label(&text).map_or(text.clone(), str::to_owned),
+            ..GridCell::default()
+        },
+        // Not in the TS: Antigravity by name, not its key `agy`.
+        SettingId::DefaultAgent if text == "agy" => GridCell {
+            text: agent_label(&text).to_owned(),
             ..GridCell::default()
         },
         SettingId::WorktreeBranchFrom => GridCell {
@@ -2752,6 +2765,14 @@ mod tests {
             cell(&info, DefaultAgent, Repository),
             json!({"text": "—", "set": false, "effective": false})
         );
+        // Antigravity shows by name; `agy` is only what the file stores.
+        let agy = settings_info(
+            Some(REPO),
+            Some(with(global(), "defaultAgent", json!("agy"))),
+            false,
+            None,
+        );
+        assert_eq!(cell(&agy, DefaultAgent, Global)["text"], "Antigravity");
         let setup = cell(&info, SetupCommand, Global);
         assert_eq!(
             (setup["text"].clone(), setup["effective"].clone()),
@@ -3361,7 +3382,7 @@ mod tests {
         let agent = choice_options(&info, DefaultAgent, Repository);
         assert_eq!(
             agent.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(),
-            ["claude", "pi", "codex"]
+            ["claude", "pi", "codex", "Antigravity"]
         );
         // In effect: global pi; the repo stores none.
         assert_eq!(

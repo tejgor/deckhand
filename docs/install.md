@@ -6,7 +6,7 @@ Every way to install, update and remove Deckhand. Back to the [README](../README
 
 - macOS or Linux, on x86_64 or aarch64. The Linux binaries need glibc 2.35 or newer.
 - Windows: run Deckhand inside [WSL2](https://learn.microsoft.com/windows/wsl/install), using the Linux binary.
-- `git`, and at least one agent on `PATH`: `claude`, `codex` or `pi`.
+- `git`, and at least one agent on `PATH`: `claude`, `codex`, `pi` or `agy` (Antigravity).
 
 Optional:
 
@@ -63,7 +63,7 @@ This puts the binary in `~/.cargo/bin`.
 
 ## Set up agents
 
-`deckhand setup` checks for Claude Code, Codex and Pi and offers to install the missing ones with their official installers. `deckhand setup --check` only reports.
+`deckhand setup` checks for Claude Code, Codex and Pi and offers to install the missing ones with their official installers. It reports Antigravity (`agy`) too, as optional: install it from [antigravity.google](https://antigravity.google). `deckhand setup --check` only reports.
 
 ## Updating
 

@@ -45,10 +45,10 @@ pub fn sh_agent_script(ready: &str) -> String {
     )
 }
 
-/// claude, pi and codex sh stand-ins in `dir` (created) that run `ready` once started.
+/// claude, pi, codex and agy sh stand-ins in `dir` (created) that run `ready` once started.
 pub fn install_sh_agents(dir: &Path, ready: &str) -> PathBuf {
     fs::create_dir_all(dir).expect("agent bin dir");
-    for agent in ["claude", "pi", "codex"] {
+    for agent in ["claude", "pi", "codex", "agy"] {
         let file = dir.join(agent);
         fs::write(&file, sh_agent_script(ready)).expect("write fake agent");
         fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod fake agent");

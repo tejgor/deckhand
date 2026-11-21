@@ -1,8 +1,9 @@
 //! `deckhand setup`: finds the agents and offers to install the missing ones.
 //!
-//! `deckhand setup [--check] [--yes|-y]`: reports which agents (and the optional lazygit) are on the user's PATH as
-//! their interactive shell sees it (`$SHELL -ic 'command -v <tool>'`), and offers to run each missing agent's
-//! official installer. `--check` only reports. Tests run it with a temp `HOME`, so the shell reads scratch rc files.
+//! `deckhand setup [--check] [--yes|-y]`: reports which agents (and the optional Antigravity and lazygit) are on the
+//! user's PATH as their interactive shell sees it (`$SHELL -ic 'command -v <tool>'`), and offers to run each missing
+//! agent's official installer. `--check` only reports. Antigravity (`agy`) has no installer setup can run, so it is
+//! reported like an optional tool. Tests run it with a temp `HOME`, so the shell reads scratch rc files.
 
 // B1 wires `deckhand setup`/`doctor` into the binary; until then only the tests reach these items.
 #![allow(dead_code)]
@@ -34,8 +35,8 @@ pub struct ToolStatus {
     pub path: Option<String>,
 }
 
-/// TS: setup.ts AGENT_TOOLS.
-pub const AGENT_TOOLS: [ToolInstall; 3] = [
+/// TS: setup.ts AGENT_TOOLS, then Antigravity (not in the TS).
+pub const AGENT_TOOLS: [ToolInstall; 4] = [
     ToolInstall {
         key: "claude",
         label: "Claude Code",
@@ -59,6 +60,15 @@ pub const AGENT_TOOLS: [ToolInstall; 3] = [
         install_command: Some("curl -fsSL https://chatgpt.com/codex/install.sh | sh"),
         description: "OpenAI Codex CLI agent",
         optional: false,
+    },
+    // Closed source, with no installer URL setup could run: reported, never installed.
+    ToolInstall {
+        key: "agy",
+        label: "Antigravity",
+        command: "agy",
+        install_command: None,
+        description: "Google Antigravity CLI agent, from antigravity.google",
+        optional: true,
     },
 ];
 
@@ -140,10 +150,11 @@ async fn detect_tools_in(shell: &str, options: &ExecOptions) -> Vec<ToolStatus> 
         }
     };
     // `Promise.all` over `[...AGENT_TOOLS, ...OPTIONAL_TOOLS]`: concurrent probes, results in list order.
-    let [claude, pi, codex] = AGENT_TOOLS;
+    let [claude, pi, codex, agy] = AGENT_TOOLS;
     let [lazygit] = OPTIONAL_TOOLS;
-    let (claude, pi, codex, lazygit) = tokio::join!(probe(claude), probe(pi), probe(codex), probe(lazygit));
-    vec![claude, pi, codex, lazygit]
+    let (claude, pi, codex, agy, lazygit) =
+        tokio::join!(probe(claude), probe(pi), probe(codex), probe(agy), probe(lazygit));
+    vec![claude, pi, codex, agy, lazygit]
 }
 
 /// TS: setup.ts splitCommand (`{file: shell(), args: ['-ic', command]}`).
@@ -348,10 +359,23 @@ async fn run_setup_with(args: &[String], host: &mut impl SetupHost) {
         .iter()
         .filter_map(|status| Some((status.tool.label, status.tool.install_command?)))
         .collect();
+    let lazygit_missing = missing.iter().any(|status| status.tool.key == "lazygit");
+    // An optional agent setup cannot install (Antigravity): said once, whatever else is missing.
+    for status in missing
+        .iter()
+        .filter(|status| status.tool.optional && status.tool.key != "lazygit")
+    {
+        host.log(&format!(
+            "{} is optional and is not installed by setup ({}).",
+            status.tool.label, status.tool.description
+        ));
+    }
     if missing_agents.is_empty() {
-        host.log(
-            "All supported agents are installed. lazygit is optional: the Git tab only needs git, and `o` there opens lazygit if you install it.",
-        );
+        if lazygit_missing {
+            host.log(
+                "All supported agents are installed. lazygit is optional: the Git tab only needs git, and `o` there opens lazygit if you install it.",
+            );
+        }
         return;
     }
     if check_only {
@@ -537,6 +561,7 @@ mod tests {
              ✓ Claude Code: Anthropic Claude Code agent (/bin/claude)\n\
              • Pi: Pi coding agent (not installed)\n\
              • Codex: OpenAI Codex CLI agent (not installed)\n\
+             • Antigravity optional: Google Antigravity CLI agent, from antigravity.google (not installed)\n\
              ✓ lazygit optional: opened with o on the Git tab (/bin/lazygit)\n\n"
         );
         assert_eq!(format_status(&[]), "Deckhand setup check\n\n\n");
@@ -592,8 +617,8 @@ mod tests {
     fn closed_input_stops_setup_at_the_pending_prompt() {
         // TS: once stdin has ended `rl.question` never settles, so setup ends there and the process exits 0 without
         // the After-setup report.
-        let before = statuses(&["pi"]);
-        let mut fake = host(vec![before.clone(), statuses(&["pi"])]);
+        let before = statuses(&["pi", "agy"]);
+        let mut fake = host(vec![before.clone(), statuses(&["pi", "agy"])]);
         fake.answers = vec![None].into();
         runtime().block_on(run_setup_with(&[], &mut fake));
         assert_eq!(fake.prompts, [("Install Claude Code now?".to_owned(), false)]);
@@ -635,7 +660,13 @@ mod tests {
         let summary: Vec<(&str, bool)> = found.iter().map(|status| (status.tool.key, status.installed)).collect();
         assert_eq!(
             summary,
-            [("claude", false), ("pi", false), ("codex", true), ("lazygit", true)]
+            [
+                ("claude", false),
+                ("pi", false),
+                ("codex", true),
+                ("agy", false),
+                ("lazygit", true)
+            ]
         );
         assert_eq!(
             found[2].path.as_deref(),
@@ -667,7 +698,7 @@ mod tests {
 
     #[test]
     fn everything_installed_stops_after_the_status() {
-        let detected = statuses(&["claude", "pi", "codex", "lazygit"]);
+        let detected = statuses(&["claude", "pi", "codex", "agy", "lazygit"]);
         let mut fake = host(vec![detected.clone()]);
         runtime().block_on(run_setup_with(&[], &mut fake));
         assert_eq!(
@@ -682,7 +713,7 @@ mod tests {
 
     #[test]
     fn only_lazygit_missing_is_not_installed_by_setup() {
-        let detected = statuses(&["claude", "pi", "codex"]);
+        let detected = statuses(&["claude", "pi", "codex", "agy"]);
         let mut fake = host(vec![detected.clone()]);
         runtime().block_on(run_setup_with(&args(&["--yes"]), &mut fake));
         assert_eq!(
@@ -696,6 +727,21 @@ mod tests {
     }
 
     #[test]
+    fn only_antigravity_missing_is_said_once_and_never_installed() {
+        let detected = statuses(&["claude", "pi", "codex", "lazygit"]);
+        let mut fake = host(vec![detected.clone()]);
+        runtime().block_on(run_setup_with(&args(&["--yes"]), &mut fake));
+        assert_eq!(
+            fake.out,
+            format!(
+                "{}Antigravity is optional and is not installed by setup (Google Antigravity CLI agent, from antigravity.google).\n",
+                format_status(&detected)
+            )
+        );
+        assert!(fake.prompts.is_empty() && fake.installs.is_empty());
+    }
+
+    #[test]
     fn check_only_reports_missing_agents_without_installing() {
         let detected = statuses(&["claude"]);
         let mut fake = host(vec![detected.clone()]);
@@ -703,7 +749,8 @@ mod tests {
         assert_eq!(
             fake.out,
             format!(
-                "{}Run `deckhand setup` to install missing agents. lazygit is optional and is not installed by setup.\n",
+                "{}Antigravity is optional and is not installed by setup (Google Antigravity CLI agent, from antigravity.google).\n\
+                 Run `deckhand setup` to install missing agents. lazygit is optional and is not installed by setup.\n",
                 format_status(&detected)
             )
         );
@@ -712,8 +759,8 @@ mod tests {
 
     #[test]
     fn installs_each_missing_agent_and_reports_what_is_left() {
-        let before = statuses(&["claude"]);
-        let after = statuses(&["claude", "codex"]);
+        let before = statuses(&["claude", "agy"]);
+        let after = statuses(&["claude", "codex", "agy"]);
         let mut fake = host(vec![before.clone(), after.clone()]);
         fake.codes = vec![7, 0].into();
         runtime().block_on(run_setup_with(&args(&["-y"]), &mut fake));
@@ -747,7 +794,7 @@ mod tests {
     #[test]
     fn declined_installs_are_skipped_and_a_complete_result_says_nothing_more() {
         let before = statuses(&["pi", "lazygit"]);
-        let after = statuses(&["claude", "pi", "codex", "lazygit"]);
+        let after = statuses(&["claude", "pi", "codex", "agy", "lazygit"]);
         let mut fake = host(vec![before.clone(), after.clone()]);
         fake.answers = vec![Some(false), Some(true)].into();
         runtime().block_on(run_setup_with(&[], &mut fake));

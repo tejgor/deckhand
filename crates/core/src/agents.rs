@@ -43,8 +43,10 @@ pub enum LaunchPlan {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentVersionSource {
-    /// npm package whose `latest` dist-tag is the newest release.
-    pub npm_package: &'static str,
+    /// npm package whose `latest` dist-tag is the newest release; `None` for an agent with no public release feed
+    /// (Antigravity updates itself), whose latest release stays unknown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub npm_package: Option<&'static str>,
     /// Arguments of the agent's own non-interactive update command.
     pub update_args: &'static [&'static str],
 }
@@ -144,12 +146,21 @@ impl AgentSpec {
                 }
                 _ => Vec::new(),
             },
+            // agy · agy --conversation <id>. Antigravity picks the ID itself and prints `agy --conversation=<id>` when
+            // it exits (also on SIGTERM/SIGHUP). It cannot fork from the command line (`/fork` is a slash command), so
+            // a fork plan launches nothing special.
+            ProgramKey::Agy => match plan {
+                LaunchPlan::Resume { reference } if reference.kind == AgentSessionRefKind::Id => {
+                    owned(&["--conversation", &reference.value])
+                }
+                _ => Vec::new(),
+            },
         }
     }
 
-    /// Whether the TS spec has `exitRef` (Claude and Codex).
+    /// Whether the TS spec has `exitRef` (Claude, Codex and Antigravity).
     pub fn has_exit_ref(&self) -> bool {
-        matches!(self.program, ProgramKey::Claude | ProgramKey::Codex)
+        matches!(self.program, ProgramKey::Claude | ProgramKey::Codex | ProgramKey::Agy)
     }
 
     /// Whether the TS spec has `missingConversation` (Claude).
@@ -190,6 +201,17 @@ impl AgentSpec {
                 })
             }
             ProgramKey::Codex => codex_resume_from_output(output),
+            // The last hint wins: the real one is the last thing agy prints, after anything the conversation showed.
+            ProgramKey::Agy => {
+                let plain = plain(output);
+                let value = AGY_RESUME.captures_iter(&plain).last()?.get(1)?.as_str().to_owned();
+                Some(AgentSessionRef {
+                    provider: ProgramKey::Agy,
+                    kind: AgentSessionRefKind::Id,
+                    value,
+                    extra: Default::default(),
+                })
+            }
             ProgramKey::Pi => None,
         }
     }
@@ -223,6 +245,14 @@ static CLAUDE_RESUME: LazyLock<Regex> = LazyLock::new(|| {
     ))
     .expect("CLAUDE_RESUME is a valid regex")
 });
+// agy's exit hint, `agy --conversation=<uuid>` on a line of its own. Only a UUID is taken, so screen text can never
+// become a flag.
+static AGY_RESUME: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"(?m:^)[{JS_SPACE}]*agy[{JS_SPACE}]+--conversation(?:=|[{JS_SPACE}]+)([0-9a-fA-F]{{8}}-[0-9a-fA-F]{{4}}-[0-9a-fA-F]{{4}}-[0-9a-fA-F]{{4}}-[0-9a-fA-F]{{12}})(?:[{JS_SPACE}]|$)"
+    ))
+    .expect("AGY_RESUME is a valid regex")
+});
 static MISSING_CONVERSATION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"(?i-u:No conversation found with session ID:)[{JS_SPACE}]*([0-9a-fA-F-]{{36}})"
@@ -239,8 +269,8 @@ fn plain(output: &str) -> Cow<'_, str> {
     ESCAPE_SEQUENCE.replace_all(output, "")
 }
 
-/// TS: agents.ts AGENTS, in AGENT_PROGRAMS order (claude, pi, codex).
-pub static AGENTS: [AgentSpec; 3] = [
+/// TS: agents.ts AGENTS, in AGENT_PROGRAMS order (claude, pi, codex, then agy, which the TS never had).
+pub static AGENTS: [AgentSpec; 4] = [
     // `claude --version` prints `2.1.287 (Claude Code)`. The native builds are published to npm under the same
     // numbers; `latest` (not `stable`) is the channel `claude update` follows by default.
     AgentSpec {
@@ -251,7 +281,7 @@ pub static AGENTS: [AgentSpec; 3] = [
         // Verified: the child is stored under the child's cwd project.
         forks_across_directories: true,
         version: AgentVersionSource {
-            npm_package: "@anthropic-ai/claude-code",
+            npm_package: Some("@anthropic-ai/claude-code"),
             update_args: &["update"],
         },
     },
@@ -264,7 +294,7 @@ pub static AGENTS: [AgentSpec; 3] = [
         // --fork <id> falls back to a search of every project's sessions and writes the child into the cwd's project.
         forks_across_directories: true,
         version: AgentVersionSource {
-            npm_package: "@earendil-works/pi-coding-agent",
+            npm_package: Some("@earendil-works/pi-coding-agent"),
             update_args: &["update", "--self"],
         },
     },
@@ -278,7 +308,21 @@ pub static AGENTS: [AgentSpec; 3] = [
         // use the session's directory or the current one (tui cwd prompt), so the child could run outside its worktree.
         forks_across_directories: false,
         version: AgentVersionSource {
-            npm_package: "@openai/codex",
+            npm_package: Some("@openai/codex"),
+            update_args: &["update"],
+        },
+    },
+    // `agy --version` prints `1.5.13`. Antigravity is closed source and not on npm: it updates itself in the
+    // background at launch and with `agy update`, so its latest release is unknown here.
+    AgentSpec {
+        program: ProgramKey::Agy,
+        label: "Antigravity",
+        id_at_launch: false,
+        // `/fork` exists only inside the TUI.
+        forks: false,
+        forks_across_directories: false,
+        version: AgentVersionSource {
+            npm_package: None,
             update_args: &["update"],
         },
     },
@@ -290,6 +334,7 @@ pub fn agent_spec(program: ProgramKey) -> &'static AgentSpec {
         ProgramKey::Claude => &AGENTS[0],
         ProgramKey::Pi => &AGENTS[1],
         ProgramKey::Codex => &AGENTS[2],
+        ProgramKey::Agy => &AGENTS[3],
     }
 }
 
@@ -479,6 +524,14 @@ pub(crate) mod tests {
         assert_eq!(launch_args(Codex, &resume(id(Codex, "x1"))), ["resume", "x1"]);
         assert_eq!(launch_args(Codex, &fork(id(Codex, "x0"), None, "dh-b")), ["fork", "x0"]);
         assert!(!agent_spec(Codex).forks_across_directories);
+        // agy · agy --conversation <id>; it picks its own IDs and cannot fork from the command line.
+        use ProgramKey::Agy;
+        assert!(launch_args(Agy, &new(None, "dh-a")).is_empty());
+        assert_eq!(launch_args(Agy, &resume(id(Agy, "a1"))), ["--conversation", "a1"]);
+        let agy = agent_spec(Agy);
+        assert_eq!(agy.label, "Antigravity");
+        assert!(!agy.id_at_launch && !agy.forks && !agy.forks_across_directories);
+        assert_eq!(new_agent_ref(Agy), None);
         assert!(agent_spec(Claude).forks_across_directories && agent_spec(Pi).forks_across_directories);
     }
 
@@ -615,6 +668,41 @@ pub(crate) mod tests {
                 .is_none()
         );
         assert!(spec.exit_ref("claude --resume \" -x\"\n").is_none());
+    }
+
+    #[test]
+    fn antigravity_exit_ref_reads_the_last_resume_hint() {
+        let spec = agent_spec(ProgramKey::Agy);
+        let real = "11111111-2222-4333-8444-555555555555";
+        let shown = "0b6c3c1e-1111-4222-8333-944445555666";
+        // The screen agy leaves (also on SIGTERM/SIGHUP).
+        let exit =
+            format!("\u{1b}[0 q\u{1b}[?2027l\r\nResume with -c (or command below):\r\nagy --conversation={real}\r\n");
+        let found = spec.exit_ref(&exit).expect("the hint");
+        assert_eq!(
+            (found.provider, found.kind, found.value.as_str()),
+            (ProgramKey::Agy, AgentSessionRefKind::Id, real)
+        );
+        // The space form, and the last hint wins over one the conversation showed earlier.
+        let screen = format!("  agy --conversation {shown}\n...\nagy --conversation {real}\n");
+        assert_eq!(spec.exit_ref(&screen).expect("hint").value, real);
+        // Only a UUID on a line of its own: never a flag, a longer token or a mention mid-line.
+        for text in [
+            "agy --conversation=--settings=/tmp/evil.json\n",
+            "agy --conversation=not-a-uuid\n",
+            &format!("agy --conversation={real}x\n"),
+            &format!("run agy --conversation={real}\n"),
+            "",
+        ] {
+            assert_eq!(spec.exit_ref(text), None, "{text:?}");
+        }
+        assert!(spec.has_exit_ref());
+        // An unknown ID makes agy warn and open a fresh conversation, not exit: nothing to read as missing.
+        assert!(!spec.has_missing_conversation() && !spec.has_fork_failed());
+        assert_eq!(
+            spec.missing_conversation(&format!("warning: conversation \"{real}\" not found")),
+            None
+        );
     }
 
     #[test]

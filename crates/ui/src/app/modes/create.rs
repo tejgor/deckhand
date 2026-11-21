@@ -1265,9 +1265,9 @@ mod tests {
         app.create.parent_id = Some("p1".to_owned());
         app.create.sub_session_kind = Some(SubSessionKind::Clean);
         app.set_mode(Mode::PickProgram);
-        // Three agents, ⑂ fork and ↳ handoff: five options, wrapping.
+        // Four agents, ⑂ fork and ↳ handoff: six options, wrapping.
         handle_pick_program(&mut app, &up());
-        assert_eq!(app.create.program_index, 4);
+        assert_eq!(app.create.program_index, 5);
         handle_pick_program(&mut app, &Input::text("j"));
         assert_eq!(app.create.program_index, 0);
         handle_pick_program(&mut app, &Input::text("k"));
@@ -1279,12 +1279,13 @@ mod tests {
         assert_eq!(app.create.worktree_mode, WorktreeMode::None);
         // Now only the agents: no fork, no handoff row.
         handle_pick_program(&mut app, &up());
-        assert_eq!(app.create.program_index, 2);
+        assert_eq!(app.create.program_index, 3);
         // Esc goes back to the sub-session choices first, then cancels.
         handle_pick_program(&mut app, &escape());
         assert_eq!(app.create.handoff_from_id, None);
         assert_eq!(app.create.program_index, 0);
         assert_eq!(app.mode, Mode::PickProgram);
+        handle_pick_program(&mut app, &down());
         handle_pick_program(&mut app, &down());
         handle_pick_program(&mut app, &down());
         handle_pick_program(&mut app, &down());
@@ -1308,9 +1309,9 @@ mod tests {
         app.browse.selected_id = Some("s1".to_owned());
         app.create.worktree_mode = WorktreeMode::New;
         app.set_mode(Mode::PickProgram);
-        // Three agents and ⑂ fork alpha: four options, wrapping.
+        // Four agents and ⑂ fork alpha: five options, wrapping.
         handle_pick_program(&mut app, &up());
-        assert_eq!(app.create.program_index, 3);
+        assert_eq!(app.create.program_index, 4);
         handle_pick_program(&mut app, &enter());
         assert_eq!(app.mode, Mode::EnterName);
         assert_eq!(app.create.parent_id, None);
@@ -1344,9 +1345,9 @@ mod tests {
             let derived = app.derived();
             top_level_fork_source(&app.create, &derived.sessions, derived.selected.as_ref()).cloned()
         };
-        // Nothing selected: the three agents only.
+        // Nothing selected: the four agents only.
         handle_pick_program(&mut app, &up());
-        assert_eq!(app.create.program_index, 2);
+        assert_eq!(app.create.program_index, 3);
         assert_eq!(top_level_fork_source(&app), None);
         // A task's session is never a fork.
         app.browse.selected_id = Some("s1".to_owned());
@@ -1358,7 +1359,7 @@ mod tests {
         assert_eq!(top_level_fork_source(&app), None);
         app.create.program_index = 0;
         handle_pick_program(&mut app, &up());
-        assert_eq!(app.create.program_index, 2);
+        assert_eq!(app.create.program_index, 3);
     }
 
     #[test]
@@ -1412,7 +1413,7 @@ mod tests {
         assert_eq!(app.create.worktree_mode, WorktreeMode::None);
         let pick = CreatePaneProps {
             mode: CreateStep::PickProgram,
-            program_index: 3,
+            program_index: 4,
             draft_name: "",
             worktree_mode: WorktreeMode::None,
             parent_title: None,
@@ -1425,7 +1426,7 @@ mod tests {
             task_title: None,
             base: None,
         };
-        assert_eq!(texts(&create_pane_rows(&pick, 60))[6], "❯ ⑂ Fork alpha");
+        assert_eq!(texts(&create_pane_rows(&pick, 60))[7], "❯ ⑂ Fork alpha");
         let props = CreatePaneProps {
             mode: CreateStep::EnterName,
             program_index: 2,
@@ -1456,7 +1457,7 @@ mod tests {
         app.data.repo_sessions = vec![parent];
         app.create.parent_id = Some("p1".to_owned());
         app.create.worktree_mode = WorktreeMode::New;
-        app.create.program_index = 3;
+        app.create.program_index = 4;
         app.set_mode(Mode::PickProgram);
         handle_pick_program(&mut app, &enter());
         assert_eq!(app.mode, Mode::EnterName);
@@ -2166,14 +2167,15 @@ mod tests {
             fork_source_title: None,
             show_handoff_option: true,
             from_handoff: false,
-            program_index: 4,
+            program_index: 5,
             ..handoff
         };
         let rows = texts(&create_pane_rows(&options, 60));
         assert_eq!(rows[0], "New sub-session under beta");
-        assert_eq!(rows[6], "  ⑂ Fork parent");
-        assert_eq!(rows[7], "❯ ↳ From its handoff (H)");
-        assert_eq!(rows[8], "Parent: beta");
+        assert_eq!(rows[6], "  △ Antigravity");
+        assert_eq!(rows[7], "  ⑂ Fork parent");
+        assert_eq!(rows[8], "❯ ↳ From its handoff (H)");
+        assert_eq!(rows[9], "Parent: beta");
     }
 
     #[test]

@@ -323,6 +323,10 @@ pub fn command_args_for(program: ProgramKey, inputs: &CommandInputs) -> Vec<Stri
                 }
             }
         }
+        // agy takes no skill, instructions or MCP server for one launch: the skill and the `deckhand` tool come from
+        // the global plugin `deckhand plugin agy` installs (`crate::antigravity_plugin`), whose tool each launch
+        // allows in its `--settings` (`agent_path::agy_launch_args`).
+        ProgramKey::Agy => {}
     }
     args
 }

@@ -194,7 +194,7 @@ pub fn validate_project_config(value: &Value, label: Option<&str>) -> Result<Ord
         }
     }
     if let Some(agent) = record.get("defaultAgent")
-        && !matches!(agent.as_str(), Some("claude" | "pi" | "codex"))
+        && !matches!(agent.as_str(), Some("claude" | "pi" | "codex" | "agy"))
     {
         return Err(DhError::msg("Invalid defaultAgent"));
     }

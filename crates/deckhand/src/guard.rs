@@ -18,6 +18,7 @@ pub fn needs_home(command: &Command) -> bool {
         Command::Hooks(_)
         | Command::Setup(_)
         | Command::Doctor(_)
+        | Command::Plugin(_)
         | Command::Version
         | Command::Help
         | Command::Mcp => false,

@@ -33,10 +33,10 @@ pub fn rejects(result: Result<Value, String>, needle: &str) {
     }
 }
 
-/// The fake agents (claude, pi, codex) in `<sandbox>/bin`; returns that directory. `fake` is `fake_agent!()`.
+/// The fake agents (claude, pi, codex, agy) in `<sandbox>/bin`; returns that directory. `fake` is `fake_agent!()`.
 pub fn install_agents(sandbox: &Sandbox, fake: &Path) -> PathBuf {
     let bin = sandbox.root().join("bin");
-    for provider in ["claude", "pi", "codex"] {
+    for provider in ["claude", "pi", "codex", "agy"] {
         install_agent(&bin, provider, fake, AgentOptions::default());
     }
     bin

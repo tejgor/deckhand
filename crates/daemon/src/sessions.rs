@@ -22,10 +22,10 @@ use deckhand_core::work_notes::line_prompt;
 use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
 use deckhand_protocol::data::{
-    AgentActivityStatus, AgentSessionRef, AttentionState, CreateSessionInput, ExitReason, InterruptedWhile, JsNumber,
-    LoadedProject, MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord, SessionRestartOutcome, SessionRole,
-    SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskOp,
-    WorkNoteKind, WorktreeCreator, WorktreeMode, WorktreeOrigin,
+    AgentActivityStatus, AgentSessionRef, AgentSessionRefKind, AttentionState, CreateSessionInput, ExitReason,
+    InterruptedWhile, JsNumber, LoadedProject, MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord,
+    SessionRestartOutcome, SessionRole, SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord,
+    SetupState, SubSessionKind, TaskOp, WorkNoteKind, WorktreeCreator, WorktreeMode, WorktreeOrigin,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
@@ -33,7 +33,7 @@ use deckhand_protocol::wire::{
     js_string, js_truthy, node_received,
 };
 use deckhand_protocol::{KeyOrder, Ordered};
-use deckhand_sys::agent_path::integration_args;
+use deckhand_sys::agent_path::{agy_launch_args, integration_args};
 use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::git::{
     branch_creation_commit, create_worktree_for_session, current_branch, delete_local_branch, find_git_common_dir,
@@ -1574,6 +1574,15 @@ impl Daemon {
             .await?,
         );
         args.extend(
+            agy_launch_args(
+                prepared_session.program,
+                &prepared_session.command,
+                &prepared_session.cwd,
+                app_config.allow_deckhand_commands != Some(false),
+            )
+            .await,
+        );
+        args.extend(
             self.deckhand_command_args(
                 prepared_session.program,
                 &prepared_session.command,
@@ -1669,6 +1678,76 @@ impl Daemon {
         Ok(())
     }
 
+    /// Not in the TS: the conversation an Antigravity session resumes when it exited without naming one (the daemon
+    /// was gone when agy printed its exit hint: `deckhand restart`, a crash). agy's own `last_conversations.json`
+    /// entry for the session's directory ([`deckhand_sys::antigravity`]), used only when that conversation was written
+    /// during the session's last launch (`agentStartedAt`), no other Antigravity session shares that directory (their
+    /// entries overwrite each other) and no other session holds that ID. Otherwise, or
+    /// when there is none, the session stays without one and `s` refuses as before.
+    async fn antigravity_conversation(
+        &self,
+        session: Ordered<SessionRecord>,
+        mode: RestartMode,
+        never_started: bool,
+    ) -> Ordered<SessionRecord> {
+        if session.program != ProgramKey::Agy
+            || mode != RestartMode::Resume
+            || never_started
+            || session.agent_session_ref.is_some()
+            || session.cwd.is_empty()
+        {
+            return session;
+        }
+        let (shared, held) = {
+            let sessions = self.sessions.borrow();
+            let others = || sessions.sessions.values().filter(|other| other.id != session.id);
+            let directory = path::resolve(&session.cwd);
+            let shared =
+                others().any(|other| other.program == ProgramKey::Agy && path::resolve(&other.cwd) == directory);
+            let held: HashSet<String> = others()
+                .filter_map(|other| other.agent_session_ref.as_ref())
+                .map(|reference| reference.value.clone())
+                .collect();
+            (shared, held)
+        };
+        if shared {
+            self.log_soon(format!(
+                "{}: another Antigravity session shares its directory, so its last conversation there is not taken",
+                session.id
+            ));
+            return session;
+        }
+        // The launch whose exit was missed (set at every launch): its conversation was written after it started.
+        let Some(since) = session
+            .agent_started_at
+            .as_deref()
+            .and_then(date::parse)
+            .and_then(|ms| u64::try_from(ms).ok())
+            .map(|ms| std::time::UNIX_EPOCH + std::time::Duration::from_millis(ms))
+        else {
+            return session;
+        };
+        let data_dir = deckhand_sys::antigravity::app_data_dir();
+        match deckhand_sys::antigravity::last_conversation(&data_dir, &session.cwd, since).await {
+            Some(id) if !held.contains(&id) => {
+                self.log_soon(format!(
+                    "{} resumes Antigravity conversation {id}, the last one in its directory",
+                    session.id
+                ));
+                let mut session = session;
+                assign(&mut session, "agentSessionRef");
+                session.agent_session_ref = Some(AgentSessionRef {
+                    provider: ProgramKey::Agy,
+                    kind: AgentSessionRefKind::Id,
+                    value: id,
+                    extra: Default::default(),
+                });
+                session
+            }
+            _ => session,
+        }
+    }
+
     /// TS: InkDaemon.restartSession: `s` resumes (or re-forks), `S` starts fresh; retries owed setup first.
     ///
     /// `mode` is `None` for a mode the client sent that is neither: TS then tests `mode === 'resume'` and
@@ -1725,6 +1804,9 @@ impl Daemon {
         let restart_source = self
             .continued_conversation(source, mode.unwrap_or(RestartMode::Fresh), never_started)
             .await;
+        let restart_source = self
+            .antigravity_conversation(restart_source, mode.unwrap_or(RestartMode::Fresh), never_started)
+            .await;
         if never_started
             && existing
                 .requested_worktree_mode
@@ -1745,7 +1827,8 @@ impl Daemon {
         // starts fresh.
         let relaunch_mode = if fresh { RestartMode::Fresh } else { RestartMode::Resume };
         let Some(plan) = relaunch_plan(&restart_source, relaunch_mode, never_started, &agent_name) else {
-            let hooks = if agent.id_at_launch {
+            // Antigravity has no hooks yet: only its exit hint names the conversation.
+            let hooks = if agent.id_at_launch || existing.program == ProgramKey::Agy {
                 String::new()
             } else {
                 format!(", or enable trusted {} hooks before starting new sessions", agent.label)
@@ -1857,6 +1940,15 @@ impl Daemon {
                     config.claude_scroll_override != Some(false),
                 )
                 .await?,
+            );
+            args.extend(
+                agy_launch_args(
+                    starting.program,
+                    &starting.command,
+                    &starting.cwd,
+                    config.allow_deckhand_commands != Some(false),
+                )
+                .await,
             );
             args.extend(
                 self.deckhand_command_args(starting.program, &starting.command, &config, starting.role)
@@ -2600,6 +2692,19 @@ mod tests {
         let pi = read_agent_exit(&pi_fork, "No session found matching x");
         assert!(pi.failed);
         assert_eq!(pi.agent_session_ref.unwrap().value, "/p/s.jsonl");
+
+        // Antigravity's exit screen (Ctrl+D twice, /exit, SIGTERM or SIGHUP alike) names its conversation.
+        let agy = record(json!({"program": "agy"}));
+        let exited = read_agent_exit(
+            &agy,
+            &format!("> \n\u{1b}[?2004l\r\nResume with -c (or command below):\r\nagy --conversation={id}\r\n"),
+        );
+        assert!(!exited.failed);
+        assert_eq!(exited.note, None);
+        let reference = exited.agent_session_ref.unwrap();
+        assert_eq!((reference.provider, reference.value.as_str()), (ProgramKey::Agy, id));
+        // A session that never sent a message prints no hint: nothing to resume.
+        assert_eq!(read_agent_exit(&agy, "> Auto mode\n").agent_session_ref, None);
     }
 
     #[test]

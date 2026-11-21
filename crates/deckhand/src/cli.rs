@@ -17,7 +17,7 @@ use deckhand_sys::paths;
 use serde_json::Value;
 
 use crate::hooks::HooksTarget;
-use crate::{commands, doctor, hook, hooks, mcp, restart, setup, ui_loop, update};
+use crate::{commands, doctor, hook, hooks, mcp, plugin, restart, setup, ui_loop, update};
 
 /// TS: cli.ts `process.title` in the dev channel.
 pub const DEV_PROCESS_TITLE: &str = "deckhand-dev";
@@ -52,6 +52,8 @@ pub enum Command {
     Setup(Vec<String>),
     /// `doctor [args...]` (TS: same as setup; the port adds the Codex hooks check, see `crate::doctor`).
     Doctor(Vec<String>),
+    /// `plugin agy [--remove]` (not in TS): install or remove Deckhand's Antigravity plugin (see `crate::plugin`).
+    Plugin(Vec<String>),
     /// `restart [--yes|-y]` (not in TS): replace the running daemon with this executable's (see `crate::restart`).
     Restart(Vec<String>),
     /// `update [--yes|-y]` (not in TS): update Deckhand the way it was installed (see `crate::update`).
@@ -76,6 +78,7 @@ Commands:
   restart [--yes|-y]           Restart the daemon to run this version (running sessions are interrupted)
   update [--yes|-y]            Update Deckhand the way it was installed, then offer to restart the daemon
   hooks [codex]                Print the hooks config to save in an agent's settings (codex: for Codex)
+  plugin agy [--remove]        Install (or remove) Deckhand's plugin for Antigravity: the deckhand skill and tool
   --version                    Print the version
   help, --help, -h             Show this help
 
@@ -140,6 +143,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
     match first {
         Some("setup") => Command::Setup(rest()),
         Some("doctor") => Command::Doctor(rest()),
+        Some("plugin") => Command::Plugin(rest()),
         Some("restart") => Command::Restart(rest()),
         Some("update") => Command::Update(rest()),
         Some("--version") => Command::Version,
@@ -186,6 +190,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::Daemon => run_daemon().await?,
         Command::Setup(args) => setup::run_setup(&args).await?,
         Command::Doctor(args) => return Ok(doctor_exit_code(doctor::run_doctor(&args).await?)),
+        Command::Plugin(args) => plugin::run_plugin(&args).await?,
         Command::Restart(args) => return restart::run_restart(&args).await,
         Command::Update(args) => return update::run_update(&args).await,
         Command::Version => print_line(&version_line()),
@@ -380,6 +385,10 @@ mod tests {
         assert_eq!(
             parse_args(&args(&["hooks", "codex"]), false),
             Command::Hooks(HooksTarget::Codex)
+        );
+        assert_eq!(
+            parse_args(&args(&["plugin", "agy", "--remove"]), false),
+            Command::Plugin(args(&["agy", "--remove"]))
         );
         assert_eq!(
             parse_args(&args(&["hooks", "claude"]), false),

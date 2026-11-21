@@ -8,8 +8,8 @@ use serde_with::skip_serializing_none;
 
 use crate::agent_versions::{InstalledVersions, session_outdated};
 use crate::display::{
-    Color, THEME, display_session_title, program_glyph, projected_parents, status_color, status_glyph, truncate,
-    wrap_words,
+    Color, THEME, display_session_title, program_glyph, program_name, projected_parents, status_color, status_glyph,
+    truncate, wrap_words,
 };
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
 use crate::messages_model::{MESSAGE_MARKER, MessagesBrief, brief_text, held_reason_text};
@@ -1412,7 +1412,7 @@ pub const WAITED_BEFORE_RESTART: &str = "was waiting on you before the restart";
 /// An outdated session names both versions first (`claude 2.1.287 · 2.1.290 installed`, then `2.1.287 → 2.1.290`).
 fn state_line(session: &SessionRecord, state: &str, age: &str, width: usize, installed: Option<&str>) -> DetailLine {
     let glyph = program_glyph(session.program);
-    let program = session.program.as_str();
+    let program = program_name(session.program);
     let sep = DetailPart {
         text: " · ".into(),
         color: Some(THEME.muted),

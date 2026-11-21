@@ -256,6 +256,16 @@ pub fn program_glyph(program: ProgramKey) -> &'static str {
         ProgramKey::Claude => "✶",
         ProgramKey::Pi => "π",
         ProgramKey::Codex => "◇",
+        ProgramKey::Agy => "△",
+    }
+}
+
+/// Not in the TS: the agent as a person reads it in lists and details: its key (`claude`, `pi`, `codex`, as the TS
+/// showed them), except Antigravity, whose key (`agy`, its binary) is not its name.
+pub fn program_name(program: ProgramKey) -> &'static str {
+    match program {
+        ProgramKey::Agy => "Antigravity",
+        _ => program.as_str(),
     }
 }
 
@@ -857,6 +867,16 @@ mod tests {
                 case.arg_usize(2)?,
             ))
         });
+    }
+
+    #[test]
+    fn antigravity_reads_by_name_and_glyph() {
+        assert_eq!(program_glyph(ProgramKey::Agy), "△");
+        assert_eq!(program_name(ProgramKey::Agy), "Antigravity");
+        // The others keep the key, as the sidebar always showed them.
+        for program in [ProgramKey::Claude, ProgramKey::Pi, ProgramKey::Codex] {
+            assert_eq!(program_name(program), program.as_str());
+        }
     }
 
     #[test]

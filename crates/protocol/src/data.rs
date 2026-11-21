@@ -82,7 +82,7 @@ impl<'de> Deserialize<'de> for JsNumber {
     }
 }
 
-string_union!(ProgramKey { Claude = "claude", Pi = "pi", Codex = "codex" });
+string_union!(ProgramKey { Claude = "claude", Pi = "pi", Codex = "codex", Agy = "agy" });
 string_union!(SessionStatus { Starting = "starting", Running = "running", Exited = "exited" });
 string_union!(AgentActivityStatus { Unknown = "unknown", Active = "active", Idle = "idle" });
 string_union!(WorktreeMode { None = "none", New = "new", Existing = "existing" });
@@ -760,6 +760,8 @@ pub struct AgentVersions {
     pub claude: AgentVersionInfo,
     pub pi: AgentVersionInfo,
     pub codex: AgentVersionInfo,
+    /// Antigravity (`agy`).
+    pub agy: AgentVersionInfo,
 }
 
 /// Not in the TS: one session's part of `restart-sessions`: `error` says why it was not resumed.

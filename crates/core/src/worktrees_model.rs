@@ -663,7 +663,7 @@ mod tests {
                 let mut session = session.clone();
                 let object = session.as_object_mut().ok_or("session: not an object")?;
                 coerce(object, "status", &["starting", "running", "exited"], Some("exited"));
-                coerce(object, "program", &["claude", "codex", "pi"], Some("claude"));
+                coerce(object, "program", &["claude", "codex", "pi", "agy"], Some("claude"));
                 if let Some(worktree) = object.get_mut("worktree").and_then(Value::as_object_mut) {
                     coerce(worktree, "mode", &["managed", "external", "none"], Some("managed"));
                 }

@@ -575,9 +575,9 @@ pub fn hook_payload_fields(payload: &Value) -> Result<Map<String, Value>> {
 }
 
 /// TS: agentSignals.ts hooksEnabled: whether launches pass agent signals (the user's setting, else on for Claude
-/// only: Codex needs its own hooks set up first).
+/// only: Codex needs its own hooks set up first). Never for Antigravity, which Deckhand reads from its screen alone.
 pub fn hooks_enabled(setting: Option<bool>, program: ProgramKey) -> bool {
-    setting.unwrap_or(program == ProgramKey::Claude)
+    program != ProgramKey::Agy && setting.unwrap_or(program == ProgramKey::Claude)
 }
 
 /// TS: agentSignals.ts attentionMessage (the reason as a notification's text, else the state in words).

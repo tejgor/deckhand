@@ -3,6 +3,8 @@
 pub mod agent_commands;
 pub mod agent_path;
 pub mod agent_version_check;
+pub mod antigravity;
+pub mod antigravity_plugin;
 pub mod async_util;
 pub mod changes_git;
 pub mod claude_transcripts;

@@ -1,7 +1,9 @@
-//! `deckhand mcp`: the `deckhand` commands as one MCP tool, for Codex (not in the TS).
+//! `deckhand mcp`: the `deckhand` commands as one MCP tool, for Codex and Antigravity (not in the TS).
 //!
 //! Codex runs shell commands in a sandbox that keeps the CLI from reaching the daemon's socket, but starts MCP
-//! servers as its own children, outside it (`deckhand_sys::agent_commands` adds this one at launch). The server
+//! servers as its own children, outside it (`deckhand_sys::agent_commands` adds this one at launch). Antigravity
+//! (`agy`) starts it from Deckhand's global plugin (`deckhand plugin agy`, `deckhand_sys::antigravity_plugin`) with
+//! its own environment, so with the session's variables below; outside a Deckhand session the tool refuses. The server
 //! speaks MCP over stdio: one JSON-RPC 2.0 message per line on stdin and stdout, logs on stderr. Its one tool,
 //! [`TOOL_NAME`], runs this executable with the words it is given (only the agent commands,
 //! [`AGENT_WORDS`]), in this process's environment, which Codex forwards from its own (`env_vars`): the caller's

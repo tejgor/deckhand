@@ -1,7 +1,7 @@
 <h1 align="center"><img src="assets/readme-banner.svg" alt="Deckhand" width="100%"></h1>
 
 <p align="center">
-  <strong>Run Claude Code, Codex and Pi side by side, each in its own git worktree.</strong><br>
+  <strong>Run Claude Code, Codex, Pi and Antigravity side by side, each in its own git worktree.</strong><br>
   A lightweight agent workbench for the terminal inside your editor.
 </p>
 
@@ -49,7 +49,7 @@ Or, without Homebrew:
 curl -fsSL https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
 ```
 
-Deckhand runs on macOS and Linux, and on Windows inside WSL2. It needs `git` and at least one agent on your `PATH`: [Claude Code](https://code.claude.com) (`claude`), [Codex](https://github.com/openai/codex) (`codex`) or [Pi](https://pi.dev) (`pi`). `deckhand setup` installs any that are missing with their official installers.
+Deckhand runs on macOS and Linux, and on Windows inside WSL2. It needs `git` and at least one agent on your `PATH`: [Claude Code](https://code.claude.com) (`claude`), [Codex](https://github.com/openai/codex) (`codex`), [Pi](https://pi.dev) (`pi`) or Google's [Antigravity CLI](https://antigravity.google) (`agy`). `deckhand setup` installs any of the first three that are missing with their official installers; install Antigravity yourself.
 
 Release archives, `cargo install`, optional tools, updating and uninstalling are in [docs/install.md](docs/install.md). Coming from Deckhand 2 on npm? See [Upgrading from npm](docs/upgrading-from-npm.md). What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -58,7 +58,7 @@ Release archives, `cargo install`, optional tools, updating and uninstalling are
 1. Run `deckhand` inside a git repository. The first run starts the background daemon.
 2. Press `n` for a new session. Pick an agent with `↑`/`↓`, then type a name: it becomes the session's title and the new worktree's folder and branch. Press `tab` until the form says **new worktree**, then `enter`.
 3. Press `o` to attach to the agent and give it a task, as you would in the agent itself. Press `ctrl+]` to detach; the agent keeps working.
-4. Watch it on the Preview tab. When the agent needs you, such as a question or a permission prompt, the sidebar shows `?`: press `→` to answer it right there (or `o` to open it full screen), then `ctrl+]` to go back. Claude Code reports this out of the box and Codex after a [one-time setup](#configuration); with Pi, keep an eye on its preview.
+4. Watch it on the Preview tab. When the agent needs you, such as a question or a permission prompt, the sidebar shows `?`: press `→` to answer it right there (or `o` to open it full screen), then `ctrl+]` to go back. Claude Code reports this out of the box and Codex after a [one-time setup](#configuration); with Pi and Antigravity, keep an eye on its preview.
 5. When the work is done, press `m` to merge its worktree into the branch of the checkout you started `deckhand` in. The result is staged, not committed.
 6. Press `W` to see which worktrees are merged and safe to delete.
 
@@ -112,7 +112,7 @@ All keys, and what each sidebar symbol means: [docs/keys.md](docs/keys.md).
 
 Press `C` for Settings: your global settings (`~/.deckhand/config.json`) in one column and this repository's (`deckhand.json` in its main checkout) in the other. Deckhand asks you to review a repository's `deckhand.json` before it runs anything from it, and again whenever it changes.
 
-- **Agent signals** tell Deckhand when an agent needs you, has finished or has failed. Claude Code reports them out of the box. For Codex, switch agent signals on in Settings and set up its hooks once with `deckhand hooks codex` ([how](docs/features.md#lifecycle-signals-and-notifications)). Pi has no signals.
+- **Agent signals** tell Deckhand when an agent needs you, has finished or has failed. Claude Code reports them out of the box. For Codex, switch agent signals on in Settings and set up its hooks once with `deckhand hooks codex` ([how](docs/features.md#lifecycle-signals-and-notifications)). Pi and Antigravity have no signals.
 - **Notifications** (off by default) show the same signals as desktop alerts. On macOS, switching them on sends a test so you can allow Deckhand straight away ([details](docs/features.md#allowing-notifications-on-macos)).
 
 ## FAQ
@@ -124,7 +124,7 @@ No. The daemon keeps them running. Stopping or restarting the daemon itself ends
 It never commits on your branch: a merge leaves the result staged for you to commit. Before merging, it commits leftover changes in the agent's worktree, with the session title as the message; press `space` on the merge screen to leave them uncommitted. Deckhand pushes only when you open a pull request from the Git summary (`i`, then `c`), and asks first.
 
 **Does it change my agents' settings?**
-No. Claude Code gets Deckhand's hooks as a launch option, and every agent is told about the [`deckhand` commands](docs/features.md#what-agents-are-told) the same way. You add Codex's hooks yourself.
+Only if you ask. Claude Code gets Deckhand's hooks as a launch option, and Claude, Codex and Pi are told about the [`deckhand` commands](docs/features.md#what-agents-are-told) the same way. You add Codex's hooks yourself, and Antigravity's plugin with `deckhand plugin agy` (the one thing Deckhand writes into an agent's own configuration). Antigravity is told for each session to trust its worktree, for that session only; its settings file is never written.
 
 **Something isn't working.**
 See [Troubleshooting](docs/troubleshooting.md).

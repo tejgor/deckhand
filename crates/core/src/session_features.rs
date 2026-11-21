@@ -152,11 +152,16 @@ pub fn filter_session_list<'a, S: SessionLike>(
                 .and_then(|task_title| task_title(session))
                 .unwrap_or_default();
             // Not in the TS: the path (`parent / child`), so a parent's name finds its sub-sessions.
+            // The agent by key and by name (Antigravity's differ).
+            let program = match crate::display::program_name(session.program) {
+                name if name == session.program.as_str() => name.to_owned(),
+                name => format!("{} {name}", session.program),
+            };
             let haystack = js_to_lower(&format!(
                 "{} {} {} {} {} {}",
                 session_path_title_by(session, |id| first_by_id.get(id).copied()),
                 session.notes.as_deref().unwrap_or(""),
-                session.program,
+                program,
                 session
                     .worktree
                     .as_ref()
@@ -397,7 +402,7 @@ pub fn handoff_markdown(
         "# Deckhand handoff".into(),
         String::new(),
         format!("Task: {}", session.title),
-        format!("Provider: {}", session.program),
+        format!("Provider: {}", crate::display::program_name(session.program)),
         format!("Workspace: {}", session.cwd),
         format!(
             "Branch: {}",

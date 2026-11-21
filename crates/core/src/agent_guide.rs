@@ -23,6 +23,11 @@ pub const CODEX_TRIGGER: &str = "This is a Deckhand session. Only when the user 
 session, add a task, a step or a note), call the `deckhand` tool with args [\"guide\"] once per conversation, unless \
 it is still in context.";
 
+/// Not in the TS: the line Antigravity's copy of the skill starts with (`deckhand plugin agy`). agy may run a shell
+/// command in its sandbox, which stops `deckhand` (it writes outside the workspace), and loads the plugin's tool only
+/// after its first turn has started.
+pub const AGY_TOOL_NOTE: &str = "In Antigravity, run these through the `deckhand` tool (its args are the words after `deckhand`). Until that tool is available, run them in your shell.";
+
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
 
@@ -39,7 +44,7 @@ Take Deckhand actions only when the user asks, with one exception: when a messag
 with deckhand reply. Never start or end sessions or move tasks unasked. Merges and worktree deletions stay with the
 user.
 
-deckhand new --title <t> --prompt <brief> [--agent claude|codex|pi] [--task <id>] [--parent <id>]
+deckhand new --title <t> --prompt <brief> [--agent claude|codex|pi|agy] [--task <id>] [--parent <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--draft]
   Starts a sub-session of this one in a new worktree, stacked on this branch (--flat: not). --worktree same: this
   worktree; none: the main checkout. --top-level: a sibling; --parent: under a session below you. Its
@@ -92,6 +97,7 @@ mod tests {
         assert!(TRIGGER.contains("`deckhand guide` once per conversation"));
         assert!(GUIDE.contains("As tool args, pass the words after `deckhand`"));
         assert!(GUIDE.starts_with("# deckhand: "));
+        assert!(AGY_TOOL_NOTE.len() <= ALWAYS_LOADED_BUDGET);
     }
 
     #[test]

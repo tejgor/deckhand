@@ -16,6 +16,7 @@ mod hooks;
 mod mcp;
 #[cfg(target_os = "macos")]
 mod notifier;
+mod plugin;
 mod restart;
 mod setup;
 mod ui_loop;

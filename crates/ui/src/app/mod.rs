@@ -92,7 +92,7 @@ pub struct ProgramOption {
 }
 
 /// TS: app.tsx PROGRAMS (the new-session picker's agents, in order).
-pub const PROGRAMS: [ProgramOption; 3] = [
+pub const PROGRAMS: [ProgramOption; 4] = [
     ProgramOption {
         key: ProgramKey::Claude,
         label: "Claude",
@@ -107,6 +107,11 @@ pub const PROGRAMS: [ProgramOption; 3] = [
         key: ProgramKey::Codex,
         label: "Codex",
         glyph: "◇",
+    },
+    ProgramOption {
+        key: ProgramKey::Agy,
+        label: "Antigravity",
+        glyph: "△",
     },
 ];
 

@@ -6,7 +6,7 @@ Common problems and their fixes. Back to the [README](../README.md).
 
 ## Deckhand can't find an agent
 
-Check with `which claude` (or `codex`, `pi`).
+Check with `which claude` (or `codex`, `pi`, `agy`).
 
 Sessions inherit the `PATH` of the shell that started the daemon: the shell where you last ran `deckhand restart`, or ran `deckhand` while no daemon was running. After installing an agent or changing `PATH`, run `deckhand restart` from a shell that has the new `PATH`. This interrupts running sessions; `s` resumes each conversation.
 

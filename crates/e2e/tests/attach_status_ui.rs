@@ -31,7 +31,7 @@ while :; do
 	sleep 0.05
 done
 "#;
-    for agent in ["claude", "pi", "codex"] {
+    for agent in ["claude", "pi", "codex", "agy"] {
         let file = dir.join(agent);
         fs::write(&file, script).expect("write agent");
         fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod agent");
@@ -80,9 +80,10 @@ fn the_status_line_holds_its_rows_for_every_agent_and_pane() {
     );
     ui.screen("DEV (isolated)");
     ui.screen("● ready");
-    // The agent picker lists Claude, Pi, Codex: `j` moves down (one key at a time, or they arrive as one chunk).
-    let options = ["✶ Claude", "π Pi", "◇ Codex"];
-    for (index, agent) in ["claude", "pi", "codex"].into_iter().enumerate() {
+    // The agent picker lists Claude, Pi, Codex, Antigravity: `j` moves down (one key at a time, or they arrive as one
+    // chunk).
+    let options = ["✶ Claude", "π Pi", "◇ Codex", "△ Antigravity"];
+    for (index, agent) in ["claude", "pi", "codex", "agy"].into_iter().enumerate() {
         let name = format!("noisy-{agent}");
         ui.press("n");
         ui.screen("Choose an agent");
@@ -146,7 +147,7 @@ fn the_status_line_holds_its_rows_for_every_agent_and_pane() {
     ui.press("\r");
     let frame = ui.screen_within("· terminal", Duration::from_secs(10));
     assert!(
-        row_from_bottom(&frame, 0).contains("deckhand") && row_from_bottom(&frame, 0).contains("noisy-codex"),
+        row_from_bottom(&frame, 0).contains("deckhand") && row_from_bottom(&frame, 0).contains("noisy-agy"),
         "terminal: status line missing from the bottom row:\n{frame}"
     );
     ui.press("stty size\r");

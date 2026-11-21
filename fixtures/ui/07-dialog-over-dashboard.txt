@@ -17,12 +17,12 @@ deckhand                                                                        
 │                      │ │ agent output line 11│ ❯ ✶ Claude                                               │                      │
 │                      │ │ agent output line 12│   π Pi                                                   │                      │
 │                      │ │ agent output line 13│   ◇ Codex                                                │                      │
-│                      │ │ agent output line 14│   ⑂ Fork auth refactor                                   │                      │
-│                      │ │ agent output line 15│                                                          │                      │
-│                      │ │ agent output line 16│ enter continue • esc cancel                              │                      │
-│                      │ │ agent output line 17│                                                          │                      │
-│                      │ │ agent output line 18╰──────────────────────────────────────────────────────────╯                      │
-│                      │ │ agent output line 19                                                                                  │
+│                      │ │ agent output line 14│   △ Antigravity                                          │                      │
+│                      │ │ agent output line 15│   ⑂ Fork auth refactor                                   │                      │
+│                      │ │ agent output line 16│                                                          │                      │
+│                      │ │ agent output line 17│ enter continue • esc cancel                              │                      │
+│                      │ │ agent output line 18│                                                          │                      │
+│                      │ │ agent output line 19╰──────────────────────────────────────────────────────────╯                      │
 │                      │ │ agent output line 20                                                                                  │
 │                      │ │ agent output line 21                                                                                  │
 │                      │ │ agent output line 22                                                                                  │

@@ -825,7 +825,9 @@ impl Daemon {
 
     /// TS: InkDaemon.firstMessageArgs: `['--', handoffPrompt]` on a handoff child's first launch, `['--',
     /// movedForkPrompt]` for a fork in another worktree, else none. Not in the TS: on the first launch the session's
-    /// `firstMessage` (`create`'s `prompt`) follows either, in the same message.
+    /// `firstMessage` (`create`'s `prompt`) follows either, in the same message. Antigravity refuses a positional
+    /// prompt (and `--` before one), so it gets `-i <message>` (`--prompt-interactive`: run it, then stay
+    /// interactive).
     pub fn first_message_args(&self, session: &SessionRecord, plan: &LaunchPlan, first_launch: bool) -> Vec<String> {
         let mut parts = Vec::new();
         if first_launch && let Some(handoff_path) = session.handoff_path.as_deref().filter(|path| !path.is_empty()) {
@@ -844,7 +846,8 @@ impl Daemon {
         if parts.is_empty() {
             return Vec::new();
         }
-        vec!["--".to_owned(), parts.join("\n\n")]
+        let flag = if session.program == ProgramKey::Agy { "-i" } else { "--" };
+        vec![flag.to_owned(), parts.join("\n\n")]
     }
 
     /// A fork in another worktree than its parent's: what it is told about the move.
@@ -1482,6 +1485,14 @@ mod tests {
         let mut blank = session("b", "/repo", "/repo");
         blank.first_message = Some(" \n ".into());
         assert!(daemon.first_message_args(&blank, &plan("new"), true).is_empty());
+        // Antigravity takes its first message as `-i <text>`, never positionally.
+        let mut agy = child.clone();
+        agy.program = ProgramKey::Agy;
+        assert_eq!(
+            daemon.first_message_args(&agy, &plan("new"), true),
+            ["-i".to_owned(), "Fix the login bug.\nRun the tests.".to_owned()]
+        );
+        assert!(daemon.first_message_args(&agy, &plan("resume"), false).is_empty());
     }
 
     #[test]

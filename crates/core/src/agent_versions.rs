@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use deckhand_protocol::data::{AgentVersionInfo, AgentVersions, ProgramKey, SessionRecord, SessionStatus};
 
-/// TS: agentVersions.ts AGENT_PROGRAMS.
-pub const AGENT_PROGRAMS: [ProgramKey; 3] = [ProgramKey::Claude, ProgramKey::Pi, ProgramKey::Codex];
+/// TS: agentVersions.ts AGENT_PROGRAMS, then Antigravity (`agy`), which the TS never had.
+pub const AGENT_PROGRAMS: [ProgramKey; 4] = [ProgramKey::Claude, ProgramKey::Pi, ProgramKey::Codex, ProgramKey::Agy];
 
 /// TS: agentVersions.ts installedVersions result: `Partial<Record<ProgramKey, string>>`, in AGENT_PROGRAMS order.
 pub type InstalledVersions = IndexMap<ProgramKey, String>;
@@ -127,6 +127,7 @@ fn version_info(versions: &AgentVersions, program: ProgramKey) -> &AgentVersionI
         ProgramKey::Claude => &versions.claude,
         ProgramKey::Pi => &versions.pi,
         ProgramKey::Codex => &versions.codex,
+        ProgramKey::Agy => &versions.agy,
     }
 }
 
@@ -197,6 +198,7 @@ mod tests {
             claude: info(ProgramKey::Claude),
             pi: info(ProgramKey::Pi),
             codex: info(ProgramKey::Codex),
+            agy: info(ProgramKey::Agy),
         })
     }
 
@@ -233,11 +235,11 @@ mod tests {
         assert!(compare_versions("1.10.0", "1.9.9") > 0);
         assert_eq!(compare_versions("0.162.0-alpha.16", "0.162.0"), 0);
         assert_eq!(compare_versions("garbage", "1.0.0"), 0);
-        // The per-agent table: npm package of the latest release and the agent's own update command.
+        // The per-agent table: npm package of the latest release (none: no feed) and the agent's own update command.
         let table: Vec<(ProgramKey, Vec<&str>)> = AGENTS
             .iter()
             .map(|spec| {
-                let mut row = vec![spec.version.npm_package];
+                let mut row = vec![spec.version.npm_package.unwrap_or("-")];
                 row.extend(spec.version.update_args);
                 (spec.program, row)
             })
@@ -251,6 +253,7 @@ mod tests {
                     vec!["@earendil-works/pi-coding-agent", "update", "--self"]
                 ),
                 (ProgramKey::Codex, vec!["@openai/codex", "update"]),
+                (ProgramKey::Agy, vec!["-", "update"]),
             ]
         );
     }

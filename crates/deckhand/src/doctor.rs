@@ -317,12 +317,50 @@ pub async fn run_doctor(args: &[String]) -> Result<DoctorStatus, DhError> {
         status
     });
     let codex = run_codex_hooks_check().await?;
+    run_agy_plugin_check().await;
     run_daemon_check().await;
     Ok(if notifications == Some(DoctorStatus::Problems) {
         DoctorStatus::Problems
     } else {
         codex
     })
+}
+
+/// Not in the TS: whether Deckhand's Antigravity plugin is installed, when agy is (informational, read-only).
+async fn run_agy_plugin_check() {
+    if deckhand_sys::agent_version_check::find_on_path("agy", None)
+        .await
+        .is_none()
+    {
+        return;
+    }
+    let root = deckhand_sys::antigravity_plugin::config_root();
+    let state = deckhand_sys::antigravity_plugin::plugin_state(&root).await;
+    crate::setup::write_stdout(&format_agy_plugin_report(
+        state,
+        &deckhand_sys::antigravity_plugin::plugin_dir(&root),
+    ));
+}
+
+/// `deckhand doctor`'s line about Deckhand's Antigravity plugin.
+pub fn format_agy_plugin_report(state: deckhand_sys::antigravity_plugin::PluginState, dir: &Path) -> String {
+    use deckhand_sys::antigravity_plugin::PluginState;
+    match state {
+        PluginState::Ours => format!(
+            "✓ Antigravity plugin: installed ({})
+",
+            dir.display()
+        ),
+        PluginState::Absent => {
+            "• Antigravity plugin: not installed. deckhand plugin agy gives agy sessions the deckhand \
+                                skill and tool\n"
+                .to_owned()
+        }
+        PluginState::Foreign => format!(
+            "• Antigravity plugin: {} is not Deckhand's, so agy sessions get no deckhand tool\n",
+            dir.display()
+        ),
+    }
 }
 
 /// Not in the TS: the running daemon's build against this one (informational: the status is unchanged, since a
@@ -714,5 +752,20 @@ mod tests {
     fn regenerate_command_follows_the_channel() {
         assert_eq!(regenerate_command(false), "deckhand hooks codex");
         assert_eq!(regenerate_command(true), "scripts/deckhand-dev.sh hooks codex");
+    }
+
+    #[test]
+    fn reports_the_antigravity_plugin() {
+        use deckhand_sys::antigravity_plugin::PluginState;
+        let dir = Path::new("/h/.gemini/config/plugins/deckhand");
+        assert_eq!(
+            format_agy_plugin_report(PluginState::Ours, dir),
+            "✓ Antigravity plugin: installed (/h/.gemini/config/plugins/deckhand)\n"
+        );
+        assert_eq!(
+            format_agy_plugin_report(PluginState::Absent, dir),
+            "• Antigravity plugin: not installed. deckhand plugin agy gives agy sessions the deckhand skill and tool\n"
+        );
+        assert!(format_agy_plugin_report(PluginState::Foreign, dir).contains("is not Deckhand's"));
     }
 }

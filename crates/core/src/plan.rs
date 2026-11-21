@@ -187,7 +187,7 @@ fn read_session(index: usize, value: &Value, problems: &mut Vec<String>) -> Entr
             .copied()
             .find(|program| program.as_str() == agent);
         if found.is_none() {
-            problems.push(format!("{at}: unknown agent \"{agent}\" (claude, codex or pi)"));
+            problems.push(format!("{at}: unknown agent \"{agent}\" (claude, codex, pi or agy)"));
         }
         found
     });
@@ -768,7 +768,7 @@ pub fn entry_line(entry: &PlanSummaryEntry) -> PlanEntryLine {
         words.push(format!("under {parent}"));
     }
     words.push(entry_placement(entry));
-    words.push(entry.agent.as_str().to_owned());
+    words.push(crate::display::program_name(entry.agent).to_owned());
     if let Some(task) = entry.task_title.as_deref() {
         words.push(format!("task: {task}"));
     }
@@ -1092,7 +1092,7 @@ mod tests {
             "sessions[1] (a): prompt is required (the session's complete brief, sent as its first message)",
             "sessions[2] (b): unknown key \"colour\" (allowed: key, title, prompt, agent, parent, worktree, base, flat, task)",
             "sessions[2] (b): title is longer than 64 characters",
-            "sessions[2] (b): unknown agent \"gpt\" (claude, codex or pi)",
+            "sessions[2] (b): unknown agent \"gpt\" (claude, codex, pi or agy)",
             "sessions[2] (b): unknown worktree \"copy\" (new, same or none)",
             "sessions[7] (f): flat must be true or false",
             "tasks[0]: title is required",

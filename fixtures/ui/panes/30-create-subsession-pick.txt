@@ -6,7 +6,6 @@
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
 │                  ╭──────────────────────────────────────────────────────────╮                  │
 │                  │                                                          │                  │
 │                  │ New sub-session under beta                               │                  │
@@ -15,6 +14,7 @@
 │                  │ ❯ ✶ Claude                                               │                  │
 │                  │   π Pi                                                   │                  │
 │                  │   ◇ Codex                                                │                  │
+│                  │   △ Antigravity                                          │                  │
 │                  │   ⑂ Fork parent                                          │                  │
 │                  │ Parent: beta                                             │                  │
 │                  │                                                          │                  │

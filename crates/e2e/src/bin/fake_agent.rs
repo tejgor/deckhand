@@ -1,6 +1,9 @@
-//! A fake claude, codex or pi for the black-box tests.
+//! A fake claude, codex, pi or agy (Antigravity) for the black-box tests.
 //!
-//! Install copies of this binary named `claude`/`codex`/`pi` (`harness::install_agent`); the provider is the file name.
+//! Install copies of this binary named `claude`/`codex`/`pi`/`agy` (`harness::install_agent`); the provider is the file
+//! name. As `agy` it behaves like Antigravity where Deckhand relies on it: a positional prompt (or `--`) is refused, the
+//! first message comes as `-i <text>`, `--conversation <id>` resumes, no hooks are reported, `--help` goes to stderr,
+//! and SIGTERM or SIGHUP print the exit hint `agy --conversation=<id>` before it exits (never with `.nohooks`).
 //! It records its argv and input under `$DECKHAND_HOME` and reports SessionStart through `$TEST_CLI hook`. `--version`
 //! prints the version in the agent's own format; its update command (`claude update`, `codex update`, `pi update
 //! --self`) bumps the patch version and logs the call to `updates.log`. TS rewrote its own source for that; here the
@@ -15,6 +18,19 @@ use std::process::{Command, Stdio};
 use serde_json::{Map, Value, json};
 
 const DEFAULT_VERSION: &str = "1.0.0";
+/// The conversation a fake agy starts when not resuming one (agy picks its own UUIDs).
+const AGY_NEW_CONVERSATION: &str = "a9a9a9a9-0000-4000-8000-000000000001";
+/// agy's options that take a value (the rest of its flags take none).
+const AGY_VALUE_FLAGS: [&str; 8] = [
+    "-i",
+    "--prompt-interactive",
+    "--conversation",
+    "--settings",
+    "--model",
+    "--effort",
+    "--mode",
+    "--add-dir",
+];
 
 fn sidecar(binary: &Path, suffix: &str) -> PathBuf {
     let mut name = binary.as_os_str().to_owned();
@@ -85,7 +101,12 @@ fn main() {
         .unwrap_or_else(|| DEFAULT_VERSION.into());
 
     if args.iter().any(|a| a == "--help") {
-        println!("PROMPT --settings --no-daemon resume");
+        // agy prints its usage to stderr only.
+        if provider == "agy" {
+            eprintln!("Usage of agy:\n  --conversation\n  --prompt-interactive\n  --settings");
+        } else {
+            println!("PROMPT --settings --no-daemon resume");
+        }
         return;
     }
     if args.first().map(String::as_str) == Some("--version") {
@@ -100,6 +121,16 @@ fn main() {
         update(&binary, &provider, &args, &version);
     }
 
+    if provider == "agy"
+        && let Some(unexpected) = agy_unexpected_argument(&args)
+    {
+        println!("Error: unexpected argument {unexpected:?}.");
+        println!(
+            "Prompts are read only from -p/--print, -i/--prompt-interactive, or stdin, so this argument would have been ignored."
+        );
+        std::process::exit(2);
+    }
+
     // `codex fork <parent>` reports its own ID, but first and last also the parent's (a child must never adopt it).
     let fork_of = (provider == "codex" && args.first().map(String::as_str) == Some("fork"))
         .then(|| args.get(1).cloned())
@@ -110,6 +141,8 @@ fn main() {
         flag(&args, "--session-id")
             .or_else(|| flag(&args, "--resume"))
             .unwrap_or_else(|| "fixture-native-claude".into())
+    } else if provider == "agy" {
+        flag(&args, "--conversation").unwrap_or_else(|| AGY_NEW_CONVERSATION.into())
     } else {
         format!("fixture-native-{provider}")
     };
@@ -131,8 +164,13 @@ fn main() {
         Value::Object(trace).to_string(),
     );
 
-    // Hooks run beside the input loop, as TS's async hook spawns did.
-    let hooks = !sidecar(&binary, "nohooks").exists();
+    // `<binary>.nohooks` on agy: it never names its conversation (as when the daemon was gone at its exit).
+    if provider == "agy" && !sidecar(&binary, "nohooks").exists() {
+        print_exit_hint_on_signal(id.clone());
+    }
+
+    // Hooks run beside the input loop, as TS's async hook spawns did. agy has none.
+    let hooks = provider != "agy" && !sidecar(&binary, "nohooks").exists();
     std::thread::spawn(move || {
         if hooks {
             match &fork_of {
@@ -169,6 +207,38 @@ fn main() {
     loop {
         std::thread::sleep(std::time::Duration::from_secs(10));
     }
+}
+
+/// The first argument real agy would refuse: a positional one (it takes no prompt that way), `--` included.
+fn agy_unexpected_argument(args: &[String]) -> Option<&str> {
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        if AGY_VALUE_FLAGS.contains(&arg.as_str()) {
+            rest.next();
+        } else if arg == "--" || !arg.starts_with('-') {
+            return Some(arg);
+        }
+    }
+    None
+}
+
+/// agy prints how to resume when it exits, also when Deckhand stops it (SIGTERM to its group, or SIGHUP). The signals
+/// are blocked here, before any other thread starts, so only this thread takes them.
+fn print_exit_hint_on_signal(id: String) {
+    use nix::sys::signal::{SigSet, Signal};
+    let mut signals = SigSet::empty();
+    signals.add(Signal::SIGTERM);
+    signals.add(Signal::SIGHUP);
+    if signals.thread_block().is_err() {
+        return;
+    }
+    std::thread::spawn(move || {
+        if signals.wait().is_ok() {
+            print!("\r\nResume with -c (or command below):\r\nagy --conversation={id}\r\n");
+            let _ = std::io::stdout().flush();
+            std::process::exit(0);
+        }
+    });
 }
 
 /// `process.stdin.setRawMode(true)` when stdin is a terminal.

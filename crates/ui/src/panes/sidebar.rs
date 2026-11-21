@@ -927,7 +927,7 @@ mod tests {
                         .and_then(Value::as_str)
                         .is_some_and(|name| names.contains(&name))
                 };
-                if !known("program", &["claude", "pi", "codex"], entry) {
+                if !known("program", &["claude", "pi", "codex", "agy"], entry) {
                     entry.insert("program".to_owned(), json!("claude"));
                 }
                 if !known("exitReason", &["stopped", "failed", "completed", "interrupted"], entry) {

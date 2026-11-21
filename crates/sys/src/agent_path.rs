@@ -20,6 +20,7 @@ use deckhand_core::error::{DhError, Result};
 use deckhand_protocol::data::ProgramKey;
 use serde_json::Value;
 
+use crate::antigravity_plugin;
 use crate::paths;
 use crate::proc::{self, ExecOptions};
 
@@ -89,7 +90,8 @@ pub fn hook_settings(async_: bool) -> Result<HookSettings> {
     Ok(hook_settings_for(&hook_command()?, async_))
 }
 
-type HelpProbe = Shared<LocalBoxFuture<'static, String>>;
+/// A `--help` probe's stdout and stderr.
+type HelpProbe = Shared<LocalBoxFuture<'static, (String, String)>>;
 
 thread_local! {
     /// Help texts per command, with an id per probe so a failed probe only removes itself.
@@ -98,8 +100,20 @@ thread_local! {
 }
 
 /// TS: agentSignals.ts programHelp (`<command> --help` stdout, bounded; empty on failure; successes cached per
-/// command for the process's life, concurrent probes shared).
+/// command for the process's life, concurrent probes shared). A help printed only to stderr counts as none.
 pub async fn program_help(command: &str) -> String {
+    help_output(command).await.0
+}
+
+/// Not in the TS: [`program_help`], else what `--help` printed to stderr, which is where Antigravity prints its
+/// usage. Only agy's launch reads it, so the other agents keep the TS's stdout-only probe.
+pub async fn program_help_or_stderr(command: &str) -> String {
+    let (stdout, stderr) = help_output(command).await;
+    help_text(stdout, stderr)
+}
+
+/// `<command> --help`'s stdout and stderr (the probe [`program_help`] describes).
+async fn help_output(command: &str) -> (String, String) {
     let cached = HELP_CACHE.with(|cache| cache.borrow().get(command).map(|(_, probe)| probe.clone()));
     if let Some(probe) = cached {
         return probe.await;
@@ -113,7 +127,7 @@ pub async fn program_help(command: &str) -> String {
     let probe: HelpProbe = async move {
         let options = ExecOptions::default().timeout(HELP_TIMEOUT).max_buffer(HELP_MAX_BUFFER);
         match proc::exec(&key, &["--help"], &options).await {
-            Ok(output) => output.stdout,
+            Ok(output) => (output.stdout, output.stderr),
             Err(_) => {
                 // Only successful probes are cached; a transient failure (timeout, upgrade in progress) is retried
                 // next launch.
@@ -123,7 +137,7 @@ pub async fn program_help(command: &str) -> String {
                         cache.remove(&key);
                     }
                 });
-                String::new()
+                (String::new(), String::new())
             }
         }
     }
@@ -131,6 +145,11 @@ pub async fn program_help(command: &str) -> String {
     .shared();
     HELP_CACHE.with(|cache| cache.borrow_mut().insert(command.to_owned(), (id, probe.clone())));
     probe.await
+}
+
+/// The help a `--help` printed: stdout, else stderr (agy writes its usage there).
+fn help_text(stdout: String, stderr: String) -> String {
+    if stdout.trim().is_empty() { stderr } else { stdout }
 }
 
 /// TS: agentSignals.ts integrationArgs: Claude with `--settings` gets the hook settings (without StopFailure and
@@ -208,6 +227,39 @@ async fn integration_args_with(
         settings.insert("wheelScrollAccelerationEnabled".to_owned(), Value::Bool(false));
     }
     Ok(vec!["--settings".to_owned(), serde_json::to_string(&settings)?])
+}
+
+/// Not in the TS: Antigravity's `--settings` for one launch (per session, never saved: the user's own
+/// `~/.gemini/antigravity-cli/settings.json` is untouched). It trusts the launch directory: agy asks whether to trust
+/// every directory it has not been told to, and every new worktree is a new one. agy compares the exact path it runs
+/// in (no parent directory covers it, and a symlinked path is not its target), so both the directory as given and its
+/// canonical path are listed. With Deckhand's plugin installed (`deckhand plugin agy`, see
+/// [`crate::antigravity_plugin`]) and `allow_commands`, it also pre-allows the plugin's `deckhand` tool, added to the
+/// user's own permission rules. A production daemon first brings an installed plugin up to date (a dev build never
+/// writes it, so the two don't rewrite each other's). Empty for the other agents, or an agy whose `--help` (on stderr)
+/// lacks `--settings`.
+pub async fn agy_launch_args(program: ProgramKey, command: &str, cwd: &str, allow_commands: bool) -> Vec<String> {
+    if program != ProgramKey::Agy || cwd.is_empty() || !program_help_or_stderr(command).await.contains("--settings") {
+        return Vec::new();
+    }
+    let canonical = std::fs::canonicalize(cwd)
+        .ok()
+        .map(|path| path.to_string_lossy().into_owned());
+    let root = antigravity_plugin::config_root();
+    let installed = if paths::is_dev_channel() {
+        antigravity_plugin::plugin_state(&root).await == antigravity_plugin::PluginState::Ours
+    } else {
+        antigravity_plugin::refresh(&root).await.unwrap_or(false)
+    };
+    let allow_tool = installed && allow_commands;
+    let user_permissions = if allow_tool {
+        antigravity_plugin::user_permissions(&crate::antigravity::app_data_dir()).await
+    } else {
+        None
+    };
+    let settings =
+        antigravity_plugin::launch_settings(cwd, canonical.as_deref(), allow_tool, user_permissions.as_ref());
+    vec!["--settings".to_owned(), settings.to_string()]
 }
 
 #[cfg(test)]
@@ -408,5 +460,25 @@ mod tests {
         let missing = temp.path().join("missing").to_string_lossy().into_owned();
         let (a, b) = tokio::join!(program_help(&missing), program_help(&missing));
         assert_eq!((a.as_str(), b.as_str()), ("", ""));
+    }
+
+    #[test]
+    fn help_is_stdout_else_stderr() {
+        assert_eq!(help_text("  --settings\n".into(), "warn".into()), "  --settings\n");
+        // agy 1.5.13 prints `Usage of agy:` and its flags to stderr only.
+        assert_eq!(
+            help_text(String::new(), "  --settings  Settings".into()),
+            "  --settings  Settings"
+        );
+        assert_eq!(help_text("\n".into(), String::new()), "");
+    }
+
+    #[test]
+    fn only_an_antigravity_launch_gets_its_settings() {
+        let other = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("runtime")
+            .block_on(agy_launch_args(ProgramKey::Claude, "claude", "/w", true));
+        assert!(other.is_empty());
     }
 }

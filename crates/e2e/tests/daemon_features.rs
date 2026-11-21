@@ -333,7 +333,7 @@ fn daemon_features_operate_in_isolated_state_with_fake_agents() {
     let sandbox = Sandbox::new("daemon-features");
     let repo_dir = repo();
     let bin = sandbox.root().join("bin");
-    for provider in ["claude", "pi", "codex"] {
+    for provider in ["claude", "pi", "codex", "agy"] {
         install_agent(&bin, provider, deckhand_e2e::fake_agent!(), AgentOptions::default());
     }
     let ctx = Ctx {
@@ -343,6 +343,11 @@ fn daemon_features_operate_in_isolated_state_with_fake_agents() {
         root: repo_dir.path().to_path_buf(),
         bin,
     };
+    // Deckhand's Antigravity plugin, installed by hand in the sandbox's home (`~/.gemini/config/plugins/deckhand`).
+    let installed = sandbox.cli(&["plugin", "agy"]).output().expect("deckhand plugin agy");
+    assert!(installed.status.success(), "{installed:?}");
+    let plugin = ctx.user_home.join(".gemini/config/plugins/deckhand");
+    assert!(plugin.join("plugin.json").is_file() && plugin.join("mcp_config.json").is_file());
     let mut daemon = Daemon::launch(&sandbox, &ctx);
 
     agent_signals_say_why_a_session_waits(&ctx);
@@ -350,6 +355,7 @@ fn daemon_features_operate_in_isolated_state_with_fake_agents() {
     untrusted_repository_commands_never_run(&ctx);
     handoffs_are_initial_context_only(&ctx);
     unknown_codex_identity_never_silently_becomes_a_new_conversation(&ctx);
+    antigravity_starts_with_its_prompt_and_resumes_its_conversation(&ctx);
     cancelling_setup_kills_its_process(&ctx);
     the_main_checkout_can_never_be_deleted(&ctx);
     global_worktree_settings_and_create_pr(&ctx);
@@ -658,6 +664,91 @@ fn unknown_codex_identity_never_silently_becomes_a_new_conversation(c: &Ctx) {
         c.call(json!({"type": "restart", "sessionId": id, "cols": 80, "rows": 24})),
         &["conversation ID is unknown"],
     );
+}
+
+// Not in the TS: Antigravity (`agy`) takes its first message as `-i`, trusts its own directory for that launch only,
+// and is resumed by the conversation its exit hint names (it reports no hooks).
+fn antigravity_starts_with_its_prompt_and_resumes_its_conversation(c: &Ctx) {
+    let session = c.ok(json!({"type": "create", "input": {
+        "title": "agy-work", "program": "agy", "cwd": c.root, "repoRoot": c.root, "cols": 80, "rows": 24,
+        "worktreeMode": "none", "prompt": "Fix the login bug.",
+    }}));
+    let id = id_of(&session);
+    let started = c.wait(&id, |s| s["status"] == "running");
+    // agy picks its own ID: none until it exits.
+    assert!(started["agentSessionRef"].is_null(), "{started}");
+    let launch = c.trace(&id).expect("trace");
+    let args = strings(&launch["args"]);
+    let at = args.iter().position(|a| a == "--settings").expect("--settings");
+    let settings: Value = serde_json::from_str(&args[at + 1]).expect("settings json");
+    let trusted = strings(&settings["trustedWorkspaces"]);
+    assert!(trusted.contains(&text(&started["cwd"]).to_string()), "{settings}");
+    // The plugin is installed: its `deckhand` tool is allowed for this launch.
+    assert_eq!(
+        strings(&settings["permissions"]["allow"]),
+        ["mcp(deckhand_deckhand/deckhand)"]
+    );
+    assert_eq!(args[args.len() - 2..], ["-i".to_string(), "Fix the login bug.".into()]);
+    assert!(
+        !args.iter().any(|a| a == "--" || a == "--dangerously-skip-permissions"),
+        "{args:?}"
+    );
+    // Stopped, it prints `agy --conversation=<id>`; s resumes that conversation, without the prompt again.
+    c.kill_and_wait(&id);
+    let conversation = "a9a9a9a9-0000-4000-8000-000000000001";
+    let resumed = c.relaunch(&id, "resume");
+    assert_eq!(resumed[..2], ["--conversation".to_string(), conversation.into()]);
+    assert!(!resumed.iter().any(|a| a == "-i"), "{resumed:?}");
+    let running = c.wait(&id, |s| s["status"] == "running");
+    assert_eq!(running["agentSessionRef"]["provider"], "agy");
+    assert_eq!(running["agentSessionRef"]["value"], conversation);
+    c.kill_and_wait(&id);
+
+    // Exited without naming its conversation (the daemon was gone when agy printed its hint): s takes agy's own last
+    // conversation for the directory, but only while no other Antigravity session shares it.
+    reinstall(
+        &c.bin,
+        "agy",
+        deckhand_e2e::fake_agent!(),
+        AgentOptions {
+            without_hooks: true,
+            ..AgentOptions::default()
+        },
+    );
+    let silent = id_of(&c.create("agy-silent", "agy"));
+    let silent_cwd = text(&c.wait(&silent, |s| s["status"] == "running")["cwd"]).to_string();
+    c.kill_and_wait(&silent);
+    assert!(c.state(&silent)["agentSessionRef"].is_null());
+    let last = "b8b8b8b8-0000-4000-8000-000000000002";
+    let cache = c.user_home.join(".gemini/antigravity-cli/cache");
+    fs::create_dir_all(&cache).unwrap();
+    fs::write(
+        cache.join("last_conversations.json"),
+        json!({ fs::canonicalize(&silent_cwd).unwrap().to_string_lossy(): last }).to_string(),
+    )
+    .unwrap();
+    assert_rejects(
+        c.call(json!({"type": "restart", "sessionId": silent, "cols": 80, "rows": 24, "mode": "resume"})),
+        &["Antigravity conversation ID is unknown"],
+    );
+    c.ok(json!({"type": "remove", "sessionId": id}));
+    // Indexed, but its conversation was not written during the session's launch (a stale entry): still refused.
+    let conversations = c.user_home.join(".gemini/antigravity-cli/conversations");
+    fs::create_dir_all(&conversations).unwrap();
+    let db = conversations.join(format!("{last}.db"));
+    fs::write(&db, "").unwrap();
+    let file = fs::File::options().write(true).open(&db).unwrap();
+    file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600))
+        .unwrap();
+    assert_rejects(
+        c.call(json!({"type": "restart", "sessionId": silent, "cols": 80, "rows": 24, "mode": "resume"})),
+        &["Antigravity conversation ID is unknown"],
+    );
+    file.set_modified(std::time::SystemTime::now()).unwrap();
+    let resumed = c.relaunch(&silent, "resume");
+    assert_eq!(resumed[..2], ["--conversation".to_string(), last.into()]);
+    c.kill_and_wait(&silent);
+    reinstall(&c.bin, "agy", deckhand_e2e::fake_agent!(), AgentOptions::default());
 }
 
 // ported from tests/daemonFeatures.test.ts: cancelling setup, including a retry, kills its process, retains files and stopped metadata

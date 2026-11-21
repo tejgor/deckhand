@@ -16,7 +16,7 @@ use deckhand_core::display::{
     Color, DetailLine, HintPart, MenuItem, MenuPaneLine, RowStatus, THEME, compact_path, error_message,
     plain_terminal_text,
 };
-use deckhand_core::jsstr::{date, js_pad_end, js_trim_end};
+use deckhand_core::jsstr::{date, js_len, js_pad_end, js_trim_end};
 use deckhand_core::key::Input;
 use deckhand_core::self_update::{agents_screen_line, newer_release};
 use deckhand_core::sidebar_model::format_age;
@@ -50,6 +50,7 @@ fn info_of(versions: Option<&AgentVersions>, program: ProgramKey) -> Option<&Age
         ProgramKey::Claude => &versions.claude,
         ProgramKey::Pi => &versions.pi,
         ProgramKey::Codex => &versions.codex,
+        ProgramKey::Agy => &versions.agy,
     })
 }
 
@@ -232,10 +233,14 @@ pub fn detail_lines(
         "none running".to_owned()
     };
     lines.push(nowrap(format!("Installed  {installed}{installed_path}")));
+    // An agent without an npm package (Antigravity) has no release feed: it updates itself when it starts.
+    let source = spec.version.npm_package.map_or_else(
+        || "no release feed; it updates itself".to_owned(),
+        |package| format!("npm {package}"),
+    );
     lines.push(nowrap(format!(
-        "Latest     {}  npm {}{checked}",
+        "Latest     {}  {source}{checked}",
         info.and_then(|info| info.latest.as_deref()).unwrap_or("unknown"),
-        spec.version.npm_package
     )));
     lines.push(nowrap(format!("Update     {}", update_command(program))));
     lines.push(nowrap(format!("Sessions   {sessions}")));
@@ -371,7 +376,11 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
             details: Some(&details),
             empty: None,
             hint: &hint,
-            label_width: Some(8),
+            // The longest agent name (Antigravity), so none is cut.
+            label_width: AGENT_PROGRAMS
+                .iter()
+                .map(|&program| js_len(agent_spec(program).label))
+                .max(),
         },
         buf,
         area,
@@ -583,6 +592,10 @@ mod tests {
             claude: info("claude", claude),
             pi: info("pi", pi),
             codex: info("codex", codex),
+            agy: info(
+                "agy",
+                json!({"installed": "1.5.13", "path": "/Users/me/.local/bin/agy", "checkedAt": ago(3)}),
+            ),
         }
     }
 
@@ -674,11 +687,11 @@ mod tests {
             &[
                 "Agents",
                 "Running sessions keep their version until restarted",
-                "Claude    2.1.287   latest 2.1.291  1 session on an older version",
+                "Claude       2.1.287   latest 2.1.291  1 session on an older version",
                 "update available",
-                "Pi        1.0.2     latest ?",
+                "Pi           1.0.2     latest ?",
                 "latest unknown",
-                "Codex     0.160.1   latest 0.160.1",
+                "Codex        0.160.1   latest 0.160.1",
                 "up to date",
                 "Claude · update available",
                 "Installed  2.1.287  /Users/me/.local/bin/claude",
@@ -692,6 +705,18 @@ mod tests {
         );
         pane.selected = 1;
         assert!(pane.render(100, 22).contains("latest unknown: npm view timed out"));
+        // Antigravity: labelled by name, its version shown, its latest never known (no feed), updated by `agy update`.
+        pane.selected = 3;
+        assert_has(
+            &pane.render(100, 22),
+            &[
+                "Antigravity  1.5.13    latest ?",
+                "Antigravity · latest unknown",
+                "Installed  1.5.13  /Users/me/.local/bin/agy",
+                "Latest     unknown  no release feed; it updates itself · checked 3m ago",
+                "Update     agy update",
+            ],
+        );
         let missing = versions(json!({}), json!({}), json!({}));
         pane.versions = Some(&missing);
         pane.selected = 0;
@@ -862,8 +887,10 @@ mod tests {
         press(&mut app, &Input::text("j"));
         press(&mut app, &Input::text("j"));
         press(&mut app, &Input::text("j"));
-        assert_eq!(app.flows.agents.selected, 2);
+        press(&mut app, &Input::text("j"));
+        assert_eq!(app.flows.agents.selected, 3);
         press(&mut app, &key(|key| key.up_arrow = true));
+        press(&mut app, &Input::text("k"));
         press(&mut app, &Input::text("k"));
         press(&mut app, &Input::text("k"));
         assert_eq!(app.flows.agents.selected, 0);

@@ -247,7 +247,7 @@ if [ "$*" = "update" ]; then printf '2.0.0 (fake)\n' > "$0.version"; printf '  U
 exit 3
 "#;
 
-    /// Fake claude/pi/codex first on PATH and DECKHAND_AGENT_LATEST set while this lives (the caller holds [`Home`],
+    /// Fake claude/pi/codex/agy first on PATH and DECKHAND_AGENT_LATEST set while this lives (the caller holds [`Home`],
     /// which serialises environment changes).
     struct FakeAgents {
         path: Option<OsString>,
@@ -257,7 +257,7 @@ exit 3
     impl FakeAgents {
         fn install(bin: &Path) -> FakeAgents {
             std::fs::create_dir_all(bin).unwrap();
-            for name in ["claude", "pi", "codex"] {
+            for name in ["claude", "pi", "codex", "agy"] {
                 let file = bin.join(name);
                 std::fs::write(&file, FAKE_AGENT).unwrap();
                 std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -469,7 +469,7 @@ exit 3
             Some("Unknown agent x,,2")
         );
         // Every agent passes the guard, as do other requests.
-        for program in ["claude", "pi", "codex"] {
+        for program in ["claude", "pi", "codex", "agy"] {
             assert_eq!(request(Some(program.into())), None);
         }
         assert!(unknown_agent_error(&serde_json::json!({"type": "agent-versions", "program": "nope"})).is_none());

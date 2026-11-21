@@ -20,7 +20,7 @@ pub const AGENT_WORDS: &[&str] = &[
 
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
-Usage: deckhand new [--prompt <text>|-] [--draft] [--agent claude|codex|pi] [--title <title>] [--task <id>]
+Usage: deckhand new [--prompt <text>|-] [--draft] [--agent claude|codex|pi|agy] [--title <title>] [--task <id>]
                     [--parent <id>] [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level]
                     [--fork] [--json]
 
@@ -30,7 +30,8 @@ elsewhere, a top-level session of the current repository.
   --prompt <text>|-   The agent's first message, sent when it starts. - reads it from stdin, for a long one
                       (a quoted heredoc: deckhand new --prompt - <<'EOF', the brief, then EOF alone on a line)
   --draft             Type the prompt into the agent's input without sending it
-  --agent <agent>     claude, codex or pi (default: this session's agent, else the repository's default agent)
+  --agent <agent>     claude, codex, pi or agy (Antigravity) (default: this session's agent, else the
+                      repository's default agent)
   --title <title>     The session's name: 2-4 words naming the work, not a sentence (default: the task's title,
                       else the prompt's first sentence)
   --task <id>         Start on a line from `deckhand task list` that nobody is on: the session is on it (the
@@ -167,7 +168,7 @@ or stdin (-, the default). Every problem is reported at once, and nothing is cre
 
   key       Unique in the plan; other sessions name it as their parent
   title     At most 64 characters; prompt: the brief, sent as the session's first message
-  agent     claude, codex or pi (default: the repository's default agent, else claude)
+  agent     claude, codex, pi or agy (Antigravity) (default: the repository's default agent, else claude)
   parent    Another session's key, an existing session's ID (or a unique prefix), or null: a sub-session of the
             orchestrator applying it (by hand: a top-level session)
   worktree  new (the default), same (its parent's worktree) or none (the repository's checkout)
@@ -627,7 +628,7 @@ fn parse_agent(text: &str) -> Result<ProgramKey, DhError> {
         .iter()
         .copied()
         .find(|program| program.as_str() == text)
-        .ok_or_else(|| usage_error(&format!("Unknown agent: {text} (claude, codex or pi)"), NEW_USAGE))
+        .ok_or_else(|| usage_error(&format!("Unknown agent: {text} (claude, codex, pi or agy)"), NEW_USAGE))
 }
 
 fn parse_worktree(text: &str) -> Result<WorktreeChoice, DhError> {
@@ -1104,7 +1105,7 @@ mod tests {
     fn new_refuses_what_cannot_be_combined_or_is_unknown() {
         assert_eq!(
             refused(&["new", "--agent", "gpt"]).lines().next(),
-            Some("Unknown agent: gpt (claude, codex or pi)")
+            Some("Unknown agent: gpt (claude, codex, pi or agy)")
         );
         assert!(refused(&["new", "--draft"]).starts_with("--draft needs --prompt\nUsage: deckhand new"));
         assert!(refused(&["new", "--task", "a", "--fork"]).starts_with("--task and --fork cannot be combined"));

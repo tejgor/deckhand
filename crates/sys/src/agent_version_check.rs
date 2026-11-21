@@ -272,7 +272,7 @@ fn kill_groups(pids: impl IntoIterator<Item = u32>) {
 }
 
 /// TS: agentVersionCheck.ts LatestLookup (`program`, its npm package → the latest release; `None` or an error when
-/// unknown).
+/// unknown). Never called for an agent without an npm package (Antigravity).
 pub type LatestLookup = Rc<dyn Fn(ProgramKey, String) -> LocalBoxFuture<'static, Result<Option<String>>>>;
 
 /// TS `firstLine`: the first non-blank line, trimmed.
@@ -535,8 +535,15 @@ impl AgentVersionChecker {
             join_all(AGENT_PROGRAMS.map(|program| {
                 let inner = Rc::clone(&inner);
                 async move {
-                    let lookup = Rc::clone(&inner.lookup);
-                    let result = lookup(program, agent_spec(program).version.npm_package.to_owned()).await;
+                    // An agent with no release feed (Antigravity) has no latest release to look up; it is unknown
+                    // without being an error.
+                    let result = match agent_spec(program).version.npm_package {
+                        Some(package) => {
+                            let lookup = Rc::clone(&inner.lookup);
+                            lookup(program, package.to_owned()).await
+                        }
+                        None => Ok(None),
+                    };
                     let checked_at = now_ms();
                     let entry = match result {
                         Ok(version) => LatestEntry {
@@ -601,13 +608,14 @@ impl AgentVersionChecker {
     /// with an older version).
     pub async fn snapshot<S: SessionLike>(&self, sessions: &[S]) -> AgentVersions {
         let all: Vec<&SessionRecord> = sessions.iter().map(SessionLike::session).collect();
-        let [claude, pi, codex] = AGENT_PROGRAMS;
-        let (claude, pi, codex) = futures::join!(
+        let [claude, pi, codex, agy] = AGENT_PROGRAMS;
+        let (claude, pi, codex, agy) = futures::join!(
             self.program_info(claude, &all),
             self.program_info(pi, &all),
-            self.program_info(codex, &all)
+            self.program_info(codex, &all),
+            self.program_info(agy, &all)
         );
-        AgentVersions { claude, pi, codex }
+        AgentVersions { claude, pi, codex, agy }
     }
 
     /// TS: AgentVersionChecker.update (the agent's own update command, then the installed version read again; a
@@ -792,7 +800,7 @@ mod tests {
         Rc::new(move |program, package| {
             count.set(count.get() + 1);
             async move {
-                assert_eq!(package, agent_spec(program).version.npm_package);
+                assert_eq!(Some(package.as_str()), agent_spec(program).version.npm_package);
                 match versions.iter().find(|(key, _)| *key == program) {
                     Some((_, version)) => Ok(Some((*version).to_owned())),
                     None => Err(DhError::msg("offline")),
@@ -875,6 +883,7 @@ mod tests {
             let second = checker.refresh_latest(true);
             assert!(first.ptr_eq(&second), "one run at a time");
             first.await;
+            // Antigravity has no release feed: never looked up.
             assert_eq!(count.get(), 3);
             checker.refresh_latest(false).await;
             assert_eq!(count.get(), 3, "fresh results are kept");
@@ -886,6 +895,12 @@ mod tests {
             assert_eq!(versions.codex.latest, None);
             assert_eq!(versions.codex.error.as_deref(), Some("latest unknown: offline"));
             assert_eq!(versions.claude.error, None);
+            // Unknown without an error, but checked (the refresh still counts as done).
+            assert_eq!(
+                (versions.agy.latest.as_deref(), versions.agy.error.as_deref()),
+                (None, None)
+            );
+            assert!(versions.agy.checked_at.is_some());
             assert!(
                 versions
                     .claude
@@ -903,6 +918,8 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         fake_agent(dir.path(), "claude", "2.1.0\n");
         let pi = fake_agent(dir.path(), "pi", "no version\n");
+        // `agy --version` prints the bare version.
+        fake_agent(dir.path(), "agy", "1.5.13\n");
         let search = dir.path().join("bin").to_string_lossy().into_owned();
         let lookup = fixed_lookup(&[], Rc::new(Cell::new(0)));
         local(async {
@@ -925,6 +942,7 @@ mod tests {
             assert_eq!(versions.pi.error.as_deref(), Some("pi --version printed no version"));
             assert_eq!(versions.pi.running, 1);
             assert_eq!(versions.pi.outdated, 0);
+            assert_eq!(versions.agy.installed.as_deref(), Some("1.5.13"));
             assert_eq!(versions.codex.path, None);
             assert_eq!(versions.codex.error, None);
             let json = serde_json::to_string(&versions.codex).expect("json");
